@@ -1,0 +1,19 @@
+{
+  "name": "Dispatch Diary",
+  "short_name": "Diary",
+  "description": "Fast-capture operational diary for dispatch work.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a1a",
+  "theme_color": "#0a0a1a",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
