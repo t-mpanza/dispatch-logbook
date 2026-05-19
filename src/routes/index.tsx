@@ -56,7 +56,7 @@ function TodayPage() {
 
       <Link
         to="/entry/new"
-        className="fixed bottom-24 right-1/2 translate-x-[calc(50%+9rem)] z-50 h-14 w-14 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground grid place-items-center shadow-[var(--shadow-glow)] active:scale-95 transition-transform"
+        className="fixed bottom-24 right-5 z-50 h-14 w-14 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground grid place-items-center shadow-[var(--shadow-glow)] active:scale-95 transition-transform"
         aria-label="New entry"
       >
         <Plus size={26} />
