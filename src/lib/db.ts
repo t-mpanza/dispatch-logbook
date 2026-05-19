@@ -67,10 +67,9 @@ export async function deleteEntry(id: string) {
   const db = await getDB();
   await db.delete("entries", id);
   // cascade reminders
-  const idx = (await db.transaction("reminders").store.index("byEntry")).getAllKeys(id);
-  const keys = await idx;
+  const keys = await db.getAllKeysFromIndex("reminders", "byEntry", id);
   const tx = db.transaction("reminders", "readwrite");
-  for (const k of keys) await tx.store.delete(k);
+  await Promise.all(keys.map((k) => tx.store.delete(k)));
   await tx.done;
 }
 

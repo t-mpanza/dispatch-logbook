@@ -9,38 +9,115 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as ArchiveRouteImport } from './routes/archive'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EntryNewRouteImport } from './routes/entry.new'
+import { Route as EntryIdRouteImport } from './routes/entry.$id'
+import { Route as DayDateRouteImport } from './routes/day.$date'
 
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArchiveRoute = ArchiveRouteImport.update({
+  id: '/archive',
+  path: '/archive',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EntryNewRoute = EntryNewRouteImport.update({
+  id: '/entry/new',
+  path: '/entry/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntryIdRoute = EntryIdRouteImport.update({
+  id: '/entry/$id',
+  path: '/entry/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DayDateRoute = DayDateRouteImport.update({
+  id: '/day/$date',
+  path: '/day/$date',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/archive': typeof ArchiveRoute
+  '/search': typeof SearchRoute
+  '/day/$date': typeof DayDateRoute
+  '/entry/$id': typeof EntryIdRoute
+  '/entry/new': typeof EntryNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/archive': typeof ArchiveRoute
+  '/search': typeof SearchRoute
+  '/day/$date': typeof DayDateRoute
+  '/entry/$id': typeof EntryIdRoute
+  '/entry/new': typeof EntryNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/archive': typeof ArchiveRoute
+  '/search': typeof SearchRoute
+  '/day/$date': typeof DayDateRoute
+  '/entry/$id': typeof EntryIdRoute
+  '/entry/new': typeof EntryNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/archive'
+    | '/search'
+    | '/day/$date'
+    | '/entry/$id'
+    | '/entry/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/archive' | '/search' | '/day/$date' | '/entry/$id' | '/entry/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/archive'
+    | '/search'
+    | '/day/$date'
+    | '/entry/$id'
+    | '/entry/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ArchiveRoute: typeof ArchiveRoute
+  SearchRoute: typeof SearchRoute
+  DayDateRoute: typeof DayDateRoute
+  EntryIdRoute: typeof EntryIdRoute
+  EntryNewRoute: typeof EntryNewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/archive': {
+      id: '/archive'
+      path: '/archive'
+      fullPath: '/archive'
+      preLoaderRoute: typeof ArchiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +125,37 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/entry/new': {
+      id: '/entry/new'
+      path: '/entry/new'
+      fullPath: '/entry/new'
+      preLoaderRoute: typeof EntryNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entry/$id': {
+      id: '/entry/$id'
+      path: '/entry/$id'
+      fullPath: '/entry/$id'
+      preLoaderRoute: typeof EntryIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/day/$date': {
+      id: '/day/$date'
+      path: '/day/$date'
+      fullPath: '/day/$date'
+      preLoaderRoute: typeof DayDateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ArchiveRoute: ArchiveRoute,
+  SearchRoute: SearchRoute,
+  DayDateRoute: DayDateRoute,
+  EntryIdRoute: EntryIdRoute,
+  EntryNewRoute: EntryNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
