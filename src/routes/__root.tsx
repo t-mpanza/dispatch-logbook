@@ -92,6 +92,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "On-device voice, photo, video and file diary for dispatch work.",
       },
       { property: "og:type", content: "website" },
+      { name: "twitter:title", content: "Dispatch Diary" },
+      { name: "description", content: "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files." },
+      { property: "og:description", content: "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files." },
+      { name: "twitter:description", content: "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9e0bd28b-0ef4-4585-9920-2e42c18bbfc5/id-preview-40337bae--10f033d8-2d05-46a6-8d1d-b8f575a1a7ad.lovable.app-1779221742390.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9e0bd28b-0ef4-4585-9920-2e42c18bbfc5/id-preview-40337bae--10f033d8-2d05-46a6-8d1d-b8f575a1a7ad.lovable.app-1779221742390.png" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
