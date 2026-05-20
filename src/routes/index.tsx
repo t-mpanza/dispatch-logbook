@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { entriesByDay } from "@/lib/db";
 import { dayKey, fmtDayLabel } from "@/lib/format";
@@ -30,18 +30,33 @@ function TodayPage() {
     queryFn: () => entriesByDay(key),
   });
 
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayDateStr = dayKey(yesterday);
+
   return (
     <AppShell>
-      <header className="px-5 pt-8 pb-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">
-          Today
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{fmtDayLabel(today)}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {entries.length === 0
-            ? "Nothing logged yet. Tap + to capture."
-            : `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`}
-        </p>
+      <header className="px-5 pt-8 pb-4 flex items-start justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">
+            Today
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{fmtDayLabel(today)}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {entries.length === 0
+              ? "Nothing logged yet. Tap + to capture."
+              : `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`}
+          </p>
+        </div>
+
+        <Link
+          to={`/day/${yesterdayDateStr}`}
+          className="mt-1 h-9 px-3 rounded-xl bg-surface-elevated border border-border flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-all active:scale-95"
+          aria-label="Yesterday"
+        >
+          <ChevronLeft size={16} />
+          <span className="font-semibold">Yesterday</span>
+        </Link>
       </header>
 
       <div className="px-5 space-y-2.5">

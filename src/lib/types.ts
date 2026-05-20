@@ -29,6 +29,7 @@ export interface Reminder {
 export interface Trip {
   id: string;
   count: number;
+  rejected?: number;
   note?: string;
   createdAt: number;
 }

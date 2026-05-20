@@ -107,10 +107,11 @@ function EntryPage() {
     navigate({ to: "/" });
   }
 
-  // Combined timeline: notes + attachments sorted by createdAt
+  // Combined timeline: notes + attachments + trips sorted by createdAt
   const timeline = [
     ...entry.notes.map((n) => ({ type: "note" as const, at: n.createdAt, data: n })),
     ...entry.attachments.map((a) => ({ type: "att" as const, at: a.createdAt, data: a })),
+    ...(entry.trips || []).map((t) => ({ type: "trip" as const, at: t.createdAt, data: t })),
   ].sort((a, b) => a.at - b.at);
 
   return (
@@ -279,6 +280,27 @@ function EntryPage() {
                     <p className="rounded-xl bg-surface border border-border px-3 py-2 text-sm whitespace-pre-wrap">
                       {item.data.text}
                     </p>
+                  ) : item.type === "trip" ? (
+                    <div className="rounded-xl bg-surface-elevated border border-primary/20 px-3 py-2.5 text-sm flex items-center justify-between shadow-sm">
+                      <div>
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <span className="font-bold tabular-nums text-primary-glow">
+                            +{item.data.count} accepted
+                          </span>
+                          {item.data.rejected && item.data.rejected > 0 ? (
+                            <span className="text-xs font-semibold text-red-400">
+                              ({item.data.rejected} rejected)
+                            </span>
+                          ) : null}
+                        </div>
+                        {item.data.note && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{item.data.note}</p>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+                        Trip
+                      </div>
+                    </div>
                   ) : (
                     <AttachmentView
                       attachment={item.data}

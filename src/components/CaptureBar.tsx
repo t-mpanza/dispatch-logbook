@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { Attachment } from "@/lib/types";
 import { uid } from "@/lib/format";
 import { downscaleImage, getImageDimensions } from "@/lib/image";
+import { InAppCamera } from "./InAppCamera";
 
 interface Props {
   onAttachment: (a: Attachment) => void;
@@ -15,6 +16,7 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
   const videoRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [processing, setProcessing] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
 
   async function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -46,21 +48,52 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
   }
 
   const handleOther =
-    (kind: Exclude<Attachment["kind"], "image">) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (fallbackKind: Exclude<Attachment["kind"], "image">) =>
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files) return;
-      Array.from(files).forEach((f) => {
-        onAttachment({
-          id: uid(),
-          kind,
-          blob: f,
-          mime: f.type,
-          name: f.name,
-          createdAt: Date.now(),
-        });
-      });
-      e.target.value = "";
+      setProcessing(true);
+      try {
+        for (const f of Array.from(files)) {
+          const type = f.type || "";
+          if (type.startsWith("image/")) {
+            const blob = await downscaleImage(f, f.name);
+            const dims = await getImageDimensions(blob);
+            onAttachment({
+              id: uid(),
+              kind: "image",
+              blob,
+              mime: blob.type || "image/jpeg",
+              name: f.name,
+              width: dims?.width,
+              height: dims?.height,
+              createdAt: Date.now(),
+            });
+            continue;
+          }
+
+          let kind: Attachment["kind"] = fallbackKind;
+          if (type.startsWith("video/")) {
+            kind = "video";
+          } else if (type.startsWith("audio/")) {
+            kind = "audio";
+          } else {
+            kind = "file";
+          }
+
+          onAttachment({
+            id: uid(),
+            kind,
+            blob: f,
+            mime: f.type || "application/octet-stream",
+            name: f.name,
+            createdAt: Date.now(),
+          });
+        }
+      } finally {
+        setProcessing(false);
+        e.target.value = "";
+      }
     };
 
   const busy = disabled || processing;
@@ -72,7 +105,7 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
         <CapBtn
           label="Photo"
           icon={<Camera size={20} />}
-          onClick={() => photoRef.current?.click()}
+          onClick={() => setShowCamera(true)}
           disabled={busy}
         />
         <CapBtn
@@ -116,6 +149,38 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
         className="hidden"
         onChange={handleOther("file")}
       />
+
+      {showCamera && (
+        <InAppCamera
+          onCapture={async (blob) => {
+            setShowCamera(false);
+            setProcessing(true);
+            try {
+              const dims = await getImageDimensions(blob);
+              onAttachment({
+                id: uid(),
+                kind: "image",
+                blob,
+                mime: blob.type || "image/jpeg",
+                name: `camera-${Date.now()}.jpg`,
+                width: dims?.width,
+                height: dims?.height,
+                createdAt: Date.now(),
+              });
+            } finally {
+              setProcessing(false);
+            }
+          }}
+          onClose={() => setShowCamera(false)}
+          onFallback={() => {
+            setShowCamera(false);
+            // Request system camera
+            setTimeout(() => {
+              photoRef.current?.click();
+            }, 100);
+          }}
+        />
+      )}
     </div>
   );
 }
