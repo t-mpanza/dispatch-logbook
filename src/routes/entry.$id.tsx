@@ -11,10 +11,12 @@ import {
   updateEntry,
   allTags,
 } from "@/lib/db";
-import type { Attachment, Entry } from "@/lib/types";
+import type { Attachment, Entry, Trip } from "@/lib/types";
 import { CaptureBar } from "@/components/CaptureBar";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { AttachmentView } from "@/components/AttachmentView";
+import { Lightbox } from "@/components/Lightbox";
+import { CounterPanel } from "@/components/CounterPanel";
 import { TagsInput } from "@/components/TagsInput";
 import { fmtDayLabel, fmtTime, uid } from "@/lib/format";
 import { requestNotificationPermission, rescheduleAll } from "@/lib/reminders";
@@ -41,6 +43,7 @@ function EntryPage() {
   const [recording, setRecording] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [showReminder, setShowReminder] = useState(false);
+  const [lightboxId, setLightboxId] = useState<string | null>(null);
 
   // local edit buffer for title/tags
   const [title, setTitle] = useState("");
@@ -161,6 +164,21 @@ function EntryPage() {
           <CaptureBar onAttachment={addAttachment} onStartVoice={() => setRecording(true)} />
         )}
 
+        {/* Trip counter */}
+        {Array.isArray(entry.trips) ? (
+          <CounterPanel
+            trips={entry.trips}
+            onChange={(next: Trip[]) => persist((e) => ({ ...e, trips: next }))}
+          />
+        ) : (
+          <button
+            onClick={() => persist((e) => ({ ...e, trips: [] }))}
+            className="w-full rounded-xl bg-surface border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+          >
+            + Add trip counter to this entry
+          </button>
+        )}
+
         {/* Quick note input */}
         <div className="rounded-xl bg-surface border border-border p-3">
           <textarea
@@ -265,6 +283,7 @@ function EntryPage() {
                     <AttachmentView
                       attachment={item.data}
                       onRemove={() => removeAttachment(item.data.id)}
+                      onOpenImage={(a) => setLightboxId(a.id)}
                     />
                   )}
                 </li>
@@ -273,6 +292,14 @@ function EntryPage() {
           )}
         </div>
       </div>
+
+      {lightboxId && (
+        <Lightbox
+          attachments={entry.attachments}
+          startId={lightboxId}
+          onClose={() => setLightboxId(null)}
+        />
+      )}
     </div>
   );
 }

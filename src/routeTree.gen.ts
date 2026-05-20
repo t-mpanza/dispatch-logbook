@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as CounterRouteImport } from './routes/counter'
 import { Route as ArchiveRouteImport } from './routes/archive'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EntryNewRouteImport } from './routes/entry.new'
@@ -19,6 +20,11 @@ import { Route as DayDateRouteImport } from './routes/day.$date'
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CounterRoute = CounterRouteImport.update({
+  id: '/counter',
+  path: '/counter',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ArchiveRoute = ArchiveRouteImport.update({
@@ -50,6 +56,7 @@ const DayDateRoute = DayDateRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/archive': typeof ArchiveRoute
+  '/counter': typeof CounterRoute
   '/search': typeof SearchRoute
   '/day/$date': typeof DayDateRoute
   '/entry/$id': typeof EntryIdRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/archive': typeof ArchiveRoute
+  '/counter': typeof CounterRoute
   '/search': typeof SearchRoute
   '/day/$date': typeof DayDateRoute
   '/entry/$id': typeof EntryIdRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/archive': typeof ArchiveRoute
+  '/counter': typeof CounterRoute
   '/search': typeof SearchRoute
   '/day/$date': typeof DayDateRoute
   '/entry/$id': typeof EntryIdRoute
@@ -77,16 +86,25 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/archive'
+    | '/counter'
     | '/search'
     | '/day/$date'
     | '/entry/$id'
     | '/entry/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/archive' | '/search' | '/day/$date' | '/entry/$id' | '/entry/new'
+  to:
+    | '/'
+    | '/archive'
+    | '/counter'
+    | '/search'
+    | '/day/$date'
+    | '/entry/$id'
+    | '/entry/new'
   id:
     | '__root__'
     | '/'
     | '/archive'
+    | '/counter'
     | '/search'
     | '/day/$date'
     | '/entry/$id'
@@ -96,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ArchiveRoute: typeof ArchiveRoute
+  CounterRoute: typeof CounterRoute
   SearchRoute: typeof SearchRoute
   DayDateRoute: typeof DayDateRoute
   EntryIdRoute: typeof EntryIdRoute
@@ -109,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/counter': {
+      id: '/counter'
+      path: '/counter'
+      fullPath: '/counter'
+      preLoaderRoute: typeof CounterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/archive': {
@@ -152,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ArchiveRoute: ArchiveRoute,
+  CounterRoute: CounterRoute,
   SearchRoute: SearchRoute,
   DayDateRoute: DayDateRoute,
   EntryIdRoute: EntryIdRoute,

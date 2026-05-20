@@ -32,7 +32,11 @@ function getDB() {
   return dbp;
 }
 
-export async function createEntry(input: { title: string; tags?: string[] }): Promise<Entry> {
+export async function createEntry(input: {
+  title: string;
+  tags?: string[];
+  withCounter?: boolean;
+}): Promise<Entry> {
   const now = Date.now();
   const d = new Date(now);
   const entry: Entry = {
@@ -41,6 +45,7 @@ export async function createEntry(input: { title: string; tags?: string[] }): Pr
     tags: input.tags ?? [],
     notes: [],
     attachments: [],
+    trips: input.withCounter ? [] : undefined,
     createdAt: now,
     updatedAt: now,
     dayKey: dayKey(d),
@@ -50,6 +55,11 @@ export async function createEntry(input: { title: string; tags?: string[] }): Pr
   const db = await getDB();
   await db.put("entries", entry);
   return entry;
+}
+
+export async function entriesWithCounter(): Promise<Entry[]> {
+  const all = await allEntries();
+  return all.filter((e) => Array.isArray(e.trips));
 }
 
 export async function updateEntry(entry: Entry) {

@@ -18,15 +18,18 @@ function NewEntryPage() {
   const { data: suggestions = [] } = useQuery({ queryKey: ["tags"], queryFn: allTags });
   const [saving, setSaving] = useState(false);
 
+  const [withCounter, setWithCounter] = useState(false);
+
   async function create() {
     setSaving(true);
-    const e = await createEntry({ title, tags });
+    const e = await createEntry({ title, tags, withCounter });
     navigate({ to: "/entry/$id", params: { id: e.id } });
   }
 
   function applyTemplate(t: (typeof QUICK_TEMPLATES)[number]) {
     setTitle(t.title);
     setTags(Array.from(new Set([...tags, ...t.tags])));
+    if (t.withCounter) setWithCounter(true);
   }
 
   return (
@@ -90,6 +93,21 @@ function NewEntryPage() {
             ))}
           </div>
         </div>
+
+        <label className="flex items-center gap-3 rounded-xl bg-surface border border-border p-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={withCounter}
+            onChange={(e) => setWithCounter(e.target.checked)}
+            className="h-4 w-4 accent-[color:var(--primary)]"
+          />
+          <div className="flex-1">
+            <p className="text-sm font-medium">Trip counter</p>
+            <p className="text-[11px] text-muted-foreground">
+              Add a running total for tyre / trip counting on this entry.
+            </p>
+          </div>
+        </label>
 
         <p className="text-xs text-muted-foreground pt-4">
           Tap <span className="text-foreground font-medium">Create</span> — you'll be taken
