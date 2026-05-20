@@ -12,9 +12,13 @@ import {
   allTags,
 } from "@/lib/db";
 import type { Attachment, Entry } from "@/lib/types";
+import type { Attachment, Entry, Trip } from "@/lib/types";
 import { CaptureBar } from "@/components/CaptureBar";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { AttachmentView } from "@/components/AttachmentView";
+import { Lightbox } from "@/components/Lightbox";
+import { CounterPanel } from "@/components/CounterPanel";
+import { TagsInput } from "@/components/TagsInput";
 import { TagsInput } from "@/components/TagsInput";
 import { fmtDayLabel, fmtTime, uid } from "@/lib/format";
 import { requestNotificationPermission, rescheduleAll } from "@/lib/reminders";
@@ -41,6 +45,7 @@ function EntryPage() {
   const [recording, setRecording] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [showReminder, setShowReminder] = useState(false);
+  const [lightboxId, setLightboxId] = useState<string | null>(null);
 
   // local edit buffer for title/tags
   const [title, setTitle] = useState("");
