@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -129,6 +130,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      const base = import.meta.env.BASE_URL || "/";
+      const swUrl = `${base}sw.js`;
+      navigator.serviceWorker
+        .register(swUrl)
+        .then((reg) => {
+          console.log("Service Worker registered successfully with scope:", reg.scope);
+        })
+        .catch((err) => {
+          console.error("Service Worker registration failed:", err);
+        });
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
