@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { File as FileIcon, Trash2 } from "lucide-react";
+import { File as FileIcon, Trash2, Maximize2 } from "lucide-react";
 import type { Attachment } from "@/lib/types";
 import { formatBytes, formatDuration } from "@/lib/format";
 
 export function AttachmentView({
   attachment,
   onRemove,
+  onOpenImage,
 }: {
   attachment: Attachment;
   onRemove?: () => void;
+  onOpenImage?: (a: Attachment) => void;
 }) {
   const [url, setUrl] = useState<string>("");
   useEffect(() => {
@@ -23,14 +25,35 @@ export function AttachmentView({
   return (
     <div className={wrapper}>
       {attachment.kind === "image" && url && (
-        <img src={url} alt={attachment.name ?? "photo"} className="w-full max-h-80 object-cover" />
+        <button
+          type="button"
+          onClick={() => onOpenImage?.(attachment)}
+          className="block w-full group"
+        >
+          <img
+            src={url}
+            alt={attachment.name ?? "photo"}
+            loading="lazy"
+            decoding="async"
+            className="w-full max-h-80 object-cover"
+          />
+          <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/55 backdrop-blur text-white text-[10px] px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Maximize2 size={11} /> Tap to view
+          </span>
+        </button>
       )}
       {attachment.kind === "video" && url && (
-        <video src={url} controls playsInline className="w-full max-h-80 bg-black" />
+        <video
+          src={url}
+          controls
+          playsInline
+          preload="metadata"
+          className="w-full max-h-80 bg-black"
+        />
       )}
       {attachment.kind === "audio" && url && (
         <div className="p-3">
-          <audio src={url} controls className="w-full" />
+          <audio src={url} controls preload="metadata" className="w-full" />
           {attachment.durationMs != null && (
             <p className="mt-1 text-xs text-muted-foreground">
               {formatDuration(attachment.durationMs)}

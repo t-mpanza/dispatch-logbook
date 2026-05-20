@@ -7,6 +7,8 @@ export interface Attachment {
   mime: string;
   name?: string;
   durationMs?: number;
+  width?: number;
+  height?: number;
   createdAt: number;
 }
 
@@ -24,12 +26,20 @@ export interface Reminder {
   done: boolean;
 }
 
+export interface Trip {
+  id: string;
+  count: number;
+  note?: string;
+  createdAt: number;
+}
+
 export interface Entry {
   id: string;
   title: string;
   tags: string[];
   notes: NoteBlock[];
   attachments: Attachment[];
+  trips?: Trip[];
   createdAt: number;
   updatedAt: number;
   // local date key YYYY-MM-DD for fast day queries
