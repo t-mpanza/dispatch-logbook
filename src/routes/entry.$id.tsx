@@ -164,6 +164,21 @@ function EntryPage() {
           <CaptureBar onAttachment={addAttachment} onStartVoice={() => setRecording(true)} />
         )}
 
+        {/* Trip counter */}
+        {Array.isArray(entry.trips) ? (
+          <CounterPanel
+            trips={entry.trips}
+            onChange={(next: Trip[]) => persist((e) => ({ ...e, trips: next }))}
+          />
+        ) : (
+          <button
+            onClick={() => persist((e) => ({ ...e, trips: [] }))}
+            className="w-full rounded-xl bg-surface border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+          >
+            + Add trip counter to this entry
+          </button>
+        )}
+
         {/* Quick note input */}
         <div className="rounded-xl bg-surface border border-border p-3">
           <textarea
@@ -268,6 +283,7 @@ function EntryPage() {
                     <AttachmentView
                       attachment={item.data}
                       onRemove={() => removeAttachment(item.data.id)}
+                      onOpenImage={(a) => setLightboxId(a.id)}
                     />
                   )}
                 </li>
@@ -276,6 +292,14 @@ function EntryPage() {
           )}
         </div>
       </div>
+
+      {lightboxId && (
+        <Lightbox
+          attachments={entry.attachments}
+          startId={lightboxId}
+          onClose={() => setLightboxId(null)}
+        />
+      )}
     </div>
   );
 }
