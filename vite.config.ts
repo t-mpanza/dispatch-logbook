@@ -21,16 +21,14 @@ export default defineConfig({
     tailwindcss(),
     tsConfigPaths(),
     VitePWA({
-      // workbox-window manages the SW lifecycle; we provide our own sw.js in public/
+      // We manage SW registration ourselves in __root.tsx via useEffect (SSR-safe).
+      // VitePWA's job here is: generate the correct manifest and build the SW.
       strategies: "injectManifest",
       srcDir: "public",
       filename: "sw.js",
-      registerType: "autoUpdate",
-      // Don't auto-inject — we register via virtual:pwa-register in __root.tsx
       injectRegister: null,
-      // Tells Workbox not to inject a precache manifest into our SW
-      // (we handle caching ourselves in public/sw.js)
       injectManifest: {
+        // Our SW handles its own caching — don't inject a Workbox precache manifest
         injectionPoint: undefined,
       },
       manifest: {
