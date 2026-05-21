@@ -1,6 +1,7 @@
 import { openDB, type IDBPDatabase } from "idb";
 import type { Entry, Reminder } from "./types";
 import { dayKey, monthKey, uid, yearKey } from "./format";
+import { pushEntry, deleteRemoteEntry } from "./sync";
 
 const DB_NAME = "dispatch-diary";
 const DB_VERSION = 1;
@@ -54,6 +55,7 @@ export async function createEntry(input: {
   };
   const db = await getDB();
   await db.put("entries", entry);
+  pushEntry(entry).catch(console.error);
   return entry;
 }
 
@@ -66,6 +68,7 @@ export async function updateEntry(entry: Entry) {
   entry.updatedAt = Date.now();
   const db = await getDB();
   await db.put("entries", entry);
+  pushEntry(entry).catch(console.error);
 }
 
 export async function getEntry(id: string): Promise<Entry | undefined> {
@@ -81,6 +84,7 @@ export async function deleteEntry(id: string) {
   const tx = db.transaction("reminders", "readwrite");
   await Promise.all(keys.map((k) => tx.store.delete(k)));
   await tx.done;
+  deleteRemoteEntry(id).catch(console.error);
 }
 
 export async function entriesByDay(day: string): Promise<Entry[]> {

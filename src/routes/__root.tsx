@@ -4,6 +4,8 @@ import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
 import { Toaster, toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { fullSync } from "@/lib/sync";
 import {
   Outlet,
   Link,
@@ -183,12 +185,22 @@ function RootComponent() {
       checkForOTA();
 
       if (Capacitor.getPlatform() === "android") {
-        // Fix Android status bar overlap by disabling Edge-to-Edge and setting it to match background
         StatusBar.setOverlaysWebView({ overlay: false }).catch(console.error);
         StatusBar.setBackgroundColor({ color: "#0a0a1a" }).catch(console.error);
       }
       StatusBar.setStyle({ style: Style.Dark }).catch(console.error);
     }
+
+    // Background cloud sync on launch (if already signed in)
+    fullSync().catch(console.error);
+
+    // Re-sync whenever the user signs in
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") {
+        fullSync().catch(console.error);
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   return (

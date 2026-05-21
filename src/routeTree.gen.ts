@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as CounterRouteImport } from './routes/counter'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ArchiveRouteImport } from './routes/archive'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EntryNewRouteImport } from './routes/entry.new'
@@ -25,6 +26,11 @@ const SearchRoute = SearchRouteImport.update({
 const CounterRoute = CounterRouteImport.update({
   id: '/counter',
   path: '/counter',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ArchiveRoute = ArchiveRouteImport.update({
@@ -56,6 +62,7 @@ const DayDateRoute = DayDateRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/archive': typeof ArchiveRoute
+  '/auth': typeof AuthRoute
   '/counter': typeof CounterRoute
   '/search': typeof SearchRoute
   '/day/$date': typeof DayDateRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/archive': typeof ArchiveRoute
+  '/auth': typeof AuthRoute
   '/counter': typeof CounterRoute
   '/search': typeof SearchRoute
   '/day/$date': typeof DayDateRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/archive': typeof ArchiveRoute
+  '/auth': typeof AuthRoute
   '/counter': typeof CounterRoute
   '/search': typeof SearchRoute
   '/day/$date': typeof DayDateRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/archive'
+    | '/auth'
     | '/counter'
     | '/search'
     | '/day/$date'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/archive'
+    | '/auth'
     | '/counter'
     | '/search'
     | '/day/$date'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/archive'
+    | '/auth'
     | '/counter'
     | '/search'
     | '/day/$date'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ArchiveRoute: typeof ArchiveRoute
+  AuthRoute: typeof AuthRoute
   CounterRoute: typeof CounterRoute
   SearchRoute: typeof SearchRoute
   DayDateRoute: typeof DayDateRoute
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/counter'
       fullPath: '/counter'
       preLoaderRoute: typeof CounterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/archive': {
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ArchiveRoute: ArchiveRoute,
+  AuthRoute: AuthRoute,
   CounterRoute: CounterRoute,
   SearchRoute: SearchRoute,
   DayDateRoute: DayDateRoute,

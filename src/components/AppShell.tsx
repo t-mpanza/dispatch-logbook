@@ -1,23 +1,45 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Archive, Home, Search, Truck } from "lucide-react";
+import { Archive, Home, Search, Truck, CloudOff, Cloud, UserCircle } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { rescheduleAll } from "@/lib/reminders";
+import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 
-// Only reschedule once per session — calling on every tab switch is wasteful
+// Only reschedule once per session
 let rescheduled = false;
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [online, setOnline] = useState(navigator.onLine);
+
   useEffect(() => {
     if (!rescheduled) {
       rescheduled = true;
       void rescheduleAll();
     }
+
+    // Auth state
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Online state
+    const setOn = () => setOnline(true);
+    const setOff = () => setOnline(false);
+    window.addEventListener("online", setOn);
+    window.addEventListener("offline", setOff);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("online", setOn);
+      window.removeEventListener("offline", setOff);
+    };
   }, []);
 
   const loc = useLocation();
   const path = loc.pathname;
-
   const isActive = (base: string) =>
     base === "/" ? path === "/" : path.startsWith(base);
 
@@ -31,6 +53,28 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NavBtn to="/counter" active={isActive("/counter")} label="Counter" icon={<Truck size={20} />} />
           <NavBtn to="/search" active={isActive("/search")} label="Search" icon={<Search size={20} />} />
           <NavBtn to="/archive" active={isActive("/archive")} label="Archive" icon={<Archive size={20} />} />
+
+          {/* Sync / auth status pill */}
+          <Link
+            to="/auth"
+            className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${
+              isActive("/auth") ? "text-primary-glow" : "text-muted-foreground"
+            }`}
+            aria-label={user ? "Syncing" : "Sign in to sync"}
+          >
+            {user ? (
+              online ? (
+                <Cloud size={20} className="text-primary-glow" />
+              ) : (
+                <CloudOff size={20} className="text-muted-foreground" />
+              )
+            ) : (
+              <UserCircle size={20} />
+            )}
+            <span className="text-[10px] font-medium uppercase tracking-wider">
+              {user ? (online ? "Synced" : "Offline") : "Sign In"}
+            </span>
+          </Link>
         </div>
       </nav>
     </div>
