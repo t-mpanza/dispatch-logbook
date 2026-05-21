@@ -170,6 +170,7 @@ function EntryPage() {
           <CounterPanel
             trips={entry.trips}
             onChange={(next: Trip[]) => persist((e) => ({ ...e, trips: next }))}
+            onAttachment={addAttachment}
           />
         ) : (
           <button
@@ -284,12 +285,14 @@ function EntryPage() {
                     <div className="rounded-xl bg-surface-elevated border border-primary/20 px-3 py-2.5 text-sm flex items-center justify-between shadow-sm">
                       <div>
                         <div className="flex items-baseline gap-1.5 flex-wrap">
-                          <span className="font-bold tabular-nums text-primary-glow">
-                            +{item.data.count} accepted
-                          </span>
+                          {item.data.count > 0 && (
+                            <span className="font-bold tabular-nums text-primary-glow">
+                              +{item.data.count} Scanned
+                            </span>
+                          )}
                           {item.data.rejected && item.data.rejected > 0 ? (
-                            <span className="text-xs font-semibold text-red-400">
-                              ({item.data.rejected} rejected)
+                            <span className="font-bold tabular-nums text-orange-400">
+                              +{item.data.rejected} Manual
                             </span>
                           ) : null}
                         </div>

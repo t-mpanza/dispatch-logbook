@@ -1,36 +1,86 @@
 import { useState } from "react";
-import { Minus, Plus, Trash2, Truck } from "lucide-react";
-import type { Trip } from "@/lib/types";
+import { Camera, Check, Minus, Plus, Trash2, Truck } from "lucide-react";
+import type { Attachment, Trip } from "@/lib/types";
 import { fmtTime, uid } from "@/lib/format";
+import { InAppCamera } from "./InAppCamera";
+import { downscaleImage, getImageDimensions } from "@/lib/image";
 
 interface Props {
   trips: Trip[];
   onChange: (next: Trip[]) => void;
+  onAttachment?: (a: Attachment) => void;
 }
 
 const QUICK = [4, 8, 10, 12];
 
-export function CounterPanel({ trips, onChange }: Props) {
-  const [count, setCount] = useState<number>(0);
-  const [rejectedCount, setRejectedCount] = useState<number>(0);
-  const [note, setNote] = useState("");
+export function CounterPanel({ trips, onChange, onAttachment }: Props) {
+  const [activeTab, setActiveTab] = useState<"scanned" | "manual">("scanned");
+  
+  // Scanned State
+  const [scannedCount, setScannedCount] = useState<number>(0);
+  
+  // Manual State
+  const [manualCount, setManualCount] = useState<number>(1);
+  const [slipNumber, setSlipNumber] = useState("");
+  
+  // Camera State
+  const [showCamera, setShowCamera] = useState(false);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
 
-  const totalAccepted = trips.reduce((n, t) => n + t.count, 0);
-  const totalRejected = trips.reduce((n, t) => n + (t.rejected || 0), 0);
+  const totalScanned = trips.reduce((n, t) => n + t.count, 0);
+  const totalManual = trips.reduce((n, t) => n + (t.rejected || 0), 0);
+  const grandTotal = totalScanned + totalManual;
 
-  function add(c: number, r: number) {
-    if (c <= 0 && r <= 0) return;
+  function logScanned() {
+    if (scannedCount <= 0) return;
     const t: Trip = {
       id: uid(),
-      count: c,
-      rejected: r > 0 ? r : undefined,
-      note: note.trim() || undefined,
+      count: scannedCount,
       createdAt: Date.now(),
     };
     onChange([...trips, t]);
-    setCount(0);
-    setRejectedCount(0);
-    setNote("");
+    setScannedCount(0);
+  }
+
+  function logManual(slipText?: string) {
+    if (manualCount <= 0) return;
+    const t: Trip = {
+      id: uid(),
+      count: 0,
+      rejected: manualCount,
+      note: slipText || slipNumber.trim() || undefined,
+      createdAt: Date.now(),
+    };
+    onChange([...trips, t]);
+    setManualCount(1);
+    setSlipNumber("");
+  }
+
+  async function handlePhotoCapture(blob: Blob) {
+    setShowCamera(false);
+    setProcessingPhoto(true);
+    try {
+      const scaled = await downscaleImage(blob, `slip-${Date.now()}.jpg`);
+      const dims = await getImageDimensions(scaled);
+      const name = `slip-${Date.now()}.jpg`;
+      if (onAttachment) {
+        onAttachment({
+          id: uid(),
+          kind: "image",
+          blob: scaled,
+          mime: scaled.type || "image/jpeg",
+          name,
+          width: dims?.width,
+          height: dims?.height,
+          createdAt: Date.now(),
+        });
+      }
+      logManual(`Slip attached: ${name}`);
+    } catch (err) {
+      console.error("Photo capture failed:", err);
+    } finally {
+      setProcessingPhoto(false);
+    }
   }
 
   function remove(id: string) {
@@ -38,178 +88,212 @@ export function CounterPanel({ trips, onChange }: Props) {
   }
 
   return (
-    <div className="rounded-2xl bg-surface border border-border overflow-hidden shadow-md">
+    <div className="rounded-2xl bg-surface border border-border overflow-hidden shadow-md relative">
       {/* Total Header */}
-      <div className="px-4 pt-4 pb-4 bg-[image:var(--gradient-primary)] text-primary-foreground">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] font-medium opacity-90">
-            <Truck size={13} /> Trip counter
+      <div className="px-5 pt-5 pb-5 bg-[image:var(--gradient-primary)] text-primary-foreground relative overflow-hidden">
+        {/* Glow effect */}
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+        
+        <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] font-bold opacity-90">
+            <Truck size={14} /> Total Tyres
           </div>
-          <div className="text-[11px] opacity-80 tabular-nums">
-            {trips.length} {trips.length === 1 ? "trip" : "trips"}
+          <div className="text-xs font-medium opacity-80 tabular-nums bg-white/10 px-2.5 py-1 rounded-full">
+            {trips.length} {trips.length === 1 ? "log" : "logs"}
           </div>
         </div>
-        <div className="mt-2 flex items-baseline justify-between">
-          <div className="flex items-baseline gap-2">
-            <span className="text-5xl font-bold tabular-nums leading-none">{totalAccepted}</span>
-            <span className="text-xs uppercase tracking-wider opacity-85">accepted</span>
+        
+        <div className="mt-3 relative z-10">
+          <div className="text-6xl font-black tabular-nums leading-none tracking-tight">
+            {grandTotal}
           </div>
-          {totalRejected > 0 && (
-            <div className="bg-red-950/40 text-red-200 border border-red-500/30 rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-              {totalRejected} rejected
+          <div className="flex gap-4 mt-3 text-xs font-semibold opacity-90">
+            <div className="flex items-center gap-1.5">
+               <span className="w-2 h-2 rounded-full bg-white/80 shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
+               {totalScanned} Scanned
             </div>
-          )}
+            <div className="flex items-center gap-1.5">
+               <span className="w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.6)]" />
+               {totalManual} Manual
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Adder Controls */}
-      <div className="p-4 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          {/* Accepted Counter */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
-              Accepted Tyres
-            </label>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setCount((c) => Math.max(0, c - 1))}
-                className="h-10 w-10 rounded-lg bg-surface-elevated border border-border grid place-items-center active:scale-95 hover:bg-surface-elevated/80 transition-colors"
-                aria-label="Decrease accepted"
-              >
-                <Minus size={14} />
-              </button>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={count || ""}
-                onChange={(e) => setCount(Math.max(0, parseInt(e.target.value || "0", 10)))}
-                placeholder="0"
-                className="flex-1 h-10 w-full rounded-lg bg-surface-elevated border border-border text-center text-lg font-bold tabular-nums outline-none focus:border-primary"
-              />
-              <button
-                type="button"
-                onClick={() => setCount((c) => c + 1)}
-                className="h-10 w-10 rounded-lg bg-surface-elevated border border-border grid place-items-center active:scale-95 hover:bg-surface-elevated/80 transition-colors"
-                aria-label="Increase accepted"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-          </div>
-
-          {/* Rejected Counter */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase font-bold text-red-400 tracking-wider block">
-              Rejected Tyres
-            </label>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setRejectedCount((r) => Math.max(0, r - 1))}
-                className="h-10 w-10 rounded-lg bg-surface-elevated border border-border grid place-items-center active:scale-95 hover:bg-surface-elevated/80 text-red-400/80 transition-colors"
-                aria-label="Decrease rejected"
-              >
-                <Minus size={14} />
-              </button>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={rejectedCount || ""}
-                onChange={(e) => setRejectedCount(Math.max(0, parseInt(e.target.value || "0", 10)))}
-                placeholder="0"
-                className="flex-1 h-10 w-full rounded-lg bg-surface-elevated border border-border text-center text-lg font-bold text-red-400 tabular-nums outline-none focus:border-red-500"
-              />
-              <button
-                type="button"
-                onClick={() => setRejectedCount((r) => r + 1)}
-                className="h-10 w-10 rounded-lg bg-surface-elevated border border-border grid place-items-center active:scale-95 hover:bg-surface-elevated/80 text-red-400/80 transition-colors"
-                aria-label="Increase rejected"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick select buttons (for Accepted count) */}
-        <div className="grid grid-cols-4 gap-2">
-          {QUICK.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setCount(n)}
-              className="py-1.5 rounded-lg text-xs font-semibold bg-surface-elevated border border-border hover:border-primary/50 hover:bg-surface-elevated/80 active:scale-95 transition-all tabular-nums"
-            >
-              +{n}
-            </button>
-          ))}
-        </div>
-
-        {/* Optional note */}
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Optional note (e.g. forklift driver name, batch #)"
-          className="w-full h-10 px-3 rounded-lg bg-surface-elevated border border-border outline-none text-sm focus:border-primary placeholder:text-muted-foreground/60"
-        />
-
-        {/* Log Action Button */}
+      {/* Tabs */}
+      <div className="flex p-2 gap-1 bg-surface-elevated/50 border-b border-border">
         <button
-          type="button"
-          onClick={() => add(count, rejectedCount)}
-          disabled={count <= 0 && rejectedCount <= 0}
-          className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-40 active:scale-[0.98] transition-all flex items-center justify-center gap-1"
+          onClick={() => setActiveTab("scanned")}
+          className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+            activeTab === "scanned" 
+              ? "bg-surface shadow-sm text-foreground" 
+              : "text-muted-foreground hover:bg-surface/50 hover:text-foreground"
+          }`}
         >
-          Log trip
-          {(count > 0 || rejectedCount > 0) && (
-            <span className="text-xs opacity-90 font-medium">
-              ({count > 0 ? `+${count} acc` : ""}{count > 0 && rejectedCount > 0 ? ", " : ""}{rejectedCount > 0 ? `+${rejectedCount} rej` : ""})
-            </span>
-          )}
+          Scanned
         </button>
+        <button
+          onClick={() => setActiveTab("manual")}
+          className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+            activeTab === "manual" 
+              ? "bg-surface shadow-sm text-foreground" 
+              : "text-muted-foreground hover:bg-surface/50 hover:text-foreground"
+          }`}
+        >
+          Manual (No-NFC)
+        </button>
+      </div>
+
+      {/* Input Area */}
+      <div className="p-4 bg-surface">
+        {activeTab === "scanned" ? (
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setScannedCount((c) => Math.max(0, c - 1))}
+                className="h-12 w-12 rounded-xl bg-surface-elevated border border-border grid place-items-center active:scale-95 hover:border-primary/50 transition-all text-muted-foreground hover:text-foreground"
+                aria-label="Decrease"
+              >
+                <Minus size={18} />
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={scannedCount || ""}
+                onChange={(e) => setScannedCount(Math.max(0, parseInt(e.target.value || "0", 10)))}
+                placeholder="0"
+                className="flex-1 h-12 w-full rounded-xl bg-surface-elevated border border-border text-center text-2xl font-black tabular-nums outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-inner"
+              />
+              <button
+                type="button"
+                onClick={() => setScannedCount((c) => c + 1)}
+                className="h-12 w-12 rounded-xl bg-surface-elevated border border-border grid place-items-center active:scale-95 hover:border-primary/50 transition-all text-muted-foreground hover:text-foreground"
+                aria-label="Increase"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              {QUICK.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setScannedCount(n)}
+                  className="py-2.5 rounded-xl text-sm font-bold bg-surface-elevated border border-border hover:border-primary/50 active:scale-95 transition-all tabular-nums text-foreground/90"
+                >
+                  +{n}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => logScanned()}
+              disabled={scannedCount <= 0}
+              className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-bold text-sm tracking-wide uppercase disabled:opacity-30 active:scale-[0.98] transition-all shadow-[var(--shadow-glow)] flex items-center justify-center gap-2"
+            >
+              <Check size={18} /> Log Scanned Tyres
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
+             <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Tyre Count</label>
+              <div className="flex items-center gap-1 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setManualCount((c) => Math.max(1, c - 1))}
+                  className="h-9 w-9 rounded-lg bg-surface-elevated border border-border grid place-items-center active:scale-95 text-muted-foreground hover:bg-surface-elevated/80"
+                >
+                  <Minus size={14} />
+                </button>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={manualCount || ""}
+                  onChange={(e) => setManualCount(Math.max(1, parseInt(e.target.value || "1", 10)))}
+                  className="w-16 h-9 rounded-lg bg-surface-elevated border border-border text-center text-lg font-bold tabular-nums outline-none focus:border-orange-500 text-orange-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setManualCount((c) => c + 1)}
+                  className="h-9 w-9 rounded-lg bg-surface-elevated border border-border grid place-items-center active:scale-95 text-muted-foreground hover:bg-surface-elevated/80"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Slip Number</label>
+              <input
+                value={slipNumber}
+                onChange={(e) => setSlipNumber(e.target.value)}
+                placeholder="Enter manual slip #"
+                className="w-full h-11 px-3 rounded-xl bg-surface-elevated border border-border outline-none text-sm focus:border-orange-500 placeholder:text-muted-foreground/50 transition-colors"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              {onAttachment && (
+                <button
+                  type="button"
+                  onClick={() => setShowCamera(true)}
+                  disabled={processingPhoto}
+                  className="h-12 px-4 rounded-xl border border-dashed border-orange-500/50 text-orange-400 font-semibold hover:bg-orange-500/10 active:scale-95 transition-all flex items-center justify-center shrink-0 disabled:opacity-50"
+                  aria-label="Capture Slip Photo"
+                >
+                  <Camera size={20} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => logManual()}
+                disabled={manualCount <= 0 || processingPhoto}
+                className="flex-1 h-12 rounded-xl bg-orange-500 text-white font-bold text-sm tracking-wide uppercase disabled:opacity-30 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+              >
+                 <Check size={18} /> {processingPhoto ? "Processing..." : "Log Manual"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* History */}
       {trips.length > 0 && (
-        <div className="border-t border-border">
-          <div className="px-4 pt-3 pb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-            Trip history
+        <div className="border-t border-border bg-surface-elevated/30">
+          <div className="px-5 pt-4 pb-2 text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex justify-between items-center">
+            <span>Recent Logs</span>
+            <span className="opacity-70">Newest first</span>
           </div>
           <ul className="divide-y divide-border/60">
             {[...trips]
               .sort((a, b) => b.createdAt - a.createdAt)
-              .map((t, i) => {
-                const tripNum = trips.length - i;
+              .map((t) => {
+                const isScanned = t.count > 0;
                 return (
-                  <li key={t.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-elevated/20 transition-colors">
-                    <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary-glow border border-primary/20 grid place-items-center text-xs font-bold tabular-nums">
-                      #{tripNum}
-                    </div>
+                  <li key={t.id} className="flex items-start gap-3 px-5 py-3 hover:bg-surface-elevated/40 transition-colors">
+                    <div className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${isScanned ? 'bg-primary-glow shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.4)]'}`} />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-base font-bold tabular-nums text-foreground">
-                          +{t.count} accepted
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold tabular-nums text-foreground">
+                          {isScanned ? `+${t.count} Scanned` : `+${t.rejected} Manual`}
                         </span>
-                        {t.rejected && t.rejected > 0 ? (
-                          <span className="text-xs font-semibold text-red-400">
-                            ({t.rejected} rejected)
-                          </span>
-                        ) : null}
-                        <span className="text-[10px] text-muted-foreground/70 tabular-nums ml-auto">
+                        <span className="text-[10px] text-muted-foreground/70 tabular-nums">
                           {fmtTime(t.createdAt)}
                         </span>
                       </div>
                       {t.note && (
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">{t.note}</p>
+                        <p className={`text-xs mt-1 font-medium ${isScanned ? 'text-muted-foreground' : 'text-orange-400/80'}`}>{t.note}</p>
                       )}
                     </div>
                     <button
                       type="button"
                       onClick={() => remove(t.id)}
-                      className="h-8 w-8 rounded-lg grid place-items-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      aria-label="Remove trip"
+                      className="h-7 w-7 rounded-lg grid place-items-center text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                      aria-label="Remove log"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -218,6 +302,17 @@ export function CounterPanel({ trips, onChange }: Props) {
               })}
           </ul>
         </div>
+      )}
+
+      {/* Camera overlay */}
+      {showCamera && (
+        <InAppCamera
+          onCapture={handlePhotoCapture}
+          onClose={() => setShowCamera(false)}
+          onFallback={() => {
+            setShowCamera(false);
+          }}
+        />
       )}
     </div>
   );
