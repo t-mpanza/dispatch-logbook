@@ -77,7 +77,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 py-2.5 text-[11px] font-bold uppercase tracking-widest transition-colors ${
+            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
               tab === t
                 ? "text-foreground bg-surface-elevated"
                 : "text-muted-foreground hover:text-foreground"
@@ -89,7 +89,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
       </div>
 
       {/* Input row */}
-      <div className="flex items-center gap-2 px-3 py-3">
+      <div className="flex items-center gap-1.5 px-3 py-2">
         {/* Stepper */}
         <button
           onClick={() =>
@@ -111,7 +111,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
             tab === "scanned" ? setCount(n) : setManualCount(n);
           }}
           placeholder={tab === "scanned" ? "0" : "1"}
-          className="h-10 w-14 shrink-0 rounded-xl border border-border bg-surface-elevated text-center text-lg font-black tabular-nums outline-none focus:border-primary"
+          className="h-10 w-12 shrink-0 rounded-xl border border-border bg-surface-elevated text-center text-lg font-black tabular-nums outline-none focus:border-primary"
         />
 
         <button
@@ -127,7 +127,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
 
         {tab === "scanned" ? (
           /* Quick-add buttons */
-          <div className="flex flex-1 gap-1.5 justify-end">
+          <div className="flex flex-1 gap-1 justify-end">
             {QUICK.map((n) => (
               <button
                 key={n}
@@ -140,12 +140,12 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
           </div>
         ) : (
           /* Slip input */
-          <div className="flex flex-1 items-center gap-1.5">
+          <div className="flex flex-1 items-center gap-1">
             <input
               value={slipNumber}
               onChange={(e) => setSlipNumber(e.target.value)}
               placeholder="Slip #"
-              className="h-10 flex-1 rounded-xl border border-border bg-surface-elevated px-3 text-sm outline-none focus:border-orange-500 placeholder:text-muted-foreground/40"
+              className="h-10 flex-1 rounded-xl border border-border bg-surface-elevated px-2.5 text-sm outline-none focus:border-orange-500 placeholder:text-muted-foreground/40"
             />
             {onAttachment && (
               <button
@@ -161,17 +161,17 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
       </div>
 
       {/* Log button */}
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-2.5">
         <button
           onClick={tab === "scanned" ? logScanned : () => logManual()}
           disabled={!canLog || processing}
-          className={`w-full h-11 rounded-xl font-bold text-sm uppercase tracking-wide flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-30 ${
+          className={`w-full h-10 rounded-xl font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all disabled:opacity-30 ${
             tab === "scanned"
               ? "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
               : "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
           }`}
         >
-          <Check size={16} />
+          <Check size={14} />
           {processing
             ? "Processing…"
             : tab === "scanned"

@@ -1,4 +1,4 @@
-import { Mic, Camera, Paperclip, X, Send } from "lucide-react";
+import { Mic, Camera, Paperclip, X, Send, Video, File } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Attachment } from "@/lib/types";
 import { uid } from "@/lib/format";
@@ -23,8 +23,8 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
   const [processing, setProcessing] = useState(false);
   const [pending, setPending] = useState<PendingCapture | null>(null);
   const [caption, setCaption] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  // Clean up object URL when pending is cleared
   useEffect(() => {
     return () => {
       if (pending?.previewUrl) URL.revokeObjectURL(pending.previewUrl);
@@ -104,48 +104,59 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
   const busy = disabled || processing;
 
   return (
-    <>
-      {/* Capture strip */}
-      <div className="flex items-center gap-2 rounded-2xl bg-surface border border-border px-3 py-2.5">
-        <button
-          onClick={onStartVoice}
-          disabled={busy}
-          className="flex flex-col items-center gap-1 flex-1 py-2 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground border-transparent shadow-[var(--shadow-glow)] active:scale-95 disabled:opacity-40 transition-all"
-        >
-          <Mic size={18} />
-          <span className="text-[10px] font-semibold">Voice</span>
-        </button>
+    <div className="relative">
+      <button
+        onClick={() => setMenuOpen(!menuOpen)}
+        disabled={busy}
+        className={`h-9 w-9 shrink-0 rounded-full grid place-items-center transition-all ${
+          menuOpen ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+        } disabled:opacity-40 active:scale-90`}
+        aria-label="Add attachment"
+      >
+        <Paperclip size={18} className={menuOpen ? "rotate-45 transition-transform" : "transition-transform"} />
+      </button>
 
-        <button
-          onClick={() => setCameraMode("photo")}
-          disabled={busy}
-          className="flex flex-col items-center gap-1 flex-1 py-2 rounded-xl bg-surface-elevated border border-border text-foreground hover:border-primary/40 active:scale-95 disabled:opacity-40 transition-all"
-        >
-          <Camera size={18} />
-          <span className="text-[10px] font-semibold">Camera</span>
-        </button>
-
-        <button
-          onClick={() => setCameraMode("video")}
-          disabled={busy}
-          className="flex flex-col items-center gap-1 flex-1 py-2 rounded-xl bg-surface-elevated border border-border text-foreground hover:border-primary/40 active:scale-95 disabled:opacity-40 transition-all"
-        >
-          <Camera size={18} className="text-orange-400" />
-          <span className="text-[10px] font-semibold text-orange-400">Video</span>
-        </button>
-
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={busy}
-          className="flex flex-col items-center gap-1 flex-1 py-2 rounded-xl bg-surface-elevated border border-border text-foreground hover:border-primary/40 active:scale-95 disabled:opacity-40 transition-all"
-        >
-          <Paperclip size={18} />
-          <span className="text-[10px] font-semibold">File</span>
-        </button>
-      </div>
+      {/* Popover Menu */}
+      {menuOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+          <div className="absolute bottom-12 left-0 z-50 bg-surface/95 backdrop-blur-xl border border-border rounded-2xl shadow-xl p-2 flex flex-col gap-1 w-44 origin-bottom-left animate-in zoom-in-95 duration-200">
+            <MenuBtn
+              icon={<Mic size={16} />}
+              label="Audio"
+              color="text-emerald-500"
+              bg="bg-emerald-500/10"
+              onClick={() => { setMenuOpen(false); onStartVoice(); }}
+            />
+            <MenuBtn
+              icon={<Camera size={16} />}
+              label="Camera"
+              color="text-primary"
+              bg="bg-primary/10"
+              onClick={() => { setMenuOpen(false); setCameraMode("photo"); }}
+            />
+            <MenuBtn
+              icon={<Video size={16} />}
+              label="Video"
+              color="text-orange-500"
+              bg="bg-orange-500/10"
+              onClick={() => { setMenuOpen(false); setCameraMode("video"); }}
+            />
+            <MenuBtn
+              icon={<File size={16} />}
+              label="Document"
+              color="text-purple-500"
+              bg="bg-purple-500/10"
+              onClick={() => { setMenuOpen(false); fileRef.current?.click(); }}
+            />
+          </div>
+        </>
+      )}
 
       {processing && (
-        <p className="text-center text-[11px] text-primary-glow mt-1">Processing…</p>
+        <div className="absolute bottom-12 left-0 z-50 rounded-xl bg-surface/90 backdrop-blur border border-border px-3 py-1.5 shadow-lg text-[11px] text-primary-glow font-bold animate-pulse">
+          Processing…
+        </div>
       )}
 
       <input ref={fileRef} type="file" multiple className="hidden" onChange={handleFileInput} />
@@ -161,22 +172,12 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
 
       {/* Caption preview overlay */}
       {pending && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col">
-          {/* Media preview */}
+        <div className="fixed inset-0 z-[60] bg-black flex flex-col">
           <div className="flex-1 relative flex items-center justify-center bg-zinc-950 overflow-hidden">
             {pending.kind === "image" ? (
-              <img
-                src={pending.previewUrl}
-                alt="Preview"
-                className="max-w-full max-h-full object-contain"
-              />
+              <img src={pending.previewUrl} alt="Preview" className="max-w-full max-h-full object-contain" />
             ) : (
-              <video
-                src={pending.previewUrl}
-                controls
-                playsInline
-                className="max-w-full max-h-full"
-              />
+              <video src={pending.previewUrl} controls playsInline className="max-w-full max-h-full" />
             )}
             <button
               onClick={discardPending}
@@ -186,7 +187,6 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
             </button>
           </div>
 
-          {/* Caption input bar */}
           <div className="bg-black/90 backdrop-blur-xl border-t border-white/10 px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-3">
             <input
               value={caption}
@@ -214,6 +214,20 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
           </div>
         </div>
       )}
-    </>
+    </div>
+  );
+}
+
+function MenuBtn({ icon, label, onClick, color, bg }: { icon: React.ReactNode, label: string, onClick: () => void, color: string, bg: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-muted active:scale-95 transition-all"
+    >
+      <div className={`h-8 w-8 rounded-full ${bg} ${color} grid place-items-center`}>
+        {icon}
+      </div>
+      <span className="text-sm font-semibold">{label}</span>
+    </button>
   );
 }

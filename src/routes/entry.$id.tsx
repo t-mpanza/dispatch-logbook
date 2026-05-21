@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { deleteEntry, getEntry, updateEntry, allTags } from "@/lib/db";
 import type { Attachment, Entry, Trip } from "@/lib/types";
 import { CaptureBar } from "@/components/CaptureBar";
@@ -39,12 +39,30 @@ function EntryPage() {
   // For counter sessions: collapse the detail section to keep counter visible
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const itemsCount = (entry?.notes?.length ?? 0) + (entry?.attachments?.length ?? 0) + (entry?.trips?.length ?? 0);
+  const prevCount = useRef(itemsCount);
+
   useEffect(() => {
     if (entry) {
       setTitle(entry.title);
       setTags(entry.tags);
     }
   }, [entry?.id]);
+
+  // Auto-scroll to bottom WhatsApp style
+  useEffect(() => {
+    if (scrollRef.current) {
+      const isFirstLoad = prevCount.current === 0 && itemsCount > 0;
+      setTimeout(() => {
+        scrollRef.current?.scrollIntoView({
+          behavior: isFirstLoad ? "auto" : "smooth",
+          block: "end"
+        });
+      }, 50);
+      prevCount.current = itemsCount;
+    }
+  }, [itemsCount]);
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
   if (!entry) {
@@ -179,11 +197,9 @@ function EntryPage() {
           </button>
         )}
 
-        {/* Capture bar */}
-        {recording ? (
+        {/* Voice recording UI */}
+        {recording && (
           <VoiceRecorder onSave={addAttachment} onCancel={() => setRecording(false)} />
-        ) : (
-          <CaptureBar onAttachment={addAttachment} onStartVoice={() => setRecording(true)} />
         )}
 
         {/* Event log */}
@@ -203,10 +219,17 @@ function EntryPage() {
             onOpenImage={(aid) => setLightboxId(aid)}
           />
         </div>
+        
+        {/* Invisible anchor for auto-scroll */}
+        <div ref={scrollRef} className="h-4" />
       </div>
 
       {/* ── Floating note input at the real bottom ──────────── */}
-      <FloatingNoteBar onAdd={addNote} />
+      <FloatingNoteBar
+        onAdd={addNote}
+        onAttachment={addAttachment}
+        onStartVoice={() => setRecording(true)}
+      />
 
       {lightboxId && (
         <Lightbox
