@@ -6,6 +6,7 @@ export interface Attachment {
   blob: Blob;
   mime: string;
   name?: string;
+  caption?: string;
   durationMs?: number;
   width?: number;
   height?: number;

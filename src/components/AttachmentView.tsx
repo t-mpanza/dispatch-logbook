@@ -78,6 +78,11 @@ export function AttachmentView({
           </div>
         </a>
       )}
+      {attachment.caption && (
+        <p className="px-3 py-2 text-sm text-foreground/90 border-t border-border/50 leading-snug">
+          {attachment.caption}
+        </p>
+      )}
       {onRemove && (
         <button
           onClick={onRemove}

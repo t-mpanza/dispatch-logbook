@@ -31,9 +31,7 @@ export function FloatingNoteBar({ onAdd }: Props) {
   }
 
   return (
-    <div
-      className={`fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-30 transition-all duration-200`}
-    >
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <div
         className={`flex items-end gap-2 rounded-2xl border bg-surface/95 backdrop-blur-xl shadow-xl transition-all duration-200 ${
           expanded ? "border-primary/40 px-4 py-3" : "border-border px-4 py-2.5"
