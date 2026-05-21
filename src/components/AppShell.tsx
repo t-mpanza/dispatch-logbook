@@ -4,9 +4,15 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { rescheduleAll } from "@/lib/reminders";
 
+// Only reschedule once per session — calling on every tab switch is wasteful
+let rescheduled = false;
+
 export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
-    void rescheduleAll();
+    if (!rescheduled) {
+      rescheduled = true;
+      void rescheduleAll();
+    }
   }, []);
 
   const loc = useLocation();

@@ -1,9 +1,10 @@
+import { memo } from "react";
 import { Link } from "@tanstack/react-router";
 import { Image as ImageIcon, Mic, Paperclip, Truck, Video } from "lucide-react";
 import type { Entry } from "@/lib/types";
 import { fmtTime } from "@/lib/format";
 
-export function EntryListItem({ entry }: { entry: Entry }) {
+export const EntryListItem = memo(function EntryListItem({ entry }: { entry: Entry }) {
   const counts = {
     audio: entry.attachments.filter((a) => a.kind === "audio").length,
     image: entry.attachments.filter((a) => a.kind === "image").length,
@@ -66,4 +67,4 @@ export function EntryListItem({ entry }: { entry: Entry }) {
       </div>
     </Link>
   );
-}
+});

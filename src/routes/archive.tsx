@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { ChevronRight, Folder } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { allEntries } from "@/lib/db";
@@ -95,7 +96,7 @@ function ArchivePage() {
     queryKey: ["entries", "all"],
     queryFn: allEntries,
   });
-  const grouped = groupEntries(entries);
+  const grouped = useMemo(() => groupEntries(entries), [entries]);
 
   return (
     <AppShell>

@@ -1,94 +1,100 @@
-const CACHE_NAME = "dispatch-logbook-cache-v1";
+/**
+ * Dispatch Diary Service Worker
+ *
+ * Strategy:
+ *  - Navigation requests: network-first → cached SPA shell
+ *  - Vite hashed assets (/assets/*-<hash>.*): cache-first (immutable URLs)
+ *  - Everything else: stale-while-revalidate
+ *
+ * Compatible with VitePWA's useRegisterSW (registerType: "autoUpdate").
+ * The SKIP_WAITING message listener is all workbox-window needs from us.
+ */
 
-const PRECACHE_ASSETS = [
-  "./",
-  "index.html",
-  "manifest.webmanifest",
-  "icon-512.png"
-];
+const CACHE_VERSION = "v2";
+const CACHE_NAME = `dispatch-diary-${CACHE_VERSION}`;
 
-// Install event: Pre-cache core shell assets
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(PRECACHE_ASSETS);
-      })
-      .then(() => self.skipWaiting())
-  );
+// ── Auto-update handshake with workbox-window / useRegisterSW ──────────────
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
-// Activate event: Clean up old caches
+// ── Install: take over immediately ─────────────────────────────────────────
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+// ── Activate: clear old caches, claim all clients ──────────────────────────
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME) {
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      })
-      .then(() => self.clients.claim())
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
+        ),
+      )
+      .then(() => self.clients.claim()),
   );
 });
 
-// Fetch event: Serve cached assets, fall back to network, and update cache
+// ── Fetch ───────────────────────────────────────────────────────────────────
 self.addEventListener("fetch", (event) => {
-  const request = event.request;
+  const { request } = event;
+  if (request.method !== "GET") return;
 
-  // Only handle GET requests
-  if (request.method !== "GET") {
-    return;
-  }
+  const url = new URL(request.url);
 
-  // Handle navigation requests (html pages) - serve cached index.html shell for offline client-side routing
+  // 1. Navigation — network-first, fallback to SPA shell
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(() => {
-        return caches.match("./") || caches.match("index.html");
-      })
+        // scope includes the base path ("/dispatch-logbook/" on GitHub Pages, "/" otherwise)
+        const scope = self.registration.scope;
+        return (
+          caches.match(scope) ||
+          caches.match(scope + "index.html") ||
+          caches.match("/")
+        );
+      }),
     );
     return;
   }
 
-  // Handle assets (JS, CSS, images, fonts)
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      // If we have a cached response, return it and update the cache in the background (Stale-While-Revalidate)
-      if (cachedResponse) {
-        fetch(request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(request, networkResponse);
-              });
-            }
-          })
-          .catch(() => {
-            // Ignore background fetch failures (offline mode)
-          });
-        return cachedResponse;
-      }
-
-      // If not in cache, fetch from network and cache the response
-      return fetch(request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200) {
-          return networkResponse;
-        }
-
-        // Clone the response because it can only be consumed once
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, responseToCache);
+  // 2. Vite-hashed assets — cache-first (URLs are immutable per content hash)
+  if (/\/assets\/[^/]+-[\w]{8,}\.[a-z]+(\?.*)?$/.test(url.pathname)) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response.ok) {
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(request, response.clone()));
+          }
+          return response;
         });
+      }),
+    );
+    return;
+  }
 
-        return networkResponse;
-      });
-    })
+  // 3. Everything else — stale-while-revalidate
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const networkFetch = fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(request, response.clone()));
+          }
+          return response;
+        })
+        .catch(() => cached); // offline: return stale if available
+
+      return cached ?? networkFetch;
+    }),
   );
 });

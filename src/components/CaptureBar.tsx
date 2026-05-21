@@ -156,12 +156,14 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
             setShowCamera(false);
             setProcessing(true);
             try {
-              const dims = await getImageDimensions(blob);
+              // Downscale in-app camera captures the same way the file picker path does
+              const scaled = await downscaleImage(blob, `camera-${Date.now()}.jpg`);
+              const dims = await getImageDimensions(scaled);
               onAttachment({
                 id: uid(),
                 kind: "image",
-                blob,
-                mime: blob.type || "image/jpeg",
+                blob: scaled,
+                mime: scaled.type || "image/jpeg",
                 name: `camera-${Date.now()}.jpg`,
                 width: dims?.width,
                 height: dims?.height,
