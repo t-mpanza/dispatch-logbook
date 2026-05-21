@@ -49,8 +49,8 @@ export function InAppCamera({
       .getUserMedia({
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
         audio: mode === "video",
       })
@@ -86,11 +86,30 @@ export function InAppCamera({
     return () => clearInterval(id);
   }, [recording]);
 
-  function capturePhoto() {
+  async function capturePhoto() {
     const video = videoRef.current;
     const stream = streamRef.current;
-    if (!video || !stream || !video.videoWidth) return;
+    if (!video || !stream) return;
 
+    // Fast path: Hardware-accelerated ImageCapture API (supported in Android WebView)
+    try {
+      const track = stream.getVideoTracks()[0];
+      // @ts-ignore - ImageCapture is not in standard TS DOM lib
+      if (typeof ImageCapture !== "undefined") {
+        // @ts-ignore
+        const imageCapture = new ImageCapture(track);
+        const blob = await imageCapture.takePhoto();
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        onCapture(blob);
+        return;
+      }
+    } catch (err) {
+      console.warn("ImageCapture failed, falling back to canvas", err);
+    }
+
+    // Slow path: Canvas rendering fallback
+    if (!video.videoWidth) return;
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -121,8 +140,10 @@ export function InAppCamera({
       if (!stream) return;
       chunksRef.current = [];
 
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=h264")
+        ? "video/webm;codecs=h264"
+        : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+        ? "video/webm;codecs=vp8"
         : "video/webm";
 
       const mr = new MediaRecorder(stream, { mimeType });
