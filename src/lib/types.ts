@@ -41,6 +41,7 @@ export interface Entry {
   notes: NoteBlock[];
   attachments: Attachment[];
   trips?: Trip[];
+  expectedTotal?: number; // invoice tyre count for progress tracking
   createdAt: number;
   updatedAt: number;
   // local date key YYYY-MM-DD for fast day queries

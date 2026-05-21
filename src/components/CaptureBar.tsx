@@ -1,4 +1,4 @@
-import { Camera, Mic, Paperclip, Video } from "lucide-react";
+import { Mic, Camera, Video, Paperclip } from "lucide-react";
 import { useRef, useState } from "react";
 import type { Attachment } from "@/lib/types";
 import { uid } from "@/lib/format";
@@ -12,75 +12,67 @@ interface Props {
 }
 
 export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
-  const photoRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [cameraMode, setCameraMode] = useState<"photo" | "video" | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
 
-  async function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoCapture(blob: Blob) {
+    setCameraMode(null);
+    setProcessing(true);
+    try {
+      const scaled = await downscaleImage(blob, `photo-${Date.now()}.jpg`);
+      const dims = await getImageDimensions(scaled);
+      onAttachment({
+        id: uid(),
+        kind: "image",
+        blob: scaled,
+        mime: scaled.type || "image/jpeg",
+        name: `photo-${Date.now()}.jpg`,
+        width: dims?.width,
+        height: dims?.height,
+        createdAt: Date.now(),
+      });
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  function handleVideoCapture(blob: Blob) {
+    setCameraMode(null);
+    onAttachment({
+      id: uid(),
+      kind: "video",
+      blob,
+      mime: blob.type || "video/webm",
+      name: `video-${Date.now()}.webm`,
+      createdAt: Date.now(),
+    });
+  }
+
+  async function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files) return;
     setProcessing(true);
     try {
       for (const f of Array.from(files)) {
-        // Downscale BEFORE we hand it to the entry. This is the fix for
-        // the "low memory / page reload" crash when capturing photos.
-        const blob = await downscaleImage(f, f.name);
-        const dims = await getImageDimensions(blob);
-        onAttachment({
-          id: uid(),
-          kind: "image",
-          blob,
-          mime: blob.type || "image/jpeg",
-          name: f.name,
-          width: dims?.width,
-          height: dims?.height,
-          createdAt: Date.now(),
-        });
-        // Let the event loop breathe between large files
-        await new Promise((r) => setTimeout(r, 0));
-      }
-    } finally {
-      setProcessing(false);
-      e.target.value = "";
-    }
-  }
-
-  const handleOther =
-    (fallbackKind: Exclude<Attachment["kind"], "image">) =>
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (!files) return;
-      setProcessing(true);
-      try {
-        for (const f of Array.from(files)) {
-          const type = f.type || "";
-          if (type.startsWith("image/")) {
-            const blob = await downscaleImage(f, f.name);
-            const dims = await getImageDimensions(blob);
-            onAttachment({
-              id: uid(),
-              kind: "image",
-              blob,
-              mime: blob.type || "image/jpeg",
-              name: f.name,
-              width: dims?.width,
-              height: dims?.height,
-              createdAt: Date.now(),
-            });
-            continue;
-          }
-
-          let kind: Attachment["kind"] = fallbackKind;
-          if (type.startsWith("video/")) {
-            kind = "video";
-          } else if (type.startsWith("audio/")) {
-            kind = "audio";
-          } else {
-            kind = "file";
-          }
-
+        const type = f.type || "";
+        if (type.startsWith("image/")) {
+          const blob = await downscaleImage(f, f.name);
+          const dims = await getImageDimensions(blob);
+          onAttachment({
+            id: uid(),
+            kind: "image",
+            blob,
+            mime: blob.type || "image/jpeg",
+            name: f.name,
+            width: dims?.width,
+            height: dims?.height,
+            createdAt: Date.now(),
+          });
+        } else {
+          let kind: Attachment["kind"] = "file";
+          if (type.startsWith("video/")) kind = "video";
+          else if (type.startsWith("audio/")) kind = "audio";
           onAttachment({
             id: uid(),
             kind,
@@ -90,28 +82,36 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
             createdAt: Date.now(),
           });
         }
-      } finally {
-        setProcessing(false);
-        e.target.value = "";
+        await new Promise((r) => setTimeout(r, 0));
       }
-    };
+    } finally {
+      setProcessing(false);
+      e.target.value = "";
+    }
+  }
 
   const busy = disabled || processing;
 
   return (
-    <div className="space-y-2">
+    <div>
       <div className="grid grid-cols-4 gap-2">
-        <CapBtn label="Voice" icon={<Mic size={20} />} onClick={onStartVoice} disabled={busy} accent />
         <CapBtn
-          label="Photo"
+          label="Voice"
+          icon={<Mic size={20} />}
+          onClick={onStartVoice}
+          disabled={busy}
+          accent
+        />
+        <CapBtn
+          label="Camera"
           icon={<Camera size={20} />}
-          onClick={() => setShowCamera(true)}
+          onClick={() => setCameraMode("photo")}
           disabled={busy}
         />
         <CapBtn
           label="Video"
           icon={<Video size={20} />}
-          onClick={() => videoRef.current?.click()}
+          onClick={() => setCameraMode("video")}
           disabled={busy}
         />
         <CapBtn
@@ -121,66 +121,29 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
           disabled={busy}
         />
       </div>
+
       {processing && (
-        <p className="text-[11px] text-primary-glow text-center">Processing photo…</p>
+        <p className="mt-1.5 text-center text-[11px] text-primary-glow">
+          Processing…
+        </p>
       )}
 
-      <input
-        ref={photoRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        multiple
-        className="hidden"
-        onChange={handleImage}
-      />
-      <input
-        ref={videoRef}
-        type="file"
-        accept="video/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleOther("video")}
-      />
+      {/* File-only input — no capture attribute (no system camera) */}
       <input
         ref={fileRef}
         type="file"
         multiple
         className="hidden"
-        onChange={handleOther("file")}
+        onChange={handleFileInput}
       />
 
-      {showCamera && (
+      {/* In-app camera for both photo and video */}
+      {cameraMode && (
         <InAppCamera
-          onCapture={async (blob) => {
-            setShowCamera(false);
-            setProcessing(true);
-            try {
-              // Downscale in-app camera captures the same way the file picker path does
-              const scaled = await downscaleImage(blob, `camera-${Date.now()}.jpg`);
-              const dims = await getImageDimensions(scaled);
-              onAttachment({
-                id: uid(),
-                kind: "image",
-                blob: scaled,
-                mime: scaled.type || "image/jpeg",
-                name: `camera-${Date.now()}.jpg`,
-                width: dims?.width,
-                height: dims?.height,
-                createdAt: Date.now(),
-              });
-            } finally {
-              setProcessing(false);
-            }
-          }}
-          onClose={() => setShowCamera(false)}
-          onFallback={() => {
-            setShowCamera(false);
-            // Request system camera
-            setTimeout(() => {
-              photoRef.current?.click();
-            }, 100);
-          }}
+          defaultMode={cameraMode}
+          onCapture={handlePhotoCapture}
+          onVideoCapture={handleVideoCapture}
+          onClose={() => setCameraMode(null)}
         />
       )}
     </div>

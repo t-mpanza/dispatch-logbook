@@ -1,93 +1,99 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, RefreshCw } from "lucide-react";
+import { Camera, FlipHorizontal2, Video, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
+  defaultMode?: "photo" | "video";
   onCapture: (blob: Blob) => void;
+  onVideoCapture?: (blob: Blob) => void;
   onClose: () => void;
-  onFallback: () => void;
 }
 
-export function InAppCamera({ onCapture, onClose, onFallback }: Props) {
+export function InAppCamera({
+  defaultMode = "photo",
+  onCapture,
+  onVideoCapture,
+  onClose,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  // Use a ref — never stale in effect cleanup, no re-render on change
   const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [initializing, setInitializing] = useState(true);
+  const [mode, setMode] = useState<"photo" | "video">(defaultMode);
+  const [recording, setRecording] = useState(false);
+  const [recSeconds, setRecSeconds] = useState(0);
 
-  // Check for multiple cameras once on mount
+  // Enumerate cameras once
   useEffect(() => {
     navigator.mediaDevices
       .enumerateDevices()
       .then((devices) => {
-        const videoDevices = devices.filter((d) => d.kind === "videoinput");
-        setHasMultipleCameras(videoDevices.length > 1);
+        setHasMultipleCameras(
+          devices.filter((d) => d.kind === "videoinput").length > 1,
+        );
       })
-      .catch((err) => {
-        console.warn("Could not enumerate devices:", err);
-      });
+      .catch(() => {});
   }, []);
 
-  // Start/restart camera stream. Cleanup always stops the current stream —
-  // whether triggered by facingMode change or component unmount. No stale closure.
+  // Start / restart stream
   useEffect(() => {
     let cancelled = false;
     setInitializing(true);
 
     navigator.mediaDevices
       .getUserMedia({
-        video: { facingMode: { ideal: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+        audio: mode === "video",
       })
       .then((s) => {
         if (cancelled) {
-          // Effect was superseded (facingMode changed) or component unmounted —
-          // stop the stream we just got, don't use it
           s.getTracks().forEach((t) => t.stop());
           return;
         }
-        // Stop the previous stream before assigning the new one
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = s;
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-        }
+        if (videoRef.current) videoRef.current.srcObject = s;
         setInitializing(false);
       })
       .catch((err) => {
-        console.error("Camera access error:", err);
+        console.error("Camera error:", err);
         if (!cancelled) {
-          toast.error("Camera access failed. Falling back to system camera.");
-          onFallback();
+          toast.error("Camera access failed.");
+          onClose();
         }
       });
 
     return () => {
       cancelled = true;
-      // Stop and release the stream for this effect cycle
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [facingMode, onFallback]);
+  }, [facingMode, mode, onClose]);
 
-  function capture() {
+  // Recording timer
+  useEffect(() => {
+    if (!recording) { setRecSeconds(0); return; }
+    const id = setInterval(() => setRecSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [recording]);
+
+  function capturePhoto() {
     const video = videoRef.current;
     const stream = streamRef.current;
-    if (!video || !stream) return;
-
-    const width = video.videoWidth;
-    const height = video.videoHeight;
-    if (!width || !height) return;
+    if (!video || !stream || !video.videoWidth) return;
 
     const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0, width, height);
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0);
 
     canvas.toBlob(
       (blob) => {
@@ -96,37 +102,93 @@ export function InAppCamera({ onCapture, onClose, onFallback }: Props) {
           streamRef.current = null;
           onCapture(blob);
         } else {
-          toast.error("Failed to capture image");
+          toast.error("Failed to capture photo.");
         }
       },
       "image/jpeg",
-      0.9,
+      0.88,
     );
   }
 
-  function toggleCamera() {
-    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
+  function toggleRecording() {
+    if (recording) {
+      recorderRef.current?.stop();
+      recorderRef.current = null;
+      setRecording(false);
+    } else {
+      const stream = streamRef.current;
+      if (!stream) return;
+      chunksRef.current = [];
+
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : "video/webm";
+
+      const mr = new MediaRecorder(stream, { mimeType });
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mimeType.split(";")[0] });
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        onVideoCapture?.(blob);
+        onClose();
+      };
+      mr.start();
+      recorderRef.current = mr;
+      setRecording(true);
+    }
+  }
+
+  function fmtSec(s: number) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between safe-bottom">
-      {/* Top Bar */}
-      <div className="px-4 py-3 flex items-center justify-between text-white bg-gradient-to-b from-black/60 to-transparent">
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/70 to-transparent">
         <button
-          onClick={onClose}
-          className="h-10 w-10 rounded-full bg-white/10 grid place-items-center hover:bg-white/20 active:scale-95 transition-transform"
-          aria-label="Close camera"
+          onClick={() => {
+            recorderRef.current?.stop();
+            streamRef.current?.getTracks().forEach((t) => t.stop());
+            onClose();
+          }}
+          className="h-10 w-10 rounded-full bg-white/10 grid place-items-center hover:bg-white/20 active:scale-95 transition-all text-white"
+          aria-label="Close"
         >
           <X size={20} />
         </button>
-        <span className="text-xs uppercase tracking-wider font-semibold opacity-70">
-          In-App Camera
-        </span>
-        <div className="w-10 h-10" />
+
+        {/* Mode toggle */}
+        <div className="flex rounded-full bg-white/10 border border-white/20 p-0.5 gap-0.5">
+          {(["photo", "video"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => {
+                if (recording) return; // can't switch while recording
+                setMode(m);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
+                mode === m
+                  ? "bg-white text-black"
+                  : "text-white/70 hover:text-white"
+              }`}
+            >
+              {m === "photo" ? <Camera size={12} /> : <Video size={12} />}
+              {m}
+            </button>
+          ))}
+        </div>
+
+        <div className="w-10" />
       </div>
 
-      {/* Video Stream */}
-      <div className="flex-1 flex items-center justify-center overflow-hidden bg-zinc-950 relative">
+      {/* Viewfinder */}
+      <div className="flex-1 relative overflow-hidden bg-zinc-950">
         {initializing && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-2">
             <Camera size={32} className="animate-pulse text-primary-glow" />
@@ -138,46 +200,60 @@ export function InAppCamera({ onCapture, onClose, onFallback }: Props) {
           playsInline
           autoPlay
           muted
-          className={`w-full h-full object-cover transition-opacity duration-300 ${initializing ? "opacity-0" : "opacity-100"}`}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            initializing ? "opacity-0" : "opacity-100"
+          }`}
         />
+        {/* Recording indicator */}
+        {recording && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-black/60 border border-red-500/50 px-3 py-1.5">
+            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-white text-sm font-bold tabular-nums">
+              {fmtSec(recSeconds)}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Bottom Controls */}
-      <div className="px-6 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between">
-        <button
-          onClick={() => {
-            streamRef.current?.getTracks().forEach((t) => t.stop());
-            streamRef.current = null;
-            onFallback();
-          }}
-          className="text-xs font-semibold text-white/70 hover:text-white px-3 py-2 rounded-lg bg-white/10 active:scale-95 transition-all"
-        >
-          Use System
-        </button>
+      {/* Bottom controls */}
+      <div className="px-6 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-black/80 to-transparent flex items-center justify-center gap-12">
+        {/* Flip camera */}
+        {hasMultipleCameras ? (
+          <button
+            onClick={() =>
+              setFacingMode((p) => (p === "environment" ? "user" : "environment"))
+            }
+            disabled={initializing || recording}
+            className="h-12 w-12 rounded-full bg-white/10 text-white grid place-items-center hover:bg-white/20 active:scale-95 transition-all disabled:opacity-40"
+            aria-label="Flip camera"
+          >
+            <FlipHorizontal2 size={22} />
+          </button>
+        ) : (
+          <div className="w-12" />
+        )}
 
         {/* Shutter */}
         <button
-          onClick={capture}
+          onClick={mode === "photo" ? capturePhoto : toggleRecording}
           disabled={initializing}
-          className="h-20 w-20 rounded-full border-4 border-white bg-white/25 hover:bg-white/40 active:scale-90 transition-all flex items-center justify-center"
-          aria-label="Capture photo"
+          aria-label={mode === "photo" ? "Capture photo" : recording ? "Stop recording" : "Start recording"}
+          className={`h-20 w-20 rounded-full border-4 transition-all active:scale-90 flex items-center justify-center ${
+            recording
+              ? "border-red-500 bg-red-500/30 hover:bg-red-500/50"
+              : "border-white bg-white/25 hover:bg-white/40"
+          } disabled:opacity-40`}
         >
-          <div className="h-14 w-14 rounded-full bg-white shadow-lg" />
+          {recording ? (
+            <div className="h-7 w-7 rounded-md bg-red-500" />
+          ) : mode === "video" ? (
+            <div className="h-12 w-12 rounded-full bg-red-500" />
+          ) : (
+            <div className="h-14 w-14 rounded-full bg-white shadow-lg" />
+          )}
         </button>
 
-        {/* Camera switch */}
-        {hasMultipleCameras ? (
-          <button
-            onClick={toggleCamera}
-            disabled={initializing}
-            className="h-12 w-12 rounded-full bg-white/10 text-white grid place-items-center hover:bg-white/20 active:scale-95 transition-all"
-            aria-label="Switch camera"
-          >
-            <RefreshCw size={20} />
-          </button>
-        ) : (
-          <div className="w-12 h-12" />
-        )}
+        <div className="w-12" />
       </div>
     </div>
   );
