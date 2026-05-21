@@ -55,6 +55,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Try to upload and overwrite if the 'latest' release exists, otherwise create it
-          gh release upload "latest" android/app/build/outputs/apk/debug/app-debug.apk --clobber || \
-          gh release create "latest" android/app/build/outputs/apk/debug/app-debug.apk -t "Latest Build" -n "Automated nightly build of Dispatch Diary." -p
+          TAG_NAME="v1.0.${{ github.run_number }}"
+          APK_NAME="dispatch-diary-${TAG_NAME}.apk"
+          mv android/app/build/outputs/apk/debug/app-debug.apk $APK_NAME
+          gh release create "$TAG_NAME" $APK_NAME -t "Build $TAG_NAME" -n "Automated nightly build of Dispatch Diary ($TAG_NAME)."
