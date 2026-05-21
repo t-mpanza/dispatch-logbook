@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
+import { StatusBar, Style } from "@capacitor/status-bar";
 import {
   Outlet,
   Link,
@@ -138,6 +140,15 @@ function RootComponent() {
           scope: import.meta.env.BASE_URL,
         })
         .catch((err) => console.error("SW registration failed:", err));
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      if (Capacitor.getPlatform() === "android") {
+        // Fix Android status bar overlap by disabling Edge-to-Edge and setting it to match background
+        StatusBar.setOverlaysWebView({ overlay: false }).catch(console.error);
+        StatusBar.setBackgroundColor({ color: "#0a0a1a" }).catch(console.error);
+      }
+      StatusBar.setStyle({ style: Style.Dark }).catch(console.error);
     }
   }, []);
 
