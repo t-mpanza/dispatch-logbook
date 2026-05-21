@@ -34,7 +34,7 @@ function DayPage() {
 
   return (
     <div className="min-h-screen bg-background max-w-md mx-auto pb-10">
-      <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl border-b border-border">
+      <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl border-b border-border pt-[env(safe-area-inset-top)]">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3 min-w-0">
             <button

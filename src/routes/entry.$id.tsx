@@ -116,7 +116,7 @@ function EntryPage() {
   return (
     <div className="min-h-screen bg-background max-w-md mx-auto pb-28">
       {/* ── Sticky header ─────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border">
+      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => navigate({ to: "/" })}

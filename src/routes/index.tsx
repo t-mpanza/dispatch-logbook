@@ -36,7 +36,7 @@ function TodayPage() {
 
   return (
     <AppShell>
-      <header className="px-5 pt-8 pb-4 flex items-start justify-between">
+      <header className="px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-4 flex items-start justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">
             Today
