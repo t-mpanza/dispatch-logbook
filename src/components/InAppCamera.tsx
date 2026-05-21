@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, FlipHorizontal2, Video, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -147,7 +148,7 @@ export function InAppCamera({
     return `${m}:${sec.toString().padStart(2, "0")}`;
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/70 to-transparent">
@@ -255,6 +256,7 @@ export function InAppCamera({
 
         <div className="w-12" />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

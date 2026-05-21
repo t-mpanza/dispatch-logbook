@@ -1,5 +1,6 @@
 import { Mic, Camera, Paperclip, X, Send, Video, File } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Attachment } from "@/lib/types";
 import { uid } from "@/lib/format";
 import { downscaleImage, getImageDimensions } from "@/lib/image";
@@ -171,7 +172,7 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
       )}
 
       {/* Caption preview overlay */}
-      {pending && (
+      {pending && createPortal(
         <div className="fixed inset-0 z-[60] bg-black flex flex-col">
           <div className="flex-1 relative flex items-center justify-center bg-zinc-950 overflow-hidden">
             {pending.kind === "image" ? (
@@ -212,7 +213,8 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
