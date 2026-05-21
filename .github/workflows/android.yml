@@ -26,7 +26,13 @@ jobs:
         run: npm install
 
       - name: Build Web App
-        run: npm run build
+        run: VITE_APP_VERSION="v1.0.${{ github.run_number }}" npm run build
+
+      - name: Create OTA Web Bundle
+        run: |
+          cd dist/client
+          zip -r ../../dist.zip .
+          cd ../..
 
       - name: Sync Capacitor
         run: npx cap sync android
@@ -58,4 +64,4 @@ jobs:
           TAG_NAME="v1.0.${{ github.run_number }}"
           APK_NAME="dispatch-diary-${TAG_NAME}.apk"
           mv android/app/build/outputs/apk/debug/app-debug.apk $APK_NAME
-          gh release create "$TAG_NAME" $APK_NAME -t "Build $TAG_NAME" -n "Automated nightly build of Dispatch Diary ($TAG_NAME)."
+          gh release create "$TAG_NAME" $APK_NAME dist.zip -t "Build $TAG_NAME" -n "Automated nightly build of Dispatch Diary ($TAG_NAME)."
