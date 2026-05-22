@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
 import { Toaster, toast } from "sonner";
@@ -191,6 +192,22 @@ function RootComponent() {
       StatusBar.setStyle({ style: Style.Dark }).catch(console.error);
     }
 
+    // Android hardware back button — navigate back; double-tap root to exit
+    let lastBackPress = 0;
+    const backHandler = CapApp.addListener("backButton", ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        const now = Date.now();
+        if (now - lastBackPress < 2000) {
+          CapApp.exitApp();
+        } else {
+          lastBackPress = now;
+          toast("Press back again to exit", { duration: 2000 });
+        }
+      }
+    });
+
     // Background cloud sync on launch (if already signed in)
     fullSync().catch(console.error);
 
@@ -200,7 +217,11 @@ function RootComponent() {
         fullSync().catch(console.error);
       }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+      subscription.unsubscribe();
+      backHandler.then((h) => h.remove());
+    };
   }, []);
 
   return (
