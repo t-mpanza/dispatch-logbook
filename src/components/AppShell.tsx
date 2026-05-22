@@ -4,13 +4,11 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { rescheduleAll } from "@/lib/reminders";
 import { supabase } from "@/lib/supabase";
-import type { User } from "@supabase/supabase-js";
 
 // Only reschedule once per session
 let rescheduled = false;
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -19,12 +17,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       void rescheduleAll();
     }
 
-    // Auth state
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
-
     // Online state
     const setOn = () => setOnline(true);
     const setOff = () => setOnline(false);
@@ -32,7 +24,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener("offline", setOff);
 
     return () => {
-      subscription.unsubscribe();
       window.removeEventListener("online", setOn);
       window.removeEventListener("offline", setOff);
     };
@@ -54,27 +45,22 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NavBtn to="/search" active={isActive("/search")} label="Search" icon={<Search size={20} />} />
           <NavBtn to="/archive" active={isActive("/archive")} label="Archive" icon={<Archive size={20} />} />
 
-          {/* Sync / auth status pill */}
-          <Link
-            to="/auth"
+          {/* Sync status pill */}
+          <div
             className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${
-              isActive("/auth") ? "text-primary-glow" : "text-muted-foreground"
+              online ? "text-primary-glow" : "text-muted-foreground"
             }`}
-            aria-label={user ? "Syncing" : "Sign in to sync"}
+            aria-label={online ? "Synced" : "Offline"}
           >
-            {user ? (
-              online ? (
-                <Cloud size={20} className="text-primary-glow" />
-              ) : (
-                <CloudOff size={20} className="text-muted-foreground" />
-              )
+            {online ? (
+              <Cloud size={20} className="text-primary-glow" />
             ) : (
-              <UserCircle size={20} />
+              <CloudOff size={20} className="text-muted-foreground" />
             )}
             <span className="text-[10px] font-medium uppercase tracking-wider">
-              {user ? (online ? "Synced" : "Offline") : "Sign In"}
+              {online ? "Synced" : "Offline"}
             </span>
-          </Link>
+          </div>
         </div>
       </nav>
     </div>
