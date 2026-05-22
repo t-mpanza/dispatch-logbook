@@ -11,7 +11,7 @@ interface Props {
   onAttachment?: (a: Attachment) => void;
 }
 
-const QUICK = [4, 8, 10, 12];
+const QUICK = [2, 4, 8, 10];
 
 export function CounterPanel({ trips, onChange, onAttachment }: Props) {
   const [tab, setTab] = useState<"scanned" | "manual">("scanned");
@@ -131,7 +131,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
             {QUICK.map((n) => (
               <button
                 key={n}
-                onClick={() => setCount(n)}
+                onClick={() => setCount((c) => c + n)}
                 className="h-10 flex-1 rounded-xl border border-border bg-surface-elevated text-xs font-bold tabular-nums hover:border-primary/50 active:scale-95 transition-all"
               >
                 +{n}

@@ -194,8 +194,8 @@ function RootComponent() {
 
     // Android hardware back button — navigate back; double-tap root to exit
     let lastBackPress = 0;
-    const backHandler = CapApp.addListener("backButton", ({ canGoBack }) => {
-      if (canGoBack) {
+    const backHandler = CapApp.addListener("backButton", () => {
+      if (window.location.pathname !== "/") {
         window.history.back();
       } else {
         const now = Date.now();
