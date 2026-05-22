@@ -11,8 +11,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("kiddow@dispatch.local");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,21 +23,10 @@ function AuthPage() {
     setLoading(true);
     setError(null);
 
-    let authError = null;
-
-    if (mode === "signin") {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
-      });
-      authError = error;
-    } else {
-      const { error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password.trim(),
-      });
-      authError = error;
-    }
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password.trim(),
+    });
 
     setLoading(false);
 
@@ -58,9 +46,7 @@ function AuthPage() {
         </div>
         <h1 className="text-2xl font-bold tracking-tight">Dispatch Diary</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "signin"
-            ? "Sign in to sync your logs across devices"
-            : "Create an account to start syncing"}
+          Sign in to sync your logs across devices
         </p>
       </div>
 
@@ -112,31 +98,13 @@ function AuthPage() {
           className="w-full h-12 rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-[var(--shadow-glow)] active:scale-95 transition-all disabled:opacity-50"
         >
           {loading ? (
-            <span className="text-sm">
-              {mode === "signin" ? "Signing in…" : "Creating account…"}
-            </span>
+            <span className="text-sm">Signing in…</span>
           ) : (
             <>
-              <span className="text-sm">
-                {mode === "signin" ? "Sign In" : "Create Account"}
-              </span>
+              <span className="text-sm">Sign In</span>
               <ArrowRight size={18} />
             </>
           )}
-        </button>
-
-        {/* Toggle Mode */}
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === "signin" ? "signup" : "signin");
-            setError(null);
-          }}
-          className="w-full text-center text-sm text-primary hover:text-primary/80 py-2 transition-colors"
-        >
-          {mode === "signin"
-            ? "Don't have an account? Sign up"
-            : "Already have an account? Sign in"}
         </button>
 
         <button
