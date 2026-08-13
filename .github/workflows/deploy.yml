@@ -30,6 +30,9 @@ jobs:
         env:
           GITHUB_PAGES: true
 
+      - name: Add 404.html fallback for SPA routing
+        run: cp dist/client/index.html dist/client/404.html
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

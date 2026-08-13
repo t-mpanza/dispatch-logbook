@@ -13,6 +13,15 @@ export default defineConfig({
     tanstackStart({
       prerender: {
         enabled: true,
+        routes: [
+          "/",
+          "/loading-sheet",
+          "/counter",
+          "/search",
+          "/archive",
+          "/auth",
+          "/entry/new",
+        ],
       },
     }),
     viteReact(),
