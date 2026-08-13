@@ -115,7 +115,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files.",
       },
-
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
@@ -149,14 +148,13 @@ async function checkForOTA() {
   if (!Capacitor.isNativePlatform()) return;
   try {
     const res = await fetch(
-      "https://api.github.com/repos/t-mpanza/dispatch-logbook/releases/latest",
+      "https://api.github.com/repos/t-mpanza/dispatch-logbook/releases/latest"
     );
     if (!res.ok) return;
     const release = await res.json();
     const latestTag = release.tag_name;
     const currentTag = import.meta.env.VITE_APP_VERSION || "v1.0.0";
 
-    // Only update if there's a newer tag and we found the dist.zip
     if (latestTag && latestTag !== currentTag) {
       const asset = release.assets?.find((a: any) => a.name === "dist.zip");
       if (asset) {
@@ -183,6 +181,7 @@ async function checkForOTA() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
@@ -204,11 +203,23 @@ function RootComponent() {
       StatusBar.setStyle({ style: Style.Dark }).catch(console.error);
     }
 
-    // Android hardware back button — navigate back; double-tap root to exit
+    // Smart Android hardware back button handler
     let lastBackPress = 0;
     const backHandler = CapApp.addListener("backButton", () => {
-      if (window.location.pathname !== "/") {
-        window.history.back();
+      const currentPathName = window.location.pathname;
+      const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const relativePath = currentPathName.startsWith(baseUrl)
+        ? currentPathName.slice(baseUrl.length)
+        : currentPathName;
+
+      const isRoot = !relativePath || relativePath === "/" || relativePath === "";
+
+      if (!isRoot) {
+        if (router.history.canGoBack()) {
+          router.history.back();
+        } else {
+          router.navigate({ to: "/" });
+        }
       } else {
         const now = Date.now();
         if (now - lastBackPress < 2000) {
@@ -223,7 +234,6 @@ function RootComponent() {
     // Background cloud sync on launch (if already signed in)
     fullSync().catch(console.error);
 
-    // Re-sync whenever the user signs in
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
@@ -236,7 +246,7 @@ function RootComponent() {
       subscription.unsubscribe();
       backHandler.then((h) => h.remove());
     };
-  }, []);
+  }, [router]);
 
   return (
     <QueryClientProvider client={queryClient}>

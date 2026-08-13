@@ -13,18 +13,27 @@ export function AttachmentView({
   onOpenImage?: (a: Attachment) => void;
 }) {
   const [url, setUrl] = useState<string>("");
-  useEffect(() => {
-    if (!attachment.blob) return;
-    const u = URL.createObjectURL(attachment.blob);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [attachment.blob]);
 
+  useEffect(() => {
+    if (attachment.blob) {
+      const u = URL.createObjectURL(attachment.blob);
+      setUrl(u);
+      return () => URL.revokeObjectURL(u);
+    } else if (attachment.url) {
+      setUrl(attachment.url);
+    } else if (attachment.dataUrl) {
+      setUrl(attachment.dataUrl);
+    } else if (attachment.downloadUrl) {
+      setUrl(attachment.downloadUrl);
+    }
+  }, [attachment.blob, attachment.url, attachment.dataUrl, attachment.downloadUrl]);
+
+  const isImage = attachment.kind === "image" || attachment.kind === "photo";
   const wrapper = "relative rounded-xl overflow-hidden bg-surface-elevated border border-border";
 
   return (
     <div className={wrapper}>
-      {attachment.kind === "image" && url && (
+      {isImage && url && (
         <button
           type="button"
           onClick={() => onOpenImage?.(attachment)}

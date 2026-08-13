@@ -6,7 +6,8 @@ import { AppShell } from "@/components/AppShell";
 import { LoadingSheet } from "@/components/LoadingSheet";
 import { allEntries, updateEntry, createEntry } from "@/lib/db";
 import { dayKey } from "@/lib/format";
-import type { Entry } from "@/lib/types";
+import { syncTripsToLoadingSheet } from "@/lib/loading-presets";
+import type { Entry, LoadingSheetTrip } from "@/lib/types";
 import { parseISO, addDays, format } from "date-fns";
 
 export const Route = createFileRoute("/loading-sheet")({
@@ -23,8 +24,9 @@ function LoadingSheetPage() {
     queryFn: allEntries,
   });
 
+  // Find all entries logged on the selected date
   const dayEntries = entries.filter((e) => e.dayKey === selectedDate);
-  const primaryEntry = dayEntries.find((e) => Array.isArray(e.loadingSheetTrips) || Array.isArray(e.trips)) || dayEntries[0];
+  const primaryEntry = dayEntries.find((e) => (e.loadingSheetTrips && e.loadingSheetTrips.length > 0) || (e.trips && e.trips.length > 0)) || dayEntries[0];
 
   const handleDateChange = (offsetDays: number) => {
     try {
@@ -42,34 +44,44 @@ function LoadingSheetPage() {
     qc.invalidateQueries({ queryKey: ["entry", updatedEntry.id] });
   };
 
-  const handleCreateDailySheet = async () => {
+  const handleCreateDailySheet = async (newTrips: LoadingSheetTrip[]) => {
     const newEntry = await createEntry({
       title: `DESPATCH LOADING SHEET - ${selectedDate}`,
       tags: ["loading-sheet", "compliance"],
       withCounter: true,
     });
-    await updateEntry({
+    const saved = await updateEntry({
       ...newEntry,
       dayKey: selectedDate,
-      loadingSheetTrips: [],
+      loadingSheetTrips: newTrips,
     });
     qc.invalidateQueries({ queryKey: ["entries"] });
+    return saved;
   };
+
+  // Build unified loading sheet trips for the selected date
+  const combinedTrips: LoadingSheetTrip[] = dayEntries.reduce((acc, e) => {
+    if (Array.isArray(e.loadingSheetTrips) && e.loadingSheetTrips.length > 0) {
+      return [...acc, ...e.loadingSheetTrips];
+    }
+    if (Array.isArray(e.trips) && e.trips.length > 0) {
+      const synced = syncTripsToLoadingSheet(e, e.trips);
+      return [...acc, ...synced];
+    }
+    return acc;
+  }, [] as LoadingSheetTrip[]);
 
   const combinedEntry: Entry = primaryEntry ? {
     ...primaryEntry,
     dayKey: selectedDate,
-    loadingSheetTrips: dayEntries.reduce((acc, e) => {
-      const trips = e.loadingSheetTrips ?? [];
-      return [...acc, ...trips];
-    }, [] as any[]),
+    loadingSheetTrips: combinedTrips,
   } : {
     id: `temp-${selectedDate}`,
     title: `DESPATCH LOADING SHEET - ${selectedDate}`,
     tags: ["loading-sheet"],
     notes: [],
     attachments: [],
-    loadingSheetTrips: [],
+    loadingSheetTrips: combinedTrips,
     createdAt: parseISO(selectedDate).getTime() || Date.now(),
     updatedAt: Date.now(),
     dayKey: selectedDate,
@@ -135,7 +147,7 @@ function LoadingSheetPage() {
               entry={combinedEntry}
               onUpdateEntry={async (updated) => {
                 if (!primaryEntry) {
-                  await handleCreateDailySheet();
+                  await handleCreateDailySheet(updated.loadingSheetTrips ?? []);
                 } else {
                   await handleUpdateEntry({
                     ...primaryEntry,

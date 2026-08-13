@@ -1,4 +1,5 @@
-export type AttachmentKind = "audio" | "image" | "video" | "file";
+export type AttachmentKind = "audio" | "image" | "photo" | "video" | "file";
+export type SyncItemStatus = "synced" | "pending" | "error";
 
 export interface Attachment {
   id: string;
@@ -12,6 +13,8 @@ export interface Attachment {
   height?: number;
   storagePath?: string;
   downloadUrl?: string;
+  url?: string;
+  dataUrl?: string;
   createdAt: number;
 }
 
@@ -48,40 +51,42 @@ export interface LoadingSheetTrip {
 }
 
 export interface PresetFillResult {
-  presetKey?: PresetKey;
+  presetKey: PresetKey;
+  tripId: string;
   driverName?: string;
   reg?: string;
-  tripId: string;
+}
+
+export interface LoadingSheetHeader {
+  dateStr: string; // YYYY-MM-DD
+  despatcherName: string; // Default: "Theolus"
+  trips: LoadingSheetTrip[];
+  totalTyresLoaded: number;
+  totalLoadingTimeMinutes: number;
 }
 
 export interface Trip {
   id: string;
+  label?: string;
   count: number;
-  rejected?: number;
-  note?: string;
   createdAt: number;
+  note?: string;
+  rejected?: number;
 }
 
 export interface Entry {
   id: string;
   title: string;
   tags: string[];
+  expectedTotal?: number; // Target tyres expected (e.g. 100)
   notes: NoteBlock[];
   attachments: Attachment[];
   trips?: Trip[];
-  loadingSheetTrips?: LoadingSheetTrip[];
-  expectedTotal?: number; // invoice tyre count for progress tracking
-  createdAt: number;
+  loadingSheetTrips?: LoadingSheetTrip[]; // Daily compliance loading sheet trips
+  despatcherName?: string; // e.g. "Theolus"
+  createdAt: number; // epoch ms
   updatedAt: number;
-  // local date key YYYY-MM-DD for fast day queries
-  dayKey: string;
+  dayKey: string; // YYYY-MM-DD
   monthKey: string; // YYYY-MM
   yearKey: string; // YYYY
-}
-
-export type SyncItemStatus = "offline_saved" | "syncing" | "synced" | "error";
-
-export interface LoadingSheetHeader {
-  date: string; // YYYY-MM-DD
-  despatcherName: string;
 }

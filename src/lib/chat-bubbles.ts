@@ -1,6 +1,6 @@
 import type { Attachment, Entry, NoteBlock, SyncItemStatus, Trip } from "./types.ts";
 
-export type BubbleKind = "note" | "audio" | "image" | "video" | "file" | "trip";
+export type BubbleKind = "note" | "audio" | "image" | "photo" | "video" | "file" | "trip";
 
 export interface ChatBubbleItem {
   id: string;
@@ -56,44 +56,11 @@ export function entryToChatBubbles(
       id: t.id,
       kind: "trip",
       trip: t,
-      text: `Trip scanned: ${t.count} tyres${t.rejected ? ` (${t.rejected} rejected)` : ""}`,
       createdAt: t.createdAt,
       syncStatus,
       timeString: formatBubbleTime(t.createdAt),
     });
   }
 
-  // Sort chronological
   return bubbles.sort((a, b) => a.createdAt - b.createdAt);
-}
-
-export interface LightboxState {
-  isOpen: boolean;
-  activeAttachment: Attachment | null;
-  activeIndex: number;
-  totalAttachments: number;
-  zoomLevel: number;
-}
-
-export function createInitialLightboxState(): LightboxState {
-  return {
-    isOpen: false,
-    activeAttachment: null,
-    activeIndex: 0,
-    totalAttachments: 0,
-    zoomLevel: 1.0,
-  };
-}
-
-export function openLightbox(attachments: Attachment[], index: number): LightboxState {
-  if (!attachments || attachments.length === 0 || index < 0 || index >= attachments.length) {
-    return createInitialLightboxState();
-  }
-  return {
-    isOpen: true,
-    activeAttachment: attachments[index],
-    activeIndex: index,
-    totalAttachments: attachments.length,
-    zoomLevel: 1.0,
-  };
 }

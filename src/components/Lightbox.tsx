@@ -9,10 +9,12 @@ interface Props {
 }
 
 export function Lightbox({ attachments, startId, onClose }: Props) {
-  const images = attachments.filter((a) => a.kind === "image");
+  const images = attachments.filter(
+    (a) => a.kind === "image" || a.kind === "photo"
+  );
   const startIdx = Math.max(
     0,
-    images.findIndex((a) => a.id === startId),
+    images.findIndex((a) => a.id === startId)
   );
   const [idx, setIdx] = useState(startIdx);
   const [url, setUrl] = useState<string>("");
@@ -20,11 +22,19 @@ export function Lightbox({ attachments, startId, onClose }: Props) {
   const current = images[idx];
 
   useEffect(() => {
-    if (!current?.blob) return;
-    const u = URL.createObjectURL(current.blob);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [current?.id, current?.blob]);
+    if (!current) return;
+    if (current.blob) {
+      const u = URL.createObjectURL(current.blob);
+      setUrl(u);
+      return () => URL.revokeObjectURL(u);
+    } else if (current.url) {
+      setUrl(current.url);
+    } else if (current.dataUrl) {
+      setUrl(current.dataUrl);
+    } else if (current.downloadUrl) {
+      setUrl(current.downloadUrl);
+    }
+  }, [current?.id, current?.blob, current?.url, current?.dataUrl, current?.downloadUrl]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
