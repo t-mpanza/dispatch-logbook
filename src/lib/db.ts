@@ -56,6 +56,7 @@ export async function createEntry(input: {
     monthKey: monthKey(d),
     yearKey: yearKey(d),
   };
+  if (typeof indexedDB === "undefined") return entry;
   const db = await getDB();
   await db.put("entries", entry);
   pushEntry(entry).catch(console.error);
@@ -69,20 +70,22 @@ export async function entriesWithCounter(): Promise<Entry[]> {
 
 export async function updateEntry(entry: Entry) {
   entry.updatedAt = Date.now();
+  if (typeof indexedDB === "undefined") return;
   const db = await getDB();
   await db.put("entries", entry);
   pushEntry(entry).catch(console.error);
 }
 
 export async function getEntry(id: string): Promise<Entry | undefined> {
+  if (typeof indexedDB === "undefined") return undefined;
   const db = await getDB();
   return db.get("entries", id);
 }
 
 export async function deleteEntry(id: string) {
+  if (typeof indexedDB === "undefined") return;
   const db = await getDB();
   await db.delete("entries", id);
-  // cascade reminders
   const keys = await db.getAllKeysFromIndex("reminders", "byEntry", id);
   const tx = db.transaction("reminders", "readwrite");
   await Promise.all(keys.map((k) => tx.store.delete(k)));
@@ -91,23 +94,27 @@ export async function deleteEntry(id: string) {
 }
 
 export async function entriesByDay(day: string): Promise<Entry[]> {
+  if (typeof indexedDB === "undefined") return [];
   const db = await getDB();
   const list = await db.getAllFromIndex("entries", "byDay", day);
   return list.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function entriesByMonth(month: string): Promise<Entry[]> {
+  if (typeof indexedDB === "undefined") return [];
   const db = await getDB();
   return db.getAllFromIndex("entries", "byMonth", month);
 }
 
 export async function allEntries(): Promise<Entry[]> {
+  if (typeof indexedDB === "undefined") return [];
   const db = await getDB();
   const list = await db.getAll("entries");
   return list.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function searchEntries(q: string): Promise<Entry[]> {
+  if (typeof indexedDB === "undefined") return [];
   const all = await allEntries();
   const needle = q.toLowerCase().trim();
   if (!needle) return all;
@@ -120,6 +127,7 @@ export async function searchEntries(q: string): Promise<Entry[]> {
 }
 
 export async function allTags(): Promise<string[]> {
+  if (typeof indexedDB === "undefined") return [];
   const all = await allEntries();
   const set = new Set<string>();
   all.forEach((e) => e.tags.forEach((t) => set.add(t)));
@@ -129,27 +137,32 @@ export async function allTags(): Promise<string[]> {
 // Reminders
 export async function addReminder(r: Omit<Reminder, "id" | "done">): Promise<Reminder> {
   const rem: Reminder = { ...r, id: uid(), done: false };
+  if (typeof indexedDB === "undefined") return rem;
   const db = await getDB();
   await db.put("reminders", rem);
   return rem;
 }
 
 export async function remindersForEntry(entryId: string): Promise<Reminder[]> {
+  if (typeof indexedDB === "undefined") return [];
   const db = await getDB();
   return db.getAllFromIndex("reminders", "byEntry", entryId);
 }
 
 export async function allReminders(): Promise<Reminder[]> {
+  if (typeof indexedDB === "undefined") return [];
   const db = await getDB();
   return db.getAll("reminders");
 }
 
 export async function updateReminder(r: Reminder) {
+  if (typeof indexedDB === "undefined") return;
   const db = await getDB();
   await db.put("reminders", r);
 }
 
 export async function deleteReminder(id: string) {
+  if (typeof indexedDB === "undefined") return;
   const db = await getDB();
   await db.delete("reminders", id);
 }
@@ -167,6 +180,7 @@ export async function getDespatcherName(): Promise<string> {
     }
   }
   try {
+    if (typeof indexedDB === "undefined") return "Theolus";
     const db = await getDB();
     if (db.objectStoreNames.contains("settings")) {
       const val = await db.get("settings", "despatcherName");
@@ -177,7 +191,7 @@ export async function getDespatcherName(): Promise<string> {
   } catch (e) {
     console.error("Error reading despatcher name from IndexedDB:", e);
   }
-  return "";
+  return "Theolus";
 }
 
 export async function saveDespatcherName(name: string): Promise<void> {
@@ -188,6 +202,7 @@ export async function saveDespatcherName(name: string): Promise<void> {
     }
   }
   try {
+    if (typeof indexedDB === "undefined") return;
     const db = await getDB();
     if (db.objectStoreNames.contains("settings")) {
       await db.put("settings", trimmed, "despatcherName");
