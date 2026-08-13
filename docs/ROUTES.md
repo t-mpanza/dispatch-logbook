@@ -10,6 +10,7 @@ All routes are file-based under `src/routes/`. TanStack Router auto-generates `r
 **Component**: `RootShell` (HTML document shell) + `RootComponent` (client wrapper)
 
 ### What it does
+
 - Renders `<html>`, `<head>`, `<body>`, `<Scripts>`
 - Sets global `<head>` meta: charset, viewport, title, description, theme-color, OG/Twitter tags, PWA meta
 - Links: stylesheet, manifest, icon, apple-touch-icon
@@ -17,9 +18,11 @@ All routes are file-based under `src/routes/`. TanStack Router auto-generates `r
 - Provides 404 and error boundary components
 
 ### SW registration
+
 ```ts
-navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
+navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
 ```
+
 Uses `BASE_URL` to handle both GitHub Pages (`/dispatch-logbook/`) and root deployments.
 
 ---
@@ -30,6 +33,7 @@ Uses `BASE_URL` to handle both GitHub Pages (`/dispatch-logbook/`) and root depl
 **Query**: `["entries", "day", todayKey]` → `entriesByDay(today)`
 
 ### What it does
+
 - Shows today's date as a large heading
 - Lists entries via `<EntryListItem>`
 - "Yesterday" shortcut link → `/day/YYYY-MM-DD`
@@ -45,6 +49,7 @@ Uses `BASE_URL` to handle both GitHub Pages (`/dispatch-logbook/`) and root depl
 **Query**: `["tags"]` → `allTags()` for tag autocomplete
 
 ### What it does
+
 - Title input (monospace uppercase, autofocus)
 - Tags input via `<TagsInput>`
 - Quick templates: 7 presets that pre-fill title + tags (some enable counter)
@@ -53,12 +58,13 @@ Uses `BASE_URL` to handle both GitHub Pages (`/dispatch-logbook/`) and root depl
 - No `<AppShell>` — standalone header with back button
 
 ### State
-| State | Type | Notes |
-|---|---|---|
-| `title` | string | |
-| `tags` | string[] | |
-| `withCounter` | boolean | Whether to initialise trips array |
-| `saving` | boolean | Disables button during creation |
+
+| State         | Type     | Notes                             |
+| ------------- | -------- | --------------------------------- |
+| `title`       | string   |                                   |
+| `tags`        | string[] |                                   |
+| `withCounter` | boolean  | Whether to initialise trips array |
+| `saving`      | boolean  | Disables button during creation   |
 
 ---
 
@@ -68,6 +74,7 @@ Uses `BASE_URL` to handle both GitHub Pages (`/dispatch-logbook/`) and root depl
 **Queries**: `["entry", id]`, `["reminders", id]`, `["tags"]`
 
 ### What it does
+
 This is the heaviest route. Acts as both viewer and editor.
 
 - Sticky header: back button, date/time label, delete button
@@ -81,7 +88,9 @@ This is the heaviest route. Acts as both viewer and editor.
 - `<Lightbox>` overlay for image zoom
 
 ### `persist()` pattern
+
 All mutations go through a single helper:
+
 ```ts
 async function persist(updater: (e: Entry) => Entry) {
   const next = updater({ ...entry });
@@ -93,14 +102,15 @@ async function persist(updater: (e: Entry) => Entry) {
 ```
 
 ### State
-| State | Type | Notes |
-|---|---|---|
-| `title` | string | Local edit buffer, saves on blur |
-| `tags` | string[] | Local buffer, saves immediately on change |
-| `recording` | boolean | Toggles CaptureBar ↔ VoiceRecorder |
-| `noteDraft` | string | Quick note textarea |
-| `showReminder` | boolean | Shows/hides ReminderForm |
-| `lightboxId` | string\|null | Image id to open in lightbox |
+
+| State          | Type         | Notes                                     |
+| -------------- | ------------ | ----------------------------------------- |
+| `title`        | string       | Local edit buffer, saves on blur          |
+| `tags`         | string[]     | Local buffer, saves immediately on change |
+| `recording`    | boolean      | Toggles CaptureBar ↔ VoiceRecorder        |
+| `noteDraft`    | string       | Quick note textarea                       |
+| `showReminder` | boolean      | Shows/hides ReminderForm                  |
+| `lightboxId`   | string\|null | Image id to open in lightbox              |
 
 ---
 
@@ -110,6 +120,7 @@ async function persist(updater: (e: Entry) => Entry) {
 **Query**: `["entries", "counter"]` → `entriesWithCounter()`
 
 ### What it does
+
 - Lists all entries that have `trips` array (counter sessions)
 - Each card shows title, date/time, total accepted count, trip count
 - "Start new count session" button → creates entry with preset title `"Tyre count – HH:mm"`, tags `["tyres","count"]`, `withCounter: true`, navigates to `/entry/:id`
@@ -123,6 +134,7 @@ async function persist(updater: (e: Entry) => Entry) {
 **Queries**: `["search", q]` → `searchEntries(q)`, `["tags"]` → `allTags()`
 
 ### What it does
+
 - Autofocused search input
 - Searches title, tags, and note text (client-side, full scan)
 - Shows all tags as clickable chips (tap to set as search query)
@@ -137,6 +149,7 @@ async function persist(updater: (e: Entry) => Entry) {
 **Query**: `["entries", "all"]` → `allEntries()`
 
 ### What it does
+
 - Groups all entries: Year → Month → Week → Day
 - Nested `<details>` disclosure (Year expands Month; Month expands Weeks; Week expands Days)
 - Most recent month auto-opened (`open={m === y.months[0]}`)
@@ -146,6 +159,7 @@ async function persist(updater: (e: Entry) => Entry) {
 - Uses `<AppShell>`
 
 ### Grouping keys
+
 - Week number via `getWeek(d, { weekStartsOn: 1 })` (Monday-based ISO weeks)
 - Week label: `"Week N · D MMM – D MMM"`
 
@@ -157,6 +171,7 @@ async function persist(updater: (e: Entry) => Entry) {
 **Query**: `["entries", "day", date]` → `entriesByDay(date)`
 
 ### What it does
+
 - Shows all entries for a specific date
 - Sticky header: back to `/archive`, date label, prev/next day buttons
 - No FAB — use Today or entry.new for creation

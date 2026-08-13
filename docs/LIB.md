@@ -24,10 +24,11 @@ const DB_VERSION = 1;
 See [DATA_MODEL.md → DB API](./DATA_MODEL.md#db-api-srclibdbts) for full function table.
 
 **Important**: `deleteEntry` cascades to reminders using a multi-key transaction:
+
 ```ts
 const keys = await db.getAllKeysFromIndex("reminders", "byEntry", id);
 const tx = db.transaction("reminders", "readwrite");
-await Promise.all(keys.map(k => tx.store.delete(k)));
+await Promise.all(keys.map((k) => tx.store.delete(k)));
 await tx.done;
 ```
 
@@ -39,20 +40,20 @@ await tx.done;
 
 Pure formatting utilities. All functions accept `Date | number` (epoch ms).
 
-| Export | Signature | Output example |
-|---|---|---|
-| `dayKey` | `(d) => string` | `"2026-05-21"` |
-| `monthKey` | `(d) => string` | `"2026-05"` |
-| `yearKey` | `(d) => string` | `"2026"` |
-| `fmtTime` | `(d) => string` | `"14:35"` |
-| `fmtDayLabel` | `(d) => string` | `"Thursday, 21 May"` |
-| `fmtShortDay` | `(d) => string` | `"Thu 21"` |
-| `fmtMonth` | `(d) => string` | `"May 2026"` |
-| `weekRangeLabel` | `(d: Date) => string` | `"19 May – 25 May"` |
-| `weekNumber` | `(d: Date) => number` | ISO week number, Monday-start |
-| `uid` | `() => string` | `"abc123xyz"` — random base36 + epoch base36 |
-| `formatDuration` | `(ms: number) => string` | `"2:07"` — M:SS |
-| `formatBytes` | `(n: number) => string` | `"1.4 MB"` / `"340 KB"` / `"512 B"` |
+| Export           | Signature                | Output example                               |
+| ---------------- | ------------------------ | -------------------------------------------- |
+| `dayKey`         | `(d) => string`          | `"2026-05-21"`                               |
+| `monthKey`       | `(d) => string`          | `"2026-05"`                                  |
+| `yearKey`        | `(d) => string`          | `"2026"`                                     |
+| `fmtTime`        | `(d) => string`          | `"14:35"`                                    |
+| `fmtDayLabel`    | `(d) => string`          | `"Thursday, 21 May"`                         |
+| `fmtShortDay`    | `(d) => string`          | `"Thu 21"`                                   |
+| `fmtMonth`       | `(d) => string`          | `"May 2026"`                                 |
+| `weekRangeLabel` | `(d: Date) => string`    | `"19 May – 25 May"`                          |
+| `weekNumber`     | `(d: Date) => number`    | ISO week number, Monday-start                |
+| `uid`            | `() => string`           | `"abc123xyz"` — random base36 + epoch base36 |
+| `formatDuration` | `(ms: number) => string` | `"2:07"` — M:SS                              |
+| `formatBytes`    | `(n: number) => string`  | `"1.4 MB"` / `"340 KB"` / `"512 B"`          |
 
 Uses `date-fns` v4 for all date formatting. Week start: Monday (`weekStartsOn: 1`).
 
@@ -64,12 +65,13 @@ Image processing utilities to prevent memory crashes on mobile when storing larg
 
 ### `downscaleImage(file: File | Blob, name?: string): Promise<Blob>`
 
-| Constant | Value |
-|---|---|
-| `MAX_EDGE` | `1800` px |
-| `QUALITY` | `0.85` JPEG |
+| Constant   | Value       |
+| ---------- | ----------- |
+| `MAX_EDGE` | `1800` px   |
+| `QUALITY`  | `0.85` JPEG |
 
 **Algorithm**:
+
 1. Skip files < 600 KB (already small enough)
 2. `createImageBitmap()` to decode
 3. Calculate scale factor: `min(1, 1800 / max(width, height))`
@@ -114,24 +116,24 @@ Quick-fill entry templates for the new entry form.
 
 ```ts
 interface QuickTemplate {
-  label: string;       // Button label in UI
-  title: string;       // Pre-filled entry title (user appends identifier)
-  tags: string[];      // Pre-filled tags
+  label: string; // Button label in UI
+  title: string; // Pre-filled entry title (user appends identifier)
+  tags: string[]; // Pre-filled tags
   withCounter?: boolean; // Whether to enable trip counter
 }
 ```
 
 ### Templates
 
-| Label | Title prefix | Tags | Counter |
-|---|---|---|---|
-| Tyre count | `"Tyre count – "` | tyres, count | ✓ |
-| Tyre issue | `"Tyre issue – "` | tyres, urgent | |
-| Driver issue | `"Driver – "` | driver | |
-| Invoice mismatch | `"Invoice mismatch – "` | invoice | |
-| Missing stock | `"Missing stock – "` | stock | |
-| Loading delay | `"Loading delay – Bay "` | loading, dispatch | |
-| Damage report | `"Damage – "` | damage, urgent | |
+| Label            | Title prefix             | Tags              | Counter |
+| ---------------- | ------------------------ | ----------------- | ------- |
+| Tyre count       | `"Tyre count – "`        | tyres, count      | ✓       |
+| Tyre issue       | `"Tyre issue – "`        | tyres, urgent     |         |
+| Driver issue     | `"Driver – "`            | driver            |         |
+| Invoice mismatch | `"Invoice mismatch – "`  | invoice           |         |
+| Missing stock    | `"Missing stock – "`     | stock             |         |
+| Loading delay    | `"Loading delay – Bay "` | loading, dispatch |         |
+| Damage report    | `"Damage – "`            | damage, urgent    |         |
 
 Applying a template merges its tags with existing tags (`Set` dedup) and sets title.
 
@@ -142,6 +144,7 @@ Applying a template merges its tags with existing tags (`Set` dedup) and sets ti
 Out-of-band error capture for the Cloudflare Workers SSR context. h3 (the underlying HTTP framework used by TanStack Start) swallows in-handler throws into generic 500 JSON responses, losing the original error object.
 
 This module:
+
 1. Attaches global `error` and `unhandledrejection` listeners
 2. Records the most recent error with a timestamp
 3. Exports `consumeLastCapturedError()` — read-once, TTL 5 seconds
@@ -155,7 +158,7 @@ Used by `server.ts` to recover the original error when it detects an h3 swallowe
 Returns a minimal inline HTML string for the fallback error page. Light theme (not Midnight Indigo) because it must render without any CSS bundle.
 
 ```ts
-export function renderErrorPage(): string
+export function renderErrorPage(): string;
 ```
 
 Used by both `server.ts` and `start.ts`.
@@ -165,7 +168,7 @@ Used by both `server.ts` and `start.ts`.
 ## `utils.ts`
 
 ```ts
-export function cn(...inputs: ClassValue[]): string
+export function cn(...inputs: ClassValue[]): string;
 ```
 
 Standard `clsx` + `tailwind-merge` helper. Used by shadcn/ui components in `src/components/ui/`.

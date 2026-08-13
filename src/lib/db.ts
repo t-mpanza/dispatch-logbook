@@ -4,7 +4,7 @@ import { dayKey, monthKey, uid, yearKey } from "./format";
 import { pushEntry, deleteRemoteEntry } from "./sync";
 
 const DB_NAME = "dispatch-diary";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbp: Promise<IDBPDatabase> | null = null;
 
@@ -26,6 +26,9 @@ function getDB() {
           const r = db.createObjectStore("reminders", { keyPath: "id" });
           r.createIndex("byEntry", "entryId");
           r.createIndex("byAt", "at");
+        }
+        if (!db.objectStoreNames.contains("settings")) {
+          db.createObjectStore("settings");
         }
       },
     });
@@ -149,4 +152,47 @@ export async function updateReminder(r: Reminder) {
 export async function deleteReminder(id: string) {
   const db = await getDB();
   await db.delete("reminders", id);
+}
+
+// Despatcher Name saved preference (Dual-tier: localStorage + IndexedDB settings store)
+const DESPATCHER_NAME_KEYS = ["dispatch_despatcher_name", "despatch_diary_despatcher_name"];
+
+export async function getDespatcherName(): Promise<string> {
+  if (typeof window !== "undefined" && window.localStorage) {
+    for (const key of DESPATCHER_NAME_KEYS) {
+      const val = localStorage.getItem(key);
+      if (val !== null && val.trim().length > 0) {
+        return val.trim();
+      }
+    }
+  }
+  try {
+    const db = await getDB();
+    if (db.objectStoreNames.contains("settings")) {
+      const val = await db.get("settings", "despatcherName");
+      if (typeof val === "string" && val.trim().length > 0) {
+        return val.trim();
+      }
+    }
+  } catch (e) {
+    console.error("Error reading despatcher name from IndexedDB:", e);
+  }
+  return "";
+}
+
+export async function saveDespatcherName(name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (typeof window !== "undefined" && window.localStorage) {
+    for (const key of DESPATCHER_NAME_KEYS) {
+      localStorage.setItem(key, trimmed);
+    }
+  }
+  try {
+    const db = await getDB();
+    if (db.objectStoreNames.contains("settings")) {
+      await db.put("settings", trimmed, "despatcherName");
+    }
+  } catch (e) {
+    console.error("Failed to save despatcher name to IndexedDB:", e);
+  }
 }

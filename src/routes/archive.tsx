@@ -101,9 +101,7 @@ function ArchivePage() {
   return (
     <AppShell>
       <header className="px-5 pt-8 pb-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">
-          Archive
-        </p>
+        <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">Archive</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">All your records</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {entries.length} {entries.length === 1 ? "entry" : "entries"} on this device
@@ -133,7 +131,7 @@ function ArchivePage() {
                     <span className="text-xs text-muted-foreground">
                       {m.weeks.reduce(
                         (n, w) => n + w.days.reduce((nn, d) => nn + d.entries.length, 0),
-                        0
+                        0,
                       )}
                     </span>
                     <ChevronRight

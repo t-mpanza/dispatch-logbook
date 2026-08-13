@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Truck } from "lucide-react";
+import { Plus, Truck, Clock } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { createEntry, entriesWithCounter } from "@/lib/db";
+import { calculateLoadingSheetTotals } from "@/lib/loading-presets";
 import { fmtDayLabel, fmtTime } from "@/lib/format";
 
 export const Route = createFileRoute("/counter")({
@@ -29,9 +30,7 @@ function CounterIndex() {
   return (
     <AppShell>
       <header className="px-5 pt-8 pb-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">
-          Counter
-        </p>
+        <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">Counter</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Trip counting</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {sessions.length === 0
@@ -43,7 +42,7 @@ function CounterIndex() {
       <div className="px-5">
         <button
           onClick={startNew}
-          className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground font-semibold shadow-[var(--shadow-glow)] active:scale-[0.99] transition-transform"
+          className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground font-semibold shadow-[var(--shadow-glow)] active:scale-[0.99] transition-transform cursor-pointer"
         >
           <Plus size={20} /> Start new count session
         </button>
@@ -62,8 +61,23 @@ function CounterIndex() {
           </div>
         )}
         {sessions.map((s) => {
-          const total = (s.trips ?? []).reduce((n, t) => n + t.count, 0);
-          const trips = (s.trips ?? []).length;
+          const loadingTrips = s.loadingSheetTrips ?? [];
+          const legacyTrips = s.trips ?? [];
+
+          let totalTyres = 0;
+          let tripCount = 0;
+          let totalMinutes = 0;
+
+          if (loadingTrips.length > 0) {
+            const totals = calculateLoadingSheetTotals(loadingTrips);
+            totalTyres = totals.totalTyresLoaded;
+            totalMinutes = totals.totalLoadingTimeMinutes;
+            tripCount = loadingTrips.length;
+          } else {
+            totalTyres = legacyTrips.reduce((n, t) => n + t.count, 0);
+            tripCount = legacyTrips.length;
+          }
+
           return (
             <Link
               key={s.id}
@@ -79,13 +93,18 @@ function CounterIndex() {
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {fmtDayLabel(s.createdAt)} · {fmtTime(s.createdAt)}
                   </p>
+                  {totalMinutes > 0 && (
+                    <p className="text-[11px] text-muted-foreground/80 mt-1 flex items-center gap-1">
+                      <Clock size={12} /> {totalMinutes} mins total loading time
+                    </p>
+                  )}
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-2xl font-bold tabular-nums text-primary-glow leading-none">
-                    {total}
+                    {totalTyres}
                   </p>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
-                    {trips} {trips === 1 ? "trip" : "trips"}
+                    {tripCount} {tripCount === 1 ? "trip" : "trips"}
                   </p>
                 </div>
               </div>

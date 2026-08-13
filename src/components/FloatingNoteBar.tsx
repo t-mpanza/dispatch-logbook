@@ -42,7 +42,7 @@ export function FloatingNoteBar({ onAdd, onAttachment, onStartVoice }: Props) {
         }`}
       >
         <CaptureBar onAttachment={onAttachment} onStartVoice={onStartVoice} />
-        
+
         <textarea
           ref={textareaRef}
           value={text}

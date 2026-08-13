@@ -38,9 +38,7 @@ function TodayPage() {
     <AppShell>
       <header className="px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-4 flex items-start justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">
-            Today
-          </p>
+          <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">Today</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">{fmtDayLabel(today)}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {entries.length === 0
@@ -50,7 +48,8 @@ function TodayPage() {
         </div>
 
         <Link
-          to={`/day/${yesterdayDateStr}`}
+          to="/day/$date"
+          params={{ date: yesterdayDateStr }}
           className="mt-1 h-9 px-3 rounded-xl bg-surface-elevated border border-border flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-all active:scale-95"
           aria-label="Yesterday"
         >

@@ -8,11 +8,15 @@
 **Used by**: Today, Counter, Search, Archive pages
 
 ### Props
+
 ```ts
-{ children: ReactNode }
+{
+  children: ReactNode;
+}
 ```
 
 ### What it does
+
 - Layout container: `min-h-screen flex flex-col max-w-md mx-auto`
 - Calls `rescheduleAll()` on mount (re-arms reminder timeouts)
 - Fixed bottom nav with 4 links: Today (`/`), Counter (`/counter`), Search (`/search`), Archive (`/archive`)
@@ -28,11 +32,15 @@
 **Used by**: Today, Search, Archive (day drilldown via `day.$date`)
 
 ### Props
+
 ```ts
-{ entry: Entry }
+{
+  entry: Entry;
+}
 ```
 
 ### What it renders
+
 - `<Link>` card → `/entry/:id`
 - Title (monospace, uppercase, truncated)
 - Creation time (HH:mm)
@@ -49,6 +57,7 @@
 **Used by**: `entry.$id.tsx`
 
 ### Props
+
 ```ts
 {
   onAttachment: (a: Attachment) => void;
@@ -58,6 +67,7 @@
 ```
 
 ### What it does
+
 - 4-button grid: Voice | Photo | Video | File
 - **Voice**: calls `onStartVoice` (parent swaps in `<VoiceRecorder>`)
 - **Photo**: opens `<InAppCamera>` overlay (not the system file picker)
@@ -65,12 +75,14 @@
 - **File**: triggers hidden `<input type="file" multiple>` (any file type)
 
 ### Image handling
+
 - Images are downscaled via `downscaleImage()` before calling `onAttachment`
 - Multiple files supported for photo and file inputs
 - Yield between files: `await new Promise(r => setTimeout(r, 0))`
 - Processing state shown with `"Processing photo…"` label
 
 ### Camera fallback
+
 If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the hidden `photoRef` input to use the system camera instead.
 
 ---
@@ -81,6 +93,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 **Used by**: `CaptureBar`
 
 ### Props
+
 ```ts
 {
   onCapture: (blob: Blob) => void;
@@ -90,6 +103,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 ```
 
 ### What it does
+
 - Full-screen camera overlay (z-50, fixed inset-0, black bg)
 - Uses `navigator.mediaDevices.getUserMedia` to get video stream
 - Prefers `facingMode: "environment"` (rear camera)
@@ -98,6 +112,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 - "Use System" button → calls `onFallback()`
 
 ### Known issues
+
 - Stream cleanup in the `facingMode` effect references stale `stream` state — can leak tracks on camera switch (see `KNOWN_GAPS.md`)
 - Falls back to `onFallback()` on `getUserMedia` error (shows sonner toast first)
 
@@ -109,6 +124,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 **Used by**: `entry.$id.tsx`
 
 ### Props
+
 ```ts
 {
   onSave: (a: Attachment) => void;
@@ -117,6 +133,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 ```
 
 ### What it does
+
 - Starts recording immediately on mount (`useEffect` → `start()`)
 - Uses `MediaRecorder` with `audio/webm` if supported, otherwise browser default
 - Elapsed timer updates every 200ms
@@ -132,6 +149,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 **Used by**: `entry.$id.tsx` timeline
 
 ### Props
+
 ```ts
 {
   attachment: Attachment;
@@ -141,12 +159,13 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 ```
 
 ### Rendering by kind
-| Kind | Renders |
-|---|---|
+
+| Kind    | Renders                                        |
+| ------- | ---------------------------------------------- |
 | `image` | `<img>` + tap opens lightbox via `onOpenImage` |
-| `video` | `<video controls>` |
-| `audio` | `<audio controls>` + optional duration label |
-| `file` | Download link with filename + size |
+| `video` | `<video controls>`                             |
+| `audio` | `<audio controls>` + optional duration label   |
+| `file`  | Download link with filename + size             |
 
 - Blob URL created via `URL.createObjectURL()`, revoked on unmount
 - Remove button (absolute top-right) — only shown if `onRemove` is provided
@@ -159,6 +178,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 **Used by**: `entry.$id.tsx`
 
 ### Props
+
 ```ts
 {
   attachments: Attachment[];  // full attachment list (filters to images internally)
@@ -168,6 +188,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 ```
 
 ### What it does
+
 - Full-screen image viewer (z-100, `bg-black/95`, `backdrop-blur-md`)
 - Filters `attachments` to `kind === "image"` only
 - Keyboard navigation: Escape=close, ArrowLeft/Right=prev/next
@@ -184,6 +205,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 **Used by**: `entry.$id.tsx`
 
 ### Props
+
 ```ts
 {
   trips: Trip[];
@@ -192,6 +214,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 ```
 
 ### What it does
+
 - Header: gradient background, shows total accepted + total rejected counts
 - Accepted counter: stepper (−/+) + numeric input
 - Rejected counter: stepper (−/+) + numeric input (red-accented)
@@ -201,11 +224,12 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 - Trip history: reverse-chronological list with trip #, counts, time, note; delete button per trip
 
 ### State (local, not persisted until onChange called)
-| State | Notes |
-|---|---|
-| `count` | Accepted count for the pending trip |
+
+| State           | Notes                               |
+| --------------- | ----------------------------------- |
+| `count`         | Accepted count for the pending trip |
 | `rejectedCount` | Rejected count for the pending trip |
-| `note` | Note for the pending trip |
+| `note`          | Note for the pending trip           |
 
 ---
 
@@ -215,6 +239,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 **Used by**: `entry.new.tsx`, `entry.$id.tsx`
 
 ### Props
+
 ```ts
 {
   value: string[];
@@ -224,6 +249,7 @@ If `InAppCamera` calls `onFallback()`, it closes and programmatically clicks the
 ```
 
 ### Behaviour
+
 - Tags displayed as pills with `×` remove button
 - Input: Enter or `,` → adds tag; Backspace on empty input → removes last tag
 - Tags are lowercased, `#` prefix stripped on input

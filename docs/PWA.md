@@ -39,11 +39,11 @@ Request
 
 ### Lifecycle
 
-| Event | Behaviour |
-|---|---|
-| `install` | Pre-caches `["./", "index.html", "manifest.webmanifest", "icon-512.png"]` then `skipWaiting()` |
-| `activate` | Deletes all caches except `CACHE_NAME`, then `clients.claim()` |
-| `fetch` | Only handles GET requests |
+| Event      | Behaviour                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------- |
+| `install`  | Pre-caches `["./", "index.html", "manifest.webmanifest", "icon-512.png"]` then `skipWaiting()` |
+| `activate` | Deletes all caches except `CACHE_NAME`, then `clients.claim()`                                 |
+| `fetch`    | Only handles GET requests                                                                      |
 
 ### Registration (`__root.tsx`)
 
@@ -59,6 +59,7 @@ SW is registered client-side on every root component mount. `BASE_URL` is `/disp
 ## Offline behaviour
 
 After first load:
+
 - All JS/CSS bundles are cached by the SW
 - Navigation requests fall back to the cached index shell if offline
 - IndexedDB data (entries, attachments, reminders) is always local — works 100% offline
@@ -71,10 +72,11 @@ After first load:
 Installable on Android (Chrome), iOS (Safari "Add to Home Screen"), and desktop (Chrome/Edge).
 
 PWA meta tags in `__root.tsx`:
+
 ```html
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Diary">
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Diary" />
 ```
 
 iOS `apple-mobile-web-app-capable` makes it launch in standalone mode from the home screen.

@@ -110,8 +110,8 @@ function NewEntryPage() {
         </label>
 
         <p className="text-xs text-muted-foreground pt-4">
-          Tap <span className="text-foreground font-medium">Create</span> — you'll be taken
-          straight to the entry to add voice notes, photos and files.
+          Tap <span className="text-foreground font-medium">Create</span> — you'll be taken straight
+          to the entry to add voice notes, photos and files.
         </p>
       </div>
     </div>

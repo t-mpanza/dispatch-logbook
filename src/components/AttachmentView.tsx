@@ -14,13 +14,13 @@ export function AttachmentView({
 }) {
   const [url, setUrl] = useState<string>("");
   useEffect(() => {
+    if (!attachment.blob) return;
     const u = URL.createObjectURL(attachment.blob);
     setUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [attachment.blob]);
 
-  const wrapper =
-    "relative rounded-xl overflow-hidden bg-surface-elevated border border-border";
+  const wrapper = "relative rounded-xl overflow-hidden bg-surface-elevated border border-border";
 
   return (
     <div className={wrapper}>
@@ -73,7 +73,7 @@ export function AttachmentView({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{attachment.name ?? "Attachment"}</p>
             <p className="text-xs text-muted-foreground">
-              {formatBytes(attachment.blob.size)} · tap to download
+              {attachment.blob ? formatBytes(attachment.blob.size) : "0 B"} · tap to download
             </p>
           </div>
         </a>

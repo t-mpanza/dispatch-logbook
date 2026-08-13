@@ -8,25 +8,25 @@ Mobile-first PWA for dispatch operations. Workers log incidents with voice notes
 
 ## Stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Framework | TanStack Start | ~1.167 |
-| Router | TanStack Router (file-based) | ~1.168 |
-| Server-side rendering | TanStack Start prerender (SSG) | — |
-| UI library | React | 19 |
-| Styling | Tailwind CSS v4 | ~4.2 |
-| Component primitives | Radix UI (full suite) | latest |
-| Data fetching | TanStack Query | ~5.83 |
-| Local database | IndexedDB via `idb` | ~8.0 |
-| Forms | react-hook-form + zod | v7 / v3 |
-| Date handling | date-fns | v4 |
-| Icons | lucide-react | ~0.575 |
-| Toasts | sonner | ~2.0 |
-| Build | Vite | ~7.3 |
-| Runtime target | Browser (ESNext) | — |
-| Deployment | GitHub Pages (static) | — |
-| Alt deployment | Cloudflare Workers (via wrangler) | — |
-| Package manager | npm (lock present), bun also supported | — |
+| Layer                 | Technology                             | Version |
+| --------------------- | -------------------------------------- | ------- |
+| Framework             | TanStack Start                         | ~1.167  |
+| Router                | TanStack Router (file-based)           | ~1.168  |
+| Server-side rendering | TanStack Start prerender (SSG)         | —       |
+| UI library            | React                                  | 19      |
+| Styling               | Tailwind CSS v4                        | ~4.2    |
+| Component primitives  | Radix UI (full suite)                  | latest  |
+| Data fetching         | TanStack Query                         | ~5.83   |
+| Local database        | IndexedDB via `idb`                    | ~8.0    |
+| Forms                 | react-hook-form + zod                  | v7 / v3 |
+| Date handling         | date-fns                               | v4      |
+| Icons                 | lucide-react                           | ~0.575  |
+| Toasts                | sonner                                 | ~2.0    |
+| Build                 | Vite                                   | ~7.3    |
+| Runtime target        | Browser (ESNext)                       | —       |
+| Deployment            | GitHub Pages (static)                  | —       |
+| Alt deployment        | Cloudflare Workers (via wrangler)      | —       |
+| Package manager       | npm (lock present), bun also supported | —       |
 
 ---
 

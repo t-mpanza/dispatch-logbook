@@ -12,6 +12,8 @@ import { CounterProgress } from "@/components/CounterProgress";
 import { EventLog } from "@/components/EventLog";
 import { FloatingNoteBar } from "@/components/FloatingNoteBar";
 import { TagsInput } from "@/components/TagsInput";
+import { LoadingSheet } from "@/components/LoadingSheet";
+import { syncTripsToLoadingSheet } from "@/lib/loading-presets";
 import { fmtDayLabel, fmtTime, uid } from "@/lib/format";
 
 export const Route = createFileRoute("/entry/$id")({
@@ -36,11 +38,14 @@ function EntryPage() {
   const [lightboxId, setLightboxId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  // For counter sessions: collapse the detail section to keep counter visible
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const itemsCount = (entry?.notes?.length ?? 0) + (entry?.attachments?.length ?? 0) + (entry?.trips?.length ?? 0);
+  const itemsCount =
+    (entry?.notes?.length ?? 0) +
+    (entry?.attachments?.length ?? 0) +
+    (entry?.trips?.length ?? 0) +
+    (entry?.loadingSheetTrips?.length ?? 0);
   const prevCount = useRef(itemsCount);
 
   useEffect(() => {
@@ -50,14 +55,13 @@ function EntryPage() {
     }
   }, [entry?.id]);
 
-  // Auto-scroll to bottom WhatsApp style
   useEffect(() => {
     if (scrollRef.current) {
       const isFirstLoad = prevCount.current === 0 && itemsCount > 0;
       setTimeout(() => {
         scrollRef.current?.scrollIntoView({
           behavior: isFirstLoad ? "auto" : "smooth",
-          block: "end"
+          block: "end",
         });
       }, 50);
       prevCount.current = itemsCount;
@@ -85,38 +89,62 @@ function EntryPage() {
     qc.invalidateQueries({ queryKey: ["tags"] });
   }
 
+  async function handleUpdateEntry(updatedEntry: Entry) {
+    await updateEntry(updatedEntry);
+    qc.invalidateQueries({ queryKey: ["entry", id] });
+    qc.invalidateQueries({ queryKey: ["entries"] });
+    qc.invalidateQueries({ queryKey: ["tags"] });
+  }
+
   async function addAttachment(a: Attachment) {
     await persist((e) => ({ ...e, attachments: [...e.attachments, a] }));
     setRecording(false);
   }
+
   async function removeAttachment(aid: string) {
     await persist((e) => ({ ...e, attachments: e.attachments.filter((a) => a.id !== aid) }));
   }
+
   async function addNote(text: string) {
     await persist((e) => ({ ...e, notes: [...e.notes, { id: uid(), text, createdAt: Date.now() }] }));
   }
+
   async function removeNote(nid: string) {
     await persist((e) => ({ ...e, notes: e.notes.filter((n) => n.id !== nid) }));
   }
+
   async function saveHeader() {
     await persist((e) => ({ ...e, title: title.trim() || "Untitled", tags }));
   }
+
   async function onDelete() {
     if (!confirm("Delete this entry permanently?")) return;
     await deleteEntry(entry!.id);
     navigate({ to: "/" });
   }
 
-  const isCounterSession = Array.isArray(entry.trips);
+  const isCounterSession =
+    Array.isArray(entry.trips) || Array.isArray(entry.loadingSheetTrips);
   const trips = entry.trips ?? [];
   const totalScanned = trips.reduce((n, t) => n + t.count, 0);
   const totalManual = trips.reduce((n, t) => n + (t.rejected ?? 0), 0);
   const grandTotal = totalScanned + totalManual;
 
+  async function handleCounterChange(nextTrips: Trip[]) {
+    await persist((e) => {
+      const updatedSheetTrips = syncTripsToLoadingSheet(e, nextTrips);
+      return {
+        ...e,
+        trips: nextTrips,
+        loadingSheetTrips: updatedSheetTrips,
+      };
+    });
+  }
+
   return (
-    <div className="min-h-screen bg-background max-w-md mx-auto pb-28">
-      {/* ── Sticky header ─────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border pt-[env(safe-area-inset-top)]">
+    <div className="min-h-screen bg-background max-w-4xl mx-auto pb-28">
+      {/* ── Header ─────────────────────────────────── */}
+      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-border pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => navigate({ to: "/" })}
@@ -156,51 +184,59 @@ function EntryPage() {
           </button>
         </div>
 
-        {/* Collapsible tags — visible for standard entries always, for counter sessions only when expanded */}
+        {/* Collapsible tags */}
         {(!isCounterSession || detailsOpen) && (
           <div className="px-4 pb-3">
             <TagsInput
               value={tags}
-              onChange={(t) => { setTags(t); persist((e) => ({ ...e, tags: t })); }}
+              onChange={(t) => {
+                setTags(t);
+                persist((e) => ({ ...e, tags: t }));
+              }}
               suggestions={tagSuggestions}
             />
           </div>
         )}
       </header>
 
-      {/* ── Sticky counter zone ────────────────────────────── */}
-      {isCounterSession && (
-        <div className="sticky top-[57px] z-20 bg-background border-b border-border px-4 pt-3 pb-3 space-y-3">
-          <CounterProgress
-            total={grandTotal}
-            tripCount={trips.length}
-            expectedTotal={entry.expectedTotal}
-            onSetExpected={(n) => persist((e) => ({ ...e, expectedTotal: n }))}
-          />
-          <CounterPanel
-            trips={trips}
-            onChange={(next: Trip[]) => persist((e) => ({ ...e, trips: next }))}
-            onAttachment={addAttachment}
-          />
-        </div>
-      )}
-
       {/* ── Scrollable content ─────────────────────────────── */}
       <div className="px-4 pt-4 space-y-4">
+        {/* Counter Progress & Scanned Tyre Counter Zone */}
+        {isCounterSession && (
+          <div className="bg-surface border border-border rounded-2xl p-3 sm:p-4 space-y-3 shadow-xs">
+            <CounterProgress
+              total={grandTotal}
+              tripCount={trips.length}
+              expectedTotal={entry.expectedTotal}
+              onSetExpected={(n) => persist((e) => ({ ...e, expectedTotal: n }))}
+            />
+            <CounterPanel
+              trips={trips}
+              onChange={handleCounterChange}
+              onAttachment={addAttachment}
+            />
+          </div>
+        )}
+
+        {/* Compliance Loading Sheet Component */}
+        {isCounterSession && (
+          <div className="my-4">
+            <LoadingSheet entry={entry} onUpdateEntry={handleUpdateEntry} />
+          </div>
+        )}
+
         {/* Add counter (standard entries only) */}
         {!isCounterSession && (
           <button
-            onClick={() => persist((e) => ({ ...e, trips: [] }))}
+            onClick={() => persist((e) => ({ ...e, trips: [], loadingSheetTrips: [] }))}
             className="w-full rounded-xl bg-surface border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
           >
-            + Add tyre counter to this entry
+            + Add tyre counter & loading sheet to this entry
           </button>
         )}
 
         {/* Voice recording UI */}
-        {recording && (
-          <VoiceRecorder onSave={addAttachment} onCancel={() => setRecording(false)} />
-        )}
+        {recording && <VoiceRecorder onSave={addAttachment} onCancel={() => setRecording(false)} />}
 
         {/* Event log */}
         <div>
@@ -214,17 +250,21 @@ function EntryPage() {
             onRemoveNote={removeNote}
             onRemoveAttachment={removeAttachment}
             onRemoveTrip={(tid) =>
-              persist((e) => ({ ...e, trips: (e.trips ?? []).filter((t) => t.id !== tid) }))
+              persist((e) => {
+                const nextTrips = (e.trips ?? []).filter((t) => t.id !== tid);
+                const updatedSheetTrips = syncTripsToLoadingSheet(e, nextTrips);
+                return { ...e, trips: nextTrips, loadingSheetTrips: updatedSheetTrips };
+              })
             }
             onOpenImage={(aid) => setLightboxId(aid)}
           />
         </div>
-        
+
         {/* Invisible anchor for auto-scroll */}
         <div ref={scrollRef} className="h-4" />
       </div>
 
-      {/* ── Floating note input at the real bottom ──────────── */}
+      {/* ── Floating note input at the bottom ──────────── */}
       <FloatingNoteBar
         onAdd={addNote}
         onAttachment={addAttachment}

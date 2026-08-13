@@ -31,9 +31,7 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
-        ),
+        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))),
       )
       .then(() => self.clients.claim()),
   );
@@ -52,11 +50,7 @@ self.addEventListener("fetch", (event) => {
       fetch(request).catch(() => {
         // scope includes the base path ("/dispatch-logbook/" on GitHub Pages, "/" otherwise)
         const scope = self.registration.scope;
-        return (
-          caches.match(scope) ||
-          caches.match(scope + "index.html") ||
-          caches.match("/")
-        );
+        return caches.match(scope) || caches.match(scope + "index.html") || caches.match("/");
       }),
     );
     return;
@@ -69,9 +63,7 @@ self.addEventListener("fetch", (event) => {
         if (cached) return cached;
         return fetch(request).then((response) => {
           if (response.ok) {
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(request, response.clone()));
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
           }
           return response;
         });
@@ -86,9 +78,7 @@ self.addEventListener("fetch", (event) => {
       const networkFetch = fetch(request)
         .then((response) => {
           if (response.ok) {
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(request, response.clone()));
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
           }
           return response;
         })

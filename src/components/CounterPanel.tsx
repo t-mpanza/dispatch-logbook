@@ -23,18 +23,13 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
 
   function logScanned() {
     if (count <= 0) return;
-    onChange([
-      ...trips,
-      { id: uid(), count, createdAt: Date.now() },
-    ]);
+    onChange([...trips, { id: uid(), count, createdAt: Date.now() }]);
     setCount(0);
   }
 
   function logManual(noteOverride?: string) {
     if (manualCount <= 0) return;
-    const note =
-      noteOverride ??
-      (slipNumber.trim() ? `slip:text:${slipNumber.trim()}` : undefined);
+    const note = noteOverride ?? (slipNumber.trim() ? `slip:text:${slipNumber.trim()}` : undefined);
     onChange([
       ...trips,
       { id: uid(), count: 0, rejected: manualCount, note, createdAt: Date.now() },
@@ -116,9 +111,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
 
         <button
           onClick={() =>
-            tab === "scanned"
-              ? setCount((c) => c + 1)
-              : setManualCount((c) => c + 1)
+            tab === "scanned" ? setCount((c) => c + 1) : setManualCount((c) => c + 1)
           }
           className="h-10 w-10 shrink-0 rounded-xl border border-border bg-surface-elevated grid place-items-center active:scale-95 text-muted-foreground hover:text-foreground"
         >
@@ -182,10 +175,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
 
       {/* Camera overlay */}
       {showCamera && (
-        <InAppCamera
-          onCapture={handlePhotoCapture}
-          onClose={() => setShowCamera(false)}
-        />
+        <InAppCamera onCapture={handlePhotoCapture} onClose={() => setShowCamera(false)} />
       )}
     </div>
   );

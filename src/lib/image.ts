@@ -53,7 +53,9 @@ export async function downscaleImage(file: File | Blob, name?: string): Promise<
   return new File([blob], name ?? "photo.jpg", { type: "image/jpeg" });
 }
 
-export async function getImageDimensions(blob: Blob): Promise<{ width: number; height: number } | null> {
+export async function getImageDimensions(
+  blob: Blob,
+): Promise<{ width: number; height: number } | null> {
   try {
     const bmp = await createImageBitmap(blob);
     const out = { width: bmp.width, height: bmp.height };

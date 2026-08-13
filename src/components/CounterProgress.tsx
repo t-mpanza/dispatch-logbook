@@ -36,15 +36,16 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
             <span className="text-4xl font-black tabular-nums leading-none tracking-tight">
               {total}
             </span>
-            {hasTarget && (
-              <span className="text-xl font-bold opacity-60">/ {expectedTotal}</span>
-            )}
+            {hasTarget && <span className="text-xl font-bold opacity-60">/ {expectedTotal}</span>}
           </div>
 
           <div className="text-right flex flex-col items-end">
             {!hasTarget && (
               <button
-                onClick={() => { setDraft(expectedTotal?.toString() ?? ""); setEditing(true); }}
+                onClick={() => {
+                  setDraft(expectedTotal?.toString() ?? "");
+                  setEditing(true);
+                }}
                 className="flex items-center gap-1.5 rounded-lg bg-white/10 border border-white/20 px-2.5 py-1 text-xs font-bold hover:bg-white/20 active:scale-95 transition-all"
               >
                 <Pencil size={11} /> Set target
@@ -56,7 +57,7 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
                 <CheckCircle2 size={14} /> Complete
               </span>
             )}
-            
+
             {hasTarget && isOver && (
               <span className="text-red-300 font-black text-sm uppercase tracking-wide">
                 {over} Over
@@ -71,7 +72,10 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
 
             {hasTarget && !editing && (
               <button
-                onClick={() => { setDraft(expectedTotal?.toString() ?? ""); setEditing(true); }}
+                onClick={() => {
+                  setDraft(expectedTotal?.toString() ?? "");
+                  setEditing(true);
+                }}
                 className="mt-0.5 text-[10px] uppercase font-bold opacity-50 hover:opacity-100 flex items-center gap-1 transition-opacity"
               >
                 Edit target <Pencil size={9} />
@@ -93,7 +97,10 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
               placeholder="Total"
               className="w-16 rounded-lg bg-white/15 border border-white/30 px-2 py-1 text-sm font-bold text-white outline-none focus:border-white/60 text-center"
             />
-            <button onClick={commit} className="rounded-lg bg-white/20 px-2 py-1 text-xs font-bold hover:bg-white/30 active:scale-95">
+            <button
+              onClick={commit}
+              className="rounded-lg bg-white/20 px-2 py-1 text-xs font-bold hover:bg-white/30 active:scale-95"
+            >
               Set
             </button>
             <button onClick={() => setEditing(false)} className="rounded-lg p-1 hover:bg-white/20">

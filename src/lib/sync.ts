@@ -19,8 +19,8 @@ async function getUserId(): Promise<string | null> {
 
   // If session dropped, silently re-authenticate using the master account
   const { data: authData, error } = await supabase.auth.signInWithPassword({
-    email: 'kiddow@dispatch.local',
-    password: 'dispatch2026',
+    email: "kiddow@dispatch.local",
+    password: "dispatch2026",
   });
 
   if (error) {
@@ -126,13 +126,18 @@ export async function pullAndMerge(): Promise<void> {
   const userId = await getUserId();
   if (!userId) return;
 
-  const { data: remoteEntries, error } = await supabase
+  const { data: remoteEntries, error: eError } = await supabase
     .from("entries")
     .select("*")
     .eq("user_id", userId);
 
-  if (error || !remoteEntries) {
-    console.error("Supabase pull failed:", error?.message);
+  const { data: remoteAttachments, error: aError } = await supabase
+    .from("entry_attachments")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (eError || !remoteEntries || aError) {
+    console.error("Supabase pull failed:", eError?.message || aError?.message);
     return;
   }
 
@@ -141,11 +146,23 @@ export async function pullAndMerge(): Promise<void> {
 
   for (const remote of remoteEntries) {
     const local = localMap.get(remote.id);
-
-    // If local is newer or equal, don't overwrite
     if (local && local.updatedAt >= remote.updated_at) continue;
 
-    // Merge remote into local — preserve local blobs if present
+    const attachmentsForEntry = remoteAttachments.filter((a) => a.entry_id === remote.id);
+
+    const mergedAttachments: Attachment[] = attachmentsForEntry.map((a) => ({
+      id: a.id,
+      kind: a.kind,
+      mime: a.mime,
+      name: a.name ?? undefined,
+      caption: a.caption ?? undefined,
+      durationMs: a.duration_ms ?? undefined,
+      width: a.width ?? undefined,
+      height: a.height ?? undefined,
+      storagePath: a.storage_path,
+      createdAt: a.created_at,
+    }));
+
     const merged: Entry = {
       id: remote.id,
       title: remote.title,
@@ -153,8 +170,7 @@ export async function pullAndMerge(): Promise<void> {
       notes: remote.notes ?? [],
       trips: remote.trips ?? undefined,
       expectedTotal: remote.expected_total ?? undefined,
-      // Preserve existing local attachments (blobs); remote only carries metadata
-      attachments: local?.attachments ?? [],
+      attachments: mergedAttachments,
       createdAt: remote.created_at,
       updatedAt: remote.updated_at,
       dayKey: remote.day_key,

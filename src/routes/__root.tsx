@@ -81,8 +81,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       {
         name: "viewport",
-        content:
-          "width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no",
       },
       { title: "Dispatch Diary" },
       {
@@ -101,9 +100,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:title", content: "Dispatch Diary" },
-      { name: "description", content: "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files." },
-      { property: "og:description", content: "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files." },
-      { name: "twitter:description", content: "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files." },
+      {
+        name: "description",
+        content:
+          "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files.",
+      },
+      {
+        property: "og:description",
+        content:
+          "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files.",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files.",
+      },
 
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -119,7 +130,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
@@ -138,12 +148,14 @@ function RootShell({ children }: { children: React.ReactNode }) {
 async function checkForOTA() {
   if (!Capacitor.isNativePlatform()) return;
   try {
-    const res = await fetch("https://api.github.com/repos/t-mpanza/dispatch-logbook/releases/latest");
+    const res = await fetch(
+      "https://api.github.com/repos/t-mpanza/dispatch-logbook/releases/latest",
+    );
     if (!res.ok) return;
     const release = await res.json();
     const latestTag = release.tag_name;
     const currentTag = import.meta.env.VITE_APP_VERSION || "v1.0.0";
-    
+
     // Only update if there's a newer tag and we found the dist.zip
     if (latestTag && latestTag !== currentTag) {
       const asset = release.assets?.find((a: any) => a.name === "dist.zip");
@@ -153,14 +165,14 @@ async function checkForOTA() {
           url: asset.browser_download_url,
           version: latestTag,
         });
-        
+
         toast("App Update Ready", {
           description: `Version ${latestTag} has been downloaded.`,
           action: {
             label: "Restart",
-            onClick: () => CapacitorUpdater.set({ id: bundle.id })
+            onClick: () => CapacitorUpdater.set({ id: bundle.id }),
           },
-          duration: Infinity
+          duration: Infinity,
         });
       }
     }
@@ -212,7 +224,9 @@ function RootComponent() {
     fullSync().catch(console.error);
 
     // Re-sync whenever the user signs in
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
         fullSync().catch(console.error);
       }

@@ -22,9 +22,7 @@ function SearchPage() {
   return (
     <AppShell>
       <header className="px-5 pt-8 pb-2">
-        <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">
-          Search
-        </p>
+        <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">Search</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Find anything</h1>
       </header>
 

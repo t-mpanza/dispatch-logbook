@@ -13,11 +13,7 @@ type LogItem = TripGroup | NoteItem | AttItem;
 
 // ─── Log builder ──────────────────────────────────────────────────────────────
 
-function buildLog(
-  notes: NoteBlock[],
-  attachments: Attachment[],
-  trips: Trip[],
-): LogItem[] {
+function buildLog(notes: NoteBlock[], attachments: Attachment[], trips: Trip[]): LogItem[] {
   const raw = [
     ...notes.map((n) => ({ type: "note" as const, at: n.createdAt, data: n })),
     ...attachments.map((a) => ({
@@ -76,10 +72,7 @@ export function EventLog({
   onRemoveTrip,
   onOpenImage,
 }: Props) {
-  const items = useMemo(
-    () => buildLog(notes, attachments, trips),
-    [notes, attachments, trips],
-  );
+  const items = useMemo(() => buildLog(notes, attachments, trips), [notes, attachments, trips]);
 
   if (items.length === 0) {
     return (
@@ -139,11 +132,7 @@ function TripGroupRow({
     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 py-1">
       {trips.map((t, i) => (
         <span key={t.id} className="contents">
-          {i > 0 && (
-            <span className="text-[10px] font-bold text-muted-foreground/30">
-              ─
-            </span>
-          )}
+          {i > 0 && <span className="text-[10px] font-bold text-muted-foreground/30">─</span>}
           <TripChip trip={t} attachments={attachments} onRemove={onRemove} />
         </span>
       ))}
@@ -163,9 +152,7 @@ function TripChip({
   const isScanned = trip.count > 0;
   const isManual = (trip.rejected ?? 0) > 0;
   const { photoId, text: slipText } = parseSlipNote(trip.note);
-  const hasSlipPhoto = photoId
-    ? attachments.some((a) => a.id === photoId)
-    : false;
+  const hasSlipPhoto = photoId ? attachments.some((a) => a.id === photoId) : false;
 
   const colorCls = isScanned
     ? "bg-primary/10 text-primary-glow border-primary/30"
@@ -180,9 +167,7 @@ function TripChip({
           {isScanned && `+${trip.count}`}
           {isManual && `+${trip.rejected}`}
         </span>
-        {hasSlipPhoto && (
-          <span className="text-[10px] opacity-60">📷</span>
-        )}
+        {hasSlipPhoto && <span className="text-[10px] opacity-60">📷</span>}
         {slipText && !hasSlipPhoto && (
           <span className="max-w-[72px] truncate text-[10px] font-normal opacity-60">
             {slipText}
@@ -205,13 +190,7 @@ function TripChip({
 
 // ─── Note row ─────────────────────────────────────────────────────────────────
 
-function NoteRow({
-  note,
-  onRemove,
-}: {
-  note: NoteBlock;
-  onRemove: () => void;
-}) {
+function NoteRow({ note, onRemove }: { note: NoteBlock; onRemove: () => void }) {
   return (
     <div className="group flex items-start gap-2">
       <p className="flex-1 rounded-xl border border-border bg-surface px-3 py-2 text-sm whitespace-pre-wrap">

@@ -23,7 +23,7 @@ export function TagsInput({
   const remove = (t: string) => onChange(value.filter((x) => x !== t));
 
   const filteredSuggestions = suggestions.filter(
-    (s) => !value.includes(s) && s.includes(input.toLowerCase())
+    (s) => !value.includes(s) && s.includes(input.toLowerCase()),
   );
 
   return (

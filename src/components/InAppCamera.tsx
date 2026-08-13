@@ -10,12 +10,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function InAppCamera({
-  defaultMode = "photo",
-  onCapture,
-  onVideoCapture,
-  onClose,
-}: Props) {
+export function InAppCamera({ defaultMode = "photo", onCapture, onVideoCapture, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -33,9 +28,7 @@ export function InAppCamera({
     navigator.mediaDevices
       .enumerateDevices()
       .then((devices) => {
-        setHasMultipleCameras(
-          devices.filter((d) => d.kind === "videoinput").length > 1,
-        );
+        setHasMultipleCameras(devices.filter((d) => d.kind === "videoinput").length > 1);
       })
       .catch(() => {});
   }, []);
@@ -81,7 +74,10 @@ export function InAppCamera({
 
   // Recording timer
   useEffect(() => {
-    if (!recording) { setRecSeconds(0); return; }
+    if (!recording) {
+      setRecSeconds(0);
+      return;
+    }
     const id = setInterval(() => setRecSeconds((s) => s + 1), 1000);
     return () => clearInterval(id);
   }, [recording]);
@@ -143,8 +139,8 @@ export function InAppCamera({
       const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=h264")
         ? "video/webm;codecs=h264"
         : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-        ? "video/webm;codecs=vp8"
-        : "video/webm";
+          ? "video/webm;codecs=vp8"
+          : "video/webm";
 
       const mr = new MediaRecorder(stream, { mimeType });
       mr.ondataavailable = (e) => {
@@ -195,9 +191,7 @@ export function InAppCamera({
                 setMode(m);
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
-                mode === m
-                  ? "bg-white text-black"
-                  : "text-white/70 hover:text-white"
+                mode === m ? "bg-white text-black" : "text-white/70 hover:text-white"
               }`}
             >
               {m === "photo" ? <Camera size={12} /> : <Video size={12} />}
@@ -230,9 +224,7 @@ export function InAppCamera({
         {recording && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-black/60 border border-red-500/50 px-3 py-1.5">
             <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-white text-sm font-bold tabular-nums">
-              {fmtSec(recSeconds)}
-            </span>
+            <span className="text-white text-sm font-bold tabular-nums">{fmtSec(recSeconds)}</span>
           </div>
         )}
       </div>
@@ -242,9 +234,7 @@ export function InAppCamera({
         {/* Flip camera */}
         {hasMultipleCameras ? (
           <button
-            onClick={() =>
-              setFacingMode((p) => (p === "environment" ? "user" : "environment"))
-            }
+            onClick={() => setFacingMode((p) => (p === "environment" ? "user" : "environment"))}
             disabled={initializing || recording}
             className="h-12 w-12 rounded-full bg-white/10 text-white grid place-items-center hover:bg-white/20 active:scale-95 transition-all disabled:opacity-40"
             aria-label="Flip camera"
@@ -259,7 +249,9 @@ export function InAppCamera({
         <button
           onClick={mode === "photo" ? capturePhoto : toggleRecording}
           disabled={initializing}
-          aria-label={mode === "photo" ? "Capture photo" : recording ? "Stop recording" : "Start recording"}
+          aria-label={
+            mode === "photo" ? "Capture photo" : recording ? "Stop recording" : "Start recording"
+          }
           className={`h-20 w-20 rounded-full border-4 transition-all active:scale-90 flex items-center justify-center ${
             recording
               ? "border-red-500 bg-red-500/30 hover:bg-red-500/50"
@@ -278,6 +270,6 @@ export function InAppCamera({
         <div className="w-12" />
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as LoadingSheetRouteImport } from './routes/loading-sheet'
 import { Route as CounterRouteImport } from './routes/counter'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ArchiveRouteImport } from './routes/archive'
@@ -21,6 +22,11 @@ import { Route as DayDateRouteImport } from './routes/day.$date'
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoadingSheetRoute = LoadingSheetRouteImport.update({
+  id: '/loading-sheet',
+  path: '/loading-sheet',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CounterRoute = CounterRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
   '/counter': typeof CounterRoute
+  '/loading-sheet': typeof LoadingSheetRoute
   '/search': typeof SearchRoute
   '/day/$date': typeof DayDateRoute
   '/entry/$id': typeof EntryIdRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
   '/counter': typeof CounterRoute
+  '/loading-sheet': typeof LoadingSheetRoute
   '/search': typeof SearchRoute
   '/day/$date': typeof DayDateRoute
   '/entry/$id': typeof EntryIdRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
   '/counter': typeof CounterRoute
+  '/loading-sheet': typeof LoadingSheetRoute
   '/search': typeof SearchRoute
   '/day/$date': typeof DayDateRoute
   '/entry/$id': typeof EntryIdRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/auth'
     | '/counter'
+    | '/loading-sheet'
     | '/search'
     | '/day/$date'
     | '/entry/$id'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/auth'
     | '/counter'
+    | '/loading-sheet'
     | '/search'
     | '/day/$date'
     | '/entry/$id'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/auth'
     | '/counter'
+    | '/loading-sheet'
     | '/search'
     | '/day/$date'
     | '/entry/$id'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   ArchiveRoute: typeof ArchiveRoute
   AuthRoute: typeof AuthRoute
   CounterRoute: typeof CounterRoute
+  LoadingSheetRoute: typeof LoadingSheetRoute
   SearchRoute: typeof SearchRoute
   DayDateRoute: typeof DayDateRoute
   EntryIdRoute: typeof EntryIdRoute
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/loading-sheet': {
+      id: '/loading-sheet'
+      path: '/loading-sheet'
+      fullPath: '/loading-sheet'
+      preLoaderRoute: typeof LoadingSheetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/counter': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   ArchiveRoute: ArchiveRoute,
   AuthRoute: AuthRoute,
   CounterRoute: CounterRoute,
+  LoadingSheetRoute: LoadingSheetRoute,
   SearchRoute: SearchRoute,
   DayDateRoute: DayDateRoute,
   EntryIdRoute: EntryIdRoute,
@@ -208,3 +229,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

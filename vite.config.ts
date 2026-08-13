@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
@@ -11,7 +10,6 @@ const base = process.env.GITHUB_PAGES ? "/dispatch-logbook/" : "/";
 export default defineConfig({
   base,
   plugins: [
-    TanStackRouterVite(),
     tanstackStart({
       prerender: {
         enabled: true,
@@ -21,14 +19,11 @@ export default defineConfig({
     tailwindcss(),
     tsConfigPaths(),
     VitePWA({
-      // We manage SW registration ourselves in __root.tsx via useEffect (SSR-safe).
-      // VitePWA's job here is: generate the correct manifest and build the SW.
       strategies: "injectManifest",
       srcDir: "public",
       filename: "sw.js",
       injectRegister: null,
       injectManifest: {
-        // Our SW handles its own caching — don't inject a Workbox precache manifest
         injectionPoint: undefined,
       },
       manifest: {
@@ -53,7 +48,8 @@ export default defineConfig({
     }),
   ],
   server: {
-    middlewareMode: true,
+    host: "0.0.0.0",
+    port: 5173,
   },
   build: {
     target: "esnext",

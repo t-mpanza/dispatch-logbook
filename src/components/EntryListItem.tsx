@@ -30,9 +30,7 @@ export const EntryListItem = memo(function EntryListItem({ entry }: { entry: Ent
           {fmtTime(entry.createdAt)}
         </span>
       </div>
-      {preview && (
-        <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{preview}</p>
-      )}
+      {preview && <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{preview}</p>}
       <div className="mt-2.5 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
         {Array.isArray(trips) && (
           <span className="flex items-center gap-1 text-primary-glow font-semibold tabular-nums">

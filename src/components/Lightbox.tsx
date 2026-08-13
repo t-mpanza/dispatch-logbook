@@ -10,18 +10,21 @@ interface Props {
 
 export function Lightbox({ attachments, startId, onClose }: Props) {
   const images = attachments.filter((a) => a.kind === "image");
-  const startIdx = Math.max(0, images.findIndex((a) => a.id === startId));
+  const startIdx = Math.max(
+    0,
+    images.findIndex((a) => a.id === startId),
+  );
   const [idx, setIdx] = useState(startIdx);
   const [url, setUrl] = useState<string>("");
 
   const current = images[idx];
 
   useEffect(() => {
-    if (!current) return;
+    if (!current?.blob) return;
     const u = URL.createObjectURL(current.blob);
     setUrl(u);
     return () => URL.revokeObjectURL(u);
-  }, [current?.id]);
+  }, [current?.id, current?.blob]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

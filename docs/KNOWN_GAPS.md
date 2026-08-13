@@ -25,6 +25,7 @@ Honest catalogue of real problems, rough edges, and missing features. Priority o
 ### 🟡 P2 — No `vite-plugin-pwa` / Workbox
 
 The hand-written SW misses:
+
 - Asset precaching (only shell is cached)
 - Cache busting (old caches aren't invalidated by content hash)
 - Reliable update flow (no `waiting` → `skipWaiting` prompt)
@@ -48,8 +49,9 @@ In the `facingMode` effect, the cleanup code tries to stop the old stream:
 
 ```ts
 useEffect(() => {
-  if (stream) {  // ← `stream` is STALE here (closure over old state)
-    stream.getTracks().forEach(track => track.stop());
+  if (stream) {
+    // ← `stream` is STALE here (closure over old state)
+    stream.getTracks().forEach((track) => track.stop());
   }
   // starts new stream...
 }, [facingMode]);

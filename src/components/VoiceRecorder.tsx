@@ -37,7 +37,9 @@ export function VoiceRecorder({
       };
       rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: chunksRef.current[0]?.type || "audio/webm" });
+        const blob = new Blob(chunksRef.current, {
+          type: chunksRef.current[0]?.type || "audio/webm",
+        });
         const duration = Date.now() - startRef.current;
         const att: Attachment = {
           id: uid(),
