@@ -7,9 +7,11 @@ import { rescheduleAll } from "@/lib/reminders";
 let rescheduled = false;
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const [online, setOnline] = useState(navigator.onLine);
+  const [online, setOnline] = useState(true);
 
   useEffect(() => {
+    setOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+
     if (!rescheduled) {
       rescheduled = true;
       void rescheduleAll();
