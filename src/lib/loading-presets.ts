@@ -189,6 +189,8 @@ export function syncTripsToLoadingSheet(entry: Entry, newTrips: Trip[]): Loading
   if (targetIndex >= 0) {
     currentSheetTrips[targetIndex] = {
       ...currentSheetTrips[targetIndex],
+      entryId: entry.id,
+      tripId: entry.title || currentSheetTrips[targetIndex].tripId,
       quantityLoaded: totalQty,
       startTime: startTime ?? currentSheetTrips[targetIndex].startTime,
       finishTime: finishTime ?? currentSheetTrips[targetIndex].finishTime,
@@ -197,6 +199,7 @@ export function syncTripsToLoadingSheet(entry: Entry, newTrips: Trip[]): Loading
   } else {
     currentSheetTrips.unshift({
       id: uid(),
+      entryId: entry.id,
       reg: "",
       driverName: "",
       tripId: entry.title || "NLS",

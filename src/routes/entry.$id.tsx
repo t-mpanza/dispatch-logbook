@@ -12,7 +12,7 @@ import { CounterProgress } from "@/components/CounterProgress";
 import { EventLog } from "@/components/EventLog";
 import { FloatingNoteBar } from "@/components/FloatingNoteBar";
 import { TagsInput } from "@/components/TagsInput";
-import { LoadingSheet } from "@/components/LoadingSheet";
+
 import { syncTripsToLoadingSheet } from "@/lib/loading-presets";
 import { fmtDayLabel, fmtTime, uid } from "@/lib/format";
 
@@ -20,6 +20,57 @@ export const Route = createFileRoute("/entry/$id")({
   head: () => ({ meta: [{ title: "Entry — Dispatch Diary" }] }),
   component: EntryPage,
 });
+
+function TripDetailsSection({ entry, onUpdate }: { entry: Entry, onUpdate: (reg: string, driver: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const sheetTrip = entry.loadingSheetTrips?.find(t => !t.isManual);
+  const [reg, setReg] = useState(sheetTrip?.reg || "");
+  const [driver, setDriver] = useState(sheetTrip?.driverName || "");
+  
+  useEffect(() => {
+    setReg(sheetTrip?.reg || "");
+    setDriver(sheetTrip?.driverName || "");
+  }, [sheetTrip?.reg, sheetTrip?.driverName]);
+
+  return (
+    <div className="mt-4 pt-4 border-t border-border">
+      <button 
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground w-full transition-colors"
+      >
+        <span className="flex-1 text-left uppercase tracking-widest text-[10px]">Trip Details</span>
+        <span className="font-mono text-xs">{entry.title || "NLS"}</span>
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+      
+      {open && (
+        <div className="mt-3 space-y-3">
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">Registration (Reg)</label>
+            <input 
+              value={reg} 
+              onChange={e => setReg(e.target.value.toUpperCase())}
+              onBlur={() => onUpdate(reg, driver)}
+              placeholder="e.g. MN05XNGP"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-glow"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">Driver Name</label>
+            <input 
+              value={driver} 
+              onChange={e => setDriver(e.target.value)}
+              onBlur={() => onUpdate(reg, driver)}
+              placeholder="e.g. Neil"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-glow"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function EntryPage() {
   const { id } = Route.useParams();
@@ -215,15 +266,23 @@ function EntryPage() {
               onChange={handleCounterChange}
               onAttachment={addAttachment}
             />
+            <TripDetailsSection 
+              entry={entry}
+              onUpdate={(reg, driverName) => persist((e) => {
+                const sheetTrips = e.loadingSheetTrips ?? [];
+                const idx = sheetTrips.findIndex(t => !t.isManual);
+                if (idx >= 0) {
+                  const updated = [...sheetTrips];
+                  updated[idx] = { ...updated[idx], reg, driverName };
+                  return { ...e, loadingSheetTrips: updated };
+                }
+                return e;
+              })}
+            />
           </div>
         )}
 
-        {/* Compliance Loading Sheet Component */}
-        {isCounterSession && (
-          <div className="my-4">
-            <LoadingSheet entry={entry} onUpdateEntry={handleUpdateEntry} />
-          </div>
-        )}
+
 
         {/* Add counter (standard entries only) */}
         {!isCounterSession && (

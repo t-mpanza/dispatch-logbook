@@ -4,7 +4,8 @@
  * - Sync runs silently in the background; never blocks the UI.
  * - Conflict resolution: higher updatedAt wins.
  * - Blobs (photos, audio, video) are uploaded to Supabase Storage.
- *   Only the storage path is stored in the DB row.
+ *   Only the storage path is stored in the DB row; signed URLs are
+ *   generated on pull so every device can display media.
  */
 
 import { supabase } from "./supabase";
@@ -89,6 +90,24 @@ async function syncAttachments(
   }
 }
 
+/**
+ * Generate a signed URL for a Supabase Storage path.
+ * Signed URLs expire in 1 hour — good enough for in-session viewing.
+ * Returns null if the path is empty or the call fails.
+ */
+async function getSignedUrl(storagePath: string): Promise<string | null> {
+  if (!storagePath) return null;
+  try {
+    const { data, error } = await supabase.storage
+      .from("attachments")
+      .createSignedUrl(storagePath, 3600); // 1-hour signed URL
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  } catch {
+    return null;
+  }
+}
+
 // ── Push (local → cloud) ───────────────────────────────────────────────────
 
 export async function pushEntry(entry: Entry): Promise<void> {
@@ -104,9 +123,10 @@ export async function pushEntry(entry: Entry): Promise<void> {
       user_id: userId,
       title: entry.title,
       tags: entry.tags,
-      // notes and trips: strip nothing, these are plain JSON (no blobs)
       notes: entry.notes,
       trips: entry.trips ?? null,
+      loading_sheet_trips: entry.loadingSheetTrips ?? null,
+      despatcher_name: entry.despatcherName ?? null,
       expected_total: entry.expectedTotal ?? null,
       day_key: entry.dayKey,
       month_key: entry.monthKey,
@@ -150,18 +170,28 @@ export async function pullAndMerge(): Promise<void> {
 
     const attachmentsForEntry = remoteAttachments.filter((a) => a.entry_id === remote.id);
 
-    const mergedAttachments: Attachment[] = attachmentsForEntry.map((a) => ({
-      id: a.id,
-      kind: a.kind,
-      mime: a.mime,
-      name: a.name ?? undefined,
-      caption: a.caption ?? undefined,
-      durationMs: a.duration_ms ?? undefined,
-      width: a.width ?? undefined,
-      height: a.height ?? undefined,
-      storagePath: a.storage_path,
-      createdAt: a.created_at,
-    }));
+    // Build attachments — generate signed URLs so media renders on any device
+    const mergedAttachments: Attachment[] = await Promise.all(
+      attachmentsForEntry.map(async (a) => {
+        // Try to get a signed URL for remote media
+        const signedUrl = a.storage_path ? await getSignedUrl(a.storage_path) : null;
+
+        return {
+          id: a.id,
+          kind: a.kind,
+          mime: a.mime,
+          name: a.name ?? undefined,
+          caption: a.caption ?? undefined,
+          durationMs: a.duration_ms ?? undefined,
+          width: a.width ?? undefined,
+          height: a.height ?? undefined,
+          storagePath: a.storage_path,
+          // downloadUrl is the signed URL — AttachmentView falls back to this
+          downloadUrl: signedUrl ?? undefined,
+          createdAt: a.created_at,
+        } as Attachment;
+      }),
+    );
 
     const merged: Entry = {
       id: remote.id,
@@ -169,6 +199,8 @@ export async function pullAndMerge(): Promise<void> {
       tags: remote.tags ?? [],
       notes: remote.notes ?? [],
       trips: remote.trips ?? undefined,
+      loadingSheetTrips: remote.loading_sheet_trips ?? undefined,
+      despatcherName: remote.despatcher_name ?? undefined,
       expectedTotal: remote.expected_total ?? undefined,
       attachments: mergedAttachments,
       createdAt: remote.created_at,

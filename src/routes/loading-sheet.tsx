@@ -60,16 +60,16 @@ function LoadingSheetPage() {
   };
 
   // Build unified loading sheet trips for the selected date
-  const combinedTrips: LoadingSheetTrip[] = dayEntries.reduce((acc, e) => {
-    if (Array.isArray(e.loadingSheetTrips) && e.loadingSheetTrips.length > 0) {
-      return [...acc, ...e.loadingSheetTrips];
-    }
+  const autoTrips: LoadingSheetTrip[] = dayEntries.reduce((acc, e) => {
     if (Array.isArray(e.trips) && e.trips.length > 0) {
       const synced = syncTripsToLoadingSheet(e, e.trips);
-      return [...acc, ...synced];
+      return [...acc, ...synced.filter(t => !t.isManual)];
     }
     return acc;
   }, [] as LoadingSheetTrip[]);
+
+  const manualTrips = dayEntries.flatMap(e => e.loadingSheetTrips?.filter(t => t.isManual) || []);
+  const combinedTrips = [...autoTrips.sort((a, b) => (a.startTime || 0) - (b.startTime || 0)), ...manualTrips];
 
   const combinedEntry: Entry = primaryEntry ? {
     ...primaryEntry,
@@ -146,13 +146,22 @@ function LoadingSheetPage() {
             <LoadingSheet
               entry={combinedEntry}
               onUpdateEntry={async (updated) => {
+                const updatedTrips = updated.loadingSheetTrips ?? [];
+                const newManualTrips = updatedTrips.filter(t => t.isManual);
+                
                 if (!primaryEntry) {
-                  await handleCreateDailySheet(updated.loadingSheetTrips ?? []);
-                } else {
-                  await handleUpdateEntry({
-                    ...primaryEntry,
-                    loadingSheetTrips: updated.loadingSheetTrips,
-                  });
+                  await handleCreateDailySheet(newManualTrips);
+                  return;
+                }
+                
+                // Distribute updated trips back to their owning entries
+                for (const e of dayEntries) {
+                  const entryTrips = updatedTrips.filter(t => t.entryId === e.id && !t.isManual);
+                  const tripsToSave = e.id === primaryEntry.id ? [...entryTrips, ...newManualTrips] : entryTrips;
+                  
+                  if (JSON.stringify(e.loadingSheetTrips || []) !== JSON.stringify(tripsToSave)) {
+                    await handleUpdateEntry({ ...e, loadingSheetTrips: tripsToSave });
+                  }
                 }
               }}
             />

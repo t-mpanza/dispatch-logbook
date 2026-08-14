@@ -36,6 +36,7 @@ export type PresetKey = "DBN" | "NLS" | "BLOEM" | "PLK" | "STOCKS" | "NLH" | "TI
 
 export interface LoadingSheetTrip {
   id: string;
+  entryId?: string; // Reference to the parent entry
   reg: string; // Truck registration plate (e.g. "MN05XNGP")
   driverName: string; // Driver name (e.g. "Neil")
   tripId: string; // Trip ID preset or custom text (e.g. "STOCKS 1", "NLH")
