@@ -144,6 +144,41 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+async function checkForOTA() {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    const res = await fetch(
+      "https://api.github.com/repos/t-mpanza/dispatch-logbook/releases/latest"
+    );
+    if (!res.ok) return;
+    const release = await res.json();
+    const latestTag = release.tag_name;
+    const currentTag = import.meta.env.VITE_APP_VERSION || "v1.0.0";
+
+    if (latestTag && latestTag !== currentTag) {
+      const asset = release.assets?.find((a: any) => a.name === "dist.zip");
+      if (asset) {
+        console.log(`Downloading OTA update: ${latestTag}`);
+        const bundle = await CapacitorUpdater.download({
+          url: asset.browser_download_url,
+          version: latestTag,
+        });
+
+        toast("App Update Ready", {
+          description: `Version ${latestTag} has been downloaded.`,
+          action: {
+            label: "Restart",
+            onClick: () => CapacitorUpdater.set({ id: bundle.id }),
+          },
+          duration: Infinity,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("OTA update check failed", err);
+  }
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
@@ -159,6 +194,7 @@ function RootComponent() {
 
     if (Capacitor.isNativePlatform()) {
       CapacitorUpdater.notifyAppReady().catch(console.error);
+      checkForOTA();
 
       if (Capacitor.getPlatform() === "android") {
         StatusBar.setOverlaysWebView({ overlay: false }).catch(console.error);
