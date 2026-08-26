@@ -6,7 +6,7 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { fullSync } from "@/lib/sync";
+import { fullSync, setupRealtimeSync } from "@/lib/sync";
 import {
   Outlet,
   Link,
@@ -231,22 +231,33 @@ function RootComponent() {
       }
     });
 
-    // Background cloud sync on launch (if already signed in)
-    fullSync().catch(console.error);
+    // Background cloud sync on launch with queryClient cache invalidation
+    fullSync(queryClient).catch(console.error);
+
+    // Setup Supabase Realtime synchronization across devices
+    const cleanupRealtime = setupRealtimeSync(queryClient);
+
+    // Auto-sync whenever internet connection is restored
+    const handleOnline = () => {
+      fullSync(queryClient).catch(console.error);
+    };
+    window.addEventListener("online", handleOnline);
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
-        fullSync().catch(console.error);
+        fullSync(queryClient).catch(console.error);
       }
     });
 
     return () => {
       subscription.unsubscribe();
+      cleanupRealtime();
+      window.removeEventListener("online", handleOnline);
       backHandler.then((h) => h.remove());
     };
-  }, [router]);
+  }, [router, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>

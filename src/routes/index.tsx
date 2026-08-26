@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { Plus, ChevronLeft, X, RefreshCw, Smartphone } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, ChevronLeft, X, RefreshCw, Smartphone, Cloud, CloudOff } from "lucide-react";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { entriesByDay } from "@/lib/db";
-import { dayKey, fmtDayLabel } from "@/lib/format";
+import { dayKey, fmtDayLabel, fmtTime } from "@/lib/format";
 import { EntryListItem } from "@/components/EntryListItem";
 import { Capacitor } from "@capacitor/core";
+import { useSyncState, syncNow } from "@/lib/sync";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,6 +29,8 @@ export const Route = createFileRoute("/")({
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || "dev";
 
 function TodayPage() {
+  const qc = useQueryClient();
+  const syncState = useSyncState();
   const today = new Date();
   const key = dayKey(today);
   const { data: entries = [], isLoading } = useQuery({
@@ -41,6 +45,19 @@ function TodayPage() {
   const [showAbout, setShowAbout] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+  const [syncingModal, setSyncingModal] = useState(false);
+
+  async function handleModalSync() {
+    setSyncingModal(true);
+    toast.info("Syncing…", { description: "Pushing and pulling all entries" });
+    const success = await syncNow(qc);
+    setSyncingModal(false);
+    if (success) {
+      toast.success("Database Synced", { description: "All records are synchronized with cloud." });
+    } else {
+      toast.error("Sync Error", { description: syncState.errorMessage || "Check network connection." });
+    }
+  }
 
   async function handleCheckForUpdates() {
     setCheckingUpdate(true);
@@ -59,7 +76,6 @@ function TodayPage() {
       } else if (Capacitor.isNativePlatform()) {
         // OTA update via CapacitorUpdater
         const { CapacitorUpdater } = await import("@capgo/capacitor-updater");
-        const { toast } = await import("sonner");
         const asset = release.assets?.find((a: any) => a.name === "dist.zip");
         if (asset) {
           setUpdateStatus(`Downloading ${latestTag}…`);
@@ -151,19 +167,52 @@ function TodayPage() {
                 <span className="font-mono">{Capacitor.isNativePlatform() ? Capacitor.getPlatform() : "web"}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-border/50">
+                <span className="text-muted-foreground">Database Sync</span>
+                <span className="flex items-center gap-1.5 font-medium text-xs">
+                  {syncState.status === "syncing" ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin text-primary-glow" />
+                      <span className="text-primary-glow">Syncing…</span>
+                    </>
+                  ) : syncState.status === "error" ? (
+                    <span className="text-destructive">Sync Error</span>
+                  ) : syncState.status === "offline" ? (
+                    <span className="text-muted-foreground">Offline</span>
+                  ) : (
+                    <>
+                      <Cloud size={12} className="text-primary-glow" />
+                      <span className="text-primary-glow">
+                        Synced {syncState.lastSyncedAt ? `(${fmtTime(syncState.lastSyncedAt)})` : ""}
+                      </span>
+                    </>
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border/50">
                 <span className="text-muted-foreground">Repository</span>
                 <span className="font-mono text-primary-glow text-xs">t-mpanza/dispatch-logbook</span>
               </div>
             </div>
 
-            <button
-              onClick={handleCheckForUpdates}
-              disabled={checkingUpdate}
-              className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl bg-primary/10 border border-primary/30 text-primary-glow py-3 text-sm font-medium hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-50"
-            >
-              <RefreshCw size={15} className={checkingUpdate ? "animate-spin" : ""} />
-              {checkingUpdate ? "Checking…" : "Check for updates"}
-            </button>
+            <div className="grid grid-cols-2 gap-2 mt-5">
+              <button
+                onClick={handleModalSync}
+                disabled={syncingModal || syncState.status === "syncing"}
+                className="flex items-center justify-center gap-2 rounded-xl bg-surface-elevated border border-border text-foreground py-3 text-xs font-medium hover:border-primary/50 active:scale-95 transition-all disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={syncingModal || syncState.status === "syncing" ? "animate-spin" : ""} />
+                {syncingModal || syncState.status === "syncing" ? "Syncing…" : "Sync Database"}
+              </button>
+
+              <button
+                onClick={handleCheckForUpdates}
+                disabled={checkingUpdate}
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary/10 border border-primary/30 text-primary-glow py-3 text-xs font-medium hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-50"
+              >
+                <Smartphone size={14} className={checkingUpdate ? "animate-spin" : ""} />
+                {checkingUpdate ? "Checking…" : "Check Update"}
+              </button>
+            </div>
 
             {updateStatus && (
               <p className="mt-3 text-center text-xs text-muted-foreground">{updateStatus}</p>

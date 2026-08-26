@@ -76,6 +76,13 @@ export async function updateEntry(entry: Entry) {
   pushEntry(entry).catch(console.error);
 }
 
+/** Save entry to local IndexedDB without triggering cloud push (used during pull/sync) */
+export async function saveEntryLocal(entry: Entry): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const db = await getDB();
+  await db.put("entries", entry);
+}
+
 export async function getEntry(id: string): Promise<Entry | undefined> {
   if (typeof indexedDB === "undefined") return undefined;
   const db = await getDB();

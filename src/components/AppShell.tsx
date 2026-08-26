@@ -1,36 +1,48 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Archive, Home, Search, Truck, CloudOff, Cloud, FileText } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Archive, Home, Search, Truck, CloudOff, Cloud, FileText, RefreshCw, AlertCircle } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { rescheduleAll } from "@/lib/reminders";
+import { useSyncState, syncNow } from "@/lib/sync";
+import { toast } from "sonner";
 
 let rescheduled = false;
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const [online, setOnline] = useState(true);
+  const qc = useQueryClient();
+  const syncState = useSyncState();
 
   useEffect(() => {
-    setOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
-
     if (!rescheduled) {
       rescheduled = true;
       void rescheduleAll();
     }
-
-    const setOn = () => setOnline(true);
-    const setOff = () => setOnline(false);
-    window.addEventListener("online", setOn);
-    window.addEventListener("offline", setOff);
-
-    return () => {
-      window.removeEventListener("online", setOn);
-      window.removeEventListener("offline", setOff);
-    };
   }, []);
 
   const loc = useLocation();
   const path = loc.pathname;
   const isActive = (base: string) => (base === "/" ? path === "/" : path.startsWith(base));
+
+  const handleManualSync = async () => {
+    if (syncState.status === "offline") {
+      toast.error("Offline", { description: "Connect to internet to sync data." });
+      return;
+    }
+    if (syncState.status === "syncing") {
+      return;
+    }
+
+    toast.info("Syncing…", { description: "Connecting to database" });
+    const success = await syncNow(qc);
+    if (success) {
+      toast.success("Synced", { description: "All records and media up to date." });
+    } else {
+      toast.error("Sync Error", {
+        description: syncState.errorMessage || "Failed to sync. Tap again to retry.",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col max-w-md mx-auto relative">
@@ -64,22 +76,41 @@ export function AppShell({ children }: { children: ReactNode }) {
             icon={<Archive size={19} />}
           />
 
-          {/* Sync status pill */}
-          <div
-            className={`flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-colors ${
-              online ? "text-primary-glow" : "text-muted-foreground"
+          {/* Interactive Sync status button */}
+          <button
+            onClick={handleManualSync}
+            disabled={syncState.status === "syncing"}
+            className={`flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-all active:scale-95 ${
+              syncState.status === "syncing"
+                ? "text-primary-glow"
+                : syncState.status === "error"
+                  ? "text-destructive"
+                  : syncState.status === "offline"
+                    ? "text-muted-foreground opacity-60"
+                    : "text-primary-glow/80 hover:text-primary-glow"
             }`}
-            aria-label={online ? "Synced" : "Offline"}
+            title="Tap to sync with cloud database"
+            aria-label={`Sync status: ${syncState.status}`}
           >
-            {online ? (
-              <Cloud size={19} className="text-primary-glow" />
-            ) : (
+            {syncState.status === "syncing" ? (
+              <RefreshCw size={19} className="animate-spin text-primary-glow" />
+            ) : syncState.status === "error" ? (
+              <AlertCircle size={19} className="text-destructive" />
+            ) : syncState.status === "offline" ? (
               <CloudOff size={19} className="text-muted-foreground" />
+            ) : (
+              <Cloud size={19} className="text-primary-glow" />
             )}
-            <span className="text-[9px] font-medium uppercase tracking-wider">
-              {online ? "Synced" : "Offline"}
+            <span className="text-[9px] font-medium uppercase tracking-wider truncate max-w-[48px]">
+              {syncState.status === "syncing"
+                ? "Syncing"
+                : syncState.status === "error"
+                  ? "Retry"
+                  : syncState.status === "offline"
+                    ? "Offline"
+                    : "Synced"}
             </span>
-          </div>
+          </button>
         </div>
       </nav>
     </div>

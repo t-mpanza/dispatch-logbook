@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, X, Download } from "lucide-react";
 import type { Attachment } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
 
 interface Props {
   attachments: Attachment[];
@@ -23,18 +24,37 @@ export function Lightbox({ attachments, startId, onClose }: Props) {
 
   useEffect(() => {
     if (!current) return;
+    let active = true;
+
     if (current.blob) {
       const u = URL.createObjectURL(current.blob);
       setUrl(u);
-      return () => URL.revokeObjectURL(u);
+      return () => {
+        active = false;
+        URL.revokeObjectURL(u);
+      };
     } else if (current.url) {
       setUrl(current.url);
     } else if (current.dataUrl) {
       setUrl(current.dataUrl);
     } else if (current.downloadUrl) {
       setUrl(current.downloadUrl);
+    } else if (current.storagePath) {
+      supabase.storage
+        .from("attachments")
+        .createSignedUrl(current.storagePath, 86400 * 30)
+        .then(({ data }) => {
+          if (active && data?.signedUrl) {
+            setUrl(data.signedUrl);
+          }
+        })
+        .catch(console.error);
     }
-  }, [current?.id, current?.blob, current?.url, current?.dataUrl, current?.downloadUrl]);
+
+    return () => {
+      active = false;
+    };
+  }, [current?.id, current?.blob, current?.url, current?.dataUrl, current?.downloadUrl, current?.storagePath]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

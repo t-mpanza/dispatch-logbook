@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { File as FileIcon, Trash2, Maximize2 } from "lucide-react";
 import type { Attachment } from "@/lib/types";
 import { formatBytes, formatDuration } from "@/lib/format";
+import { supabase } from "@/lib/supabase";
 
 export function AttachmentView({
   attachment,
@@ -15,18 +16,44 @@ export function AttachmentView({
   const [url, setUrl] = useState<string>("");
 
   useEffect(() => {
+    let active = true;
+
     if (attachment.blob) {
       const u = URL.createObjectURL(attachment.blob);
       setUrl(u);
-      return () => URL.revokeObjectURL(u);
+      return () => {
+        active = false;
+        URL.revokeObjectURL(u);
+      };
     } else if (attachment.url) {
       setUrl(attachment.url);
     } else if (attachment.dataUrl) {
       setUrl(attachment.dataUrl);
     } else if (attachment.downloadUrl) {
       setUrl(attachment.downloadUrl);
+    } else if (attachment.storagePath) {
+      supabase.storage
+        .from("attachments")
+        .createSignedUrl(attachment.storagePath, 86400 * 30)
+        .then(({ data }) => {
+          if (active && data?.signedUrl) {
+            setUrl(data.signedUrl);
+          }
+        })
+        .catch(console.error);
     }
-  }, [attachment.blob, attachment.url, attachment.dataUrl, attachment.downloadUrl]);
+
+    return () => {
+      active = false;
+    };
+  }, [
+    attachment.id,
+    attachment.blob,
+    attachment.url,
+    attachment.dataUrl,
+    attachment.downloadUrl,
+    attachment.storagePath,
+  ]);
 
   const isImage = attachment.kind === "image" || attachment.kind === "photo";
   const wrapper = "relative rounded-xl overflow-hidden bg-surface-elevated border border-border";
