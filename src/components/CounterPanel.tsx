@@ -4,6 +4,7 @@ import type { Attachment, Trip } from "@/lib/types";
 import { uid } from "@/lib/format";
 import { InAppCamera } from "./InAppCamera";
 import { downscaleImage, getImageDimensions } from "@/lib/image";
+import { vibrate } from "@/lib/haptics";
 
 interface Props {
   trips: Trip[];
@@ -23,12 +24,14 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
 
   function logScanned() {
     if (count <= 0) return;
+    vibrate("success");
     onChange([...trips, { id: uid(), count, createdAt: Date.now() }]);
     setCount(0);
   }
 
   function logManual(noteOverride?: string) {
     if (manualCount <= 0) return;
+    vibrate("success");
     const note = noteOverride ?? (slipNumber.trim() ? `slip:text:${slipNumber.trim()}` : undefined);
     onChange([
       ...trips,
@@ -65,16 +68,19 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
   const canLog = tab === "scanned" ? count > 0 : manualCount > 0;
 
   return (
-    <div className="rounded-2xl bg-surface border border-border overflow-hidden">
+    <div className="rounded-2xl bg-surface border border-border/80 overflow-hidden shadow-xs">
       {/* Tab row */}
-      <div className="flex border-b border-border">
+      <div className="flex border-b border-border/80 bg-background/50">
         {(["scanned", "manual"] as const).map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+            onClick={() => {
+              vibrate("light");
+              setTab(t);
+            }}
+            className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
               tab === t
-                ? "text-foreground bg-surface-elevated"
+                ? "text-foreground bg-surface font-black border-b-2 border-primary-glow shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -84,17 +90,18 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
       </div>
 
       {/* Input row */}
-      <div className="flex items-center gap-1.5 px-3 py-2">
+      <div className="flex items-center gap-2 p-3">
         {/* Stepper */}
         <button
-          onClick={() =>
+          onClick={() => {
+            vibrate("light");
             tab === "scanned"
               ? setCount((c) => Math.max(0, c - 1))
-              : setManualCount((c) => Math.max(1, c - 1))
-          }
-          className="h-10 w-10 shrink-0 rounded-xl border border-border bg-surface-elevated grid place-items-center active:scale-95 text-muted-foreground hover:text-foreground"
+              : setManualCount((c) => Math.max(1, c - 1));
+          }}
+          className="h-11 w-11 shrink-0 rounded-xl border border-border/80 bg-surface-elevated grid place-items-center active:scale-90 transition-transform text-muted-foreground hover:text-foreground shadow-xs"
         >
-          <Minus size={16} />
+          <Minus size={18} />
         </button>
 
         <input
@@ -106,26 +113,30 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
             tab === "scanned" ? setCount(n) : setManualCount(n);
           }}
           placeholder={tab === "scanned" ? "0" : "1"}
-          className="h-10 w-12 shrink-0 rounded-xl border border-border bg-surface-elevated text-center text-lg font-black tabular-nums outline-none focus:border-primary"
+          className="h-11 w-14 shrink-0 rounded-xl border border-border/80 bg-surface-elevated text-center text-xl font-black tabular-nums outline-none focus:border-primary-glow shadow-inner"
         />
 
         <button
-          onClick={() =>
-            tab === "scanned" ? setCount((c) => c + 1) : setManualCount((c) => c + 1)
-          }
-          className="h-10 w-10 shrink-0 rounded-xl border border-border bg-surface-elevated grid place-items-center active:scale-95 text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            vibrate("light");
+            tab === "scanned" ? setCount((c) => c + 1) : setManualCount((c) => c + 1);
+          }}
+          className="h-11 w-11 shrink-0 rounded-xl border border-border/80 bg-surface-elevated grid place-items-center active:scale-90 transition-transform text-muted-foreground hover:text-foreground shadow-xs"
         >
-          <Plus size={16} />
+          <Plus size={18} />
         </button>
 
         {tab === "scanned" ? (
           /* Quick-add buttons */
-          <div className="flex flex-1 gap-1 justify-end">
+          <div className="flex flex-1 gap-1.5 justify-end">
             {QUICK.map((n) => (
               <button
                 key={n}
-                onClick={() => setCount((c) => c + n)}
-                className="h-10 flex-1 rounded-xl border border-border bg-surface-elevated text-xs font-bold tabular-nums hover:border-primary/50 active:scale-95 transition-all"
+                onClick={() => {
+                  vibrate("light");
+                  setCount((c) => c + n);
+                }}
+                className="h-11 flex-1 rounded-xl border border-border/80 bg-surface-elevated hover:border-primary/50 text-xs font-black tabular-nums active:scale-90 transition-all shadow-xs hover:text-primary-glow"
               >
                 +{n}
               </button>
@@ -133,20 +144,23 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
           </div>
         ) : (
           /* Slip input */
-          <div className="flex flex-1 items-center gap-1">
+          <div className="flex flex-1 items-center gap-1.5">
             <input
               value={slipNumber}
               onChange={(e) => setSlipNumber(e.target.value)}
               placeholder="Slip #"
-              className="h-10 flex-1 rounded-xl border border-border bg-surface-elevated px-2.5 text-sm outline-none focus:border-orange-500 placeholder:text-muted-foreground/40"
+              className="h-11 flex-1 rounded-xl border border-border/80 bg-surface-elevated px-3 text-sm font-mono outline-none focus:border-orange-500 placeholder:text-muted-foreground/40"
             />
             {onAttachment && (
               <button
-                onClick={() => setShowCamera(true)}
+                onClick={() => {
+                  vibrate("medium");
+                  setShowCamera(true);
+                }}
                 disabled={processing}
-                className="h-10 w-10 shrink-0 rounded-xl border border-dashed border-orange-500/50 text-orange-400 grid place-items-center hover:bg-orange-500/10 active:scale-95 transition-all disabled:opacity-40"
+                className="h-11 w-11 shrink-0 rounded-xl border border-dashed border-orange-500/50 text-orange-400 grid place-items-center hover:bg-orange-500/10 active:scale-90 transition-all disabled:opacity-40 shadow-xs"
               >
-                <Camera size={16} />
+                <Camera size={18} />
               </button>
             )}
           </div>
@@ -154,17 +168,17 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
       </div>
 
       {/* Log button */}
-      <div className="px-3 pb-2.5">
+      <div className="px-3 pb-3">
         <button
           onClick={tab === "scanned" ? logScanned : () => logManual()}
           disabled={!canLog || processing}
-          className={`w-full h-10 rounded-xl font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all disabled:opacity-30 ${
+          className={`w-full h-11 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-30 cursor-pointer ${
             tab === "scanned"
-              ? "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
-              : "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
+              ? "bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[var(--shadow-glow)]"
+              : "bg-orange-500 text-white shadow-lg shadow-orange-500/25"
           }`}
         >
-          <Check size={14} />
+          <Check size={16} />
           {processing
             ? "Processing…"
             : tab === "scanned"

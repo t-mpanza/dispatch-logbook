@@ -22,6 +22,17 @@ export const LOADING_PRESETS: PresetConfig[] = [
 
 export const PRESET_KEYS: PresetKey[] = LOADING_PRESETS.map((p) => p.key);
 
+export function getPresetBadgeClass(presetKey?: string, titleOrTripId?: string): string {
+  const norm = (presetKey || titleOrTripId || "").trim().toUpperCase();
+  if (norm.startsWith("NLH") || norm.includes("NEIL")) return "badge-preset-nlh";
+  if (norm.startsWith("STOCKS")) return "badge-preset-stocks";
+  if (norm.startsWith("DBN") || norm.includes("DURBAN")) return "badge-preset-dbn";
+  if (norm.startsWith("PLK") || norm.includes("POLOKWANE")) return "badge-preset-plk";
+  if (norm.startsWith("BLOEM") || norm.includes("BLOEMFONTEIN")) return "badge-preset-bloem";
+  if (norm.startsWith("TIREPOINT") || norm.includes("TYREPOINT")) return "badge-preset-tirepoint";
+  return "badge-preset-custom";
+}
+
 export function resetStocksCounter(): void {
   // Pure dynamic counter based on actual trips logged for the day
 }

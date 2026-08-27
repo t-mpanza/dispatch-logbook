@@ -142,16 +142,16 @@ function TodayPage() {
 
       {/* ── About / Version sheet ─────────────────────────────────── */}
       {showAbout && (
-        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowAbout(false)}>
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowAbout(false)}>
           <div
-            className="w-full max-w-md mx-auto bg-surface border border-border rounded-t-3xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
+            className="w-full max-w-md mx-auto bg-surface border border-border/80 rounded-t-3xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl animate-sheet-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold">Dispatch Diary</h2>
+              <h2 className="text-base font-bold">Dispatch Diary</h2>
               <button
                 onClick={() => setShowAbout(false)}
-                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
@@ -172,16 +172,16 @@ function TodayPage() {
                   {syncState.status === "syncing" ? (
                     <>
                       <RefreshCw size={12} className="animate-spin text-primary-glow" />
-                      <span className="text-primary-glow">Syncing…</span>
+                      <span className="text-primary-glow font-bold">Syncing…</span>
                     </>
                   ) : syncState.status === "error" ? (
-                    <span className="text-destructive">Sync Error</span>
+                    <span className="text-destructive font-bold">Sync Error</span>
                   ) : syncState.status === "offline" ? (
                     <span className="text-muted-foreground">Offline</span>
                   ) : (
                     <>
                       <Cloud size={12} className="text-primary-glow" />
-                      <span className="text-primary-glow">
+                      <span className="text-primary-glow font-bold">
                         Synced {syncState.lastSyncedAt ? `(${fmtTime(syncState.lastSyncedAt)})` : ""}
                       </span>
                     </>
@@ -198,16 +198,16 @@ function TodayPage() {
               <button
                 onClick={handleModalSync}
                 disabled={syncingModal || syncState.status === "syncing"}
-                className="flex items-center justify-center gap-2 rounded-xl bg-surface-elevated border border-border text-foreground py-3 text-xs font-medium hover:border-primary/50 active:scale-95 transition-all disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-xl bg-surface-elevated border border-border text-foreground py-3 text-xs font-semibold hover:border-primary/50 active:scale-95 transition-all disabled:opacity-50"
               >
-                <RefreshCw size={14} className={syncingModal || syncState.status === "syncing" ? "animate-spin" : ""} />
+                <RefreshCw size={14} className={syncingModal || syncState.status === "syncing" ? "animate-spin text-primary-glow" : ""} />
                 {syncingModal || syncState.status === "syncing" ? "Syncing…" : "Sync Database"}
               </button>
 
               <button
                 onClick={handleCheckForUpdates}
                 disabled={checkingUpdate}
-                className="flex items-center justify-center gap-2 rounded-xl bg-primary/10 border border-primary/30 text-primary-glow py-3 text-xs font-medium hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary/15 border border-primary/30 text-primary-glow py-3 text-xs font-semibold hover:bg-primary/25 active:scale-95 transition-all disabled:opacity-50"
               >
                 <Smartphone size={14} className={checkingUpdate ? "animate-spin" : ""} />
                 {checkingUpdate ? "Checking…" : "Check Update"}
@@ -215,7 +215,7 @@ function TodayPage() {
             </div>
 
             {updateStatus && (
-              <p className="mt-3 text-center text-xs text-muted-foreground">{updateStatus}</p>
+              <p className="mt-3 text-center text-xs text-muted-foreground bg-background/50 py-2 rounded-lg border border-border/50 font-mono">{updateStatus}</p>
             )}
           </div>
         </div>
@@ -233,7 +233,7 @@ function TodayPage() {
 
       <Link
         to="/entry/new"
-        className="fixed bottom-24 right-5 z-50 h-14 w-14 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground grid place-items-center shadow-[var(--shadow-glow)] active:scale-95 transition-transform"
+        className="fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground grid place-items-center shadow-[var(--shadow-glow)] active:scale-90 transition-transform cursor-pointer hover:scale-105"
         aria-label="New entry"
       >
         <Plus size={26} />

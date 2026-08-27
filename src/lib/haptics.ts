@@ -30,3 +30,5 @@ export function triggerHaptic(type: HapticType = "light"): void {
     }
   }
 }
+
+export const vibrate = triggerHaptic;

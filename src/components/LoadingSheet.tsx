@@ -18,6 +18,7 @@ import type { Entry, LoadingSheetTrip, PresetKey } from "@/lib/types";
 import {
   LOADING_PRESETS,
   getPresetFill,
+  getPresetBadgeClass,
   calculateDurationMinutes,
   calculateLoadingSheetTotals,
 } from "@/lib/loading-presets";
@@ -25,6 +26,7 @@ import { getDespatcherName, saveDespatcherName } from "@/lib/db";
 import { generatePDFReport, formatTimeHHmm } from "@/lib/export-pdf";
 import { formatWhatsAppShareText, shareWhatsAppText } from "@/lib/export-whatsapp";
 import { fmtDayLabel, uid } from "@/lib/format";
+import { vibrate } from "@/lib/haptics";
 
 export interface LoadingSheetProps {
   entry: Entry;
@@ -377,21 +379,26 @@ export function LoadingSheet({
               ? `${formatTimeHHmm(trip.startTime)} → ${formatTimeHHmm(trip.finishTime)}`
               : "No timestamps";
 
+            const badgeClass = getPresetBadgeClass(trip.presetKey, trip.tripId);
+
             return (
               <div
                 key={trip.id || idx}
-                onClick={() => handleOpenEditModal(idx)}
-                className="group relative bg-surface border border-border hover:border-primary/50 rounded-2xl p-4 transition-all shadow-xs cursor-pointer active:scale-[0.99] space-y-2.5"
+                onClick={() => {
+                  vibrate("light");
+                  handleOpenEditModal(idx);
+                }}
+                className="group relative bg-surface border border-border/80 hover:border-primary/50 rounded-2xl p-4 transition-all shadow-xs cursor-pointer active:scale-[0.98] space-y-2.5 hover:shadow-md"
               >
                 {/* Row Header: Number, Trip ID, Tyres count, Edit Button */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="h-6 w-6 rounded-full bg-muted font-mono font-bold text-xs grid place-items-center text-muted-foreground shrink-0">
+                    <span className="h-6 w-6 rounded-full bg-muted/80 font-mono font-bold text-xs grid place-items-center text-muted-foreground shrink-0">
                       {idx + 1}
                     </span>
-                    <h3 className="font-mono text-sm font-black tracking-wide uppercase text-foreground truncate">
+                    <span className={`text-[11px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-lg border tracking-wider truncate shrink-0 ${badgeClass}`}>
                       {trip.tripId || `TRIP ${idx + 1}`}
-                    </h3>
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
@@ -403,9 +410,10 @@ export function LoadingSheet({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        vibrate("light");
                         handleOpenEditModal(idx);
                       }}
-                      className="h-8 px-2.5 rounded-xl bg-surface-elevated border border-border text-foreground hover:border-primary/50 text-xs font-bold flex items-center gap-1 transition-all"
+                      className="h-8 px-2.5 rounded-xl bg-surface-elevated border border-border/80 text-foreground hover:border-primary/50 text-xs font-bold flex items-center gap-1 active:scale-90 transition-all"
                     >
                       <Edit3 size={13} className="text-primary-glow" />
                       <span>Edit</span>
@@ -417,7 +425,7 @@ export function LoadingSheet({
                 <div className="flex items-center gap-2 text-xs flex-wrap">
                   {/* Reg Badge */}
                   {hasReg ? (
-                    <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-surface-elevated border border-border text-foreground">
+                    <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-surface-elevated border border-border/80 text-foreground">
                       <Truck size={12} className="text-primary-glow" />
                       {trip.reg}
                     </span>
@@ -429,7 +437,7 @@ export function LoadingSheet({
 
                   {/* Driver Badge */}
                   {hasDriver ? (
-                    <span className="inline-flex items-center gap-1 font-medium text-xs px-2.5 py-1 rounded-lg bg-surface-elevated border border-border text-foreground">
+                    <span className="inline-flex items-center gap-1 font-medium text-xs px-2.5 py-1 rounded-lg bg-surface-elevated border border-border/80 text-foreground">
                       <User size={12} className="text-primary-glow" />
                       {trip.driverName}
                     </span>
@@ -441,10 +449,10 @@ export function LoadingSheet({
 
                   {/* Time & Duration */}
                   {hasTiming ? (
-                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground ml-auto">
+                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground ml-auto bg-background/50 px-2 py-0.5 rounded-lg border border-border/50">
                       <Clock size={11} className="text-primary-glow" />
                       {timeRange}
-                      <span className="font-bold text-foreground bg-muted px-1.5 py-0.5 rounded">
+                      <span className="font-bold text-foreground bg-muted px-1.5 py-0.5 rounded ml-1">
                         {durationMins}m
                       </span>
                     </span>
@@ -463,14 +471,14 @@ export function LoadingSheet({
       {/* ── EDIT TRUCK LOAD MODAL ────────────────────────────────────────── */}
       {editingTripIndex !== null && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/85 backdrop-blur-md animate-fade-in"
           onClick={() => setEditingTripIndex(null)}
         >
           <div
-            className="w-full max-w-md bg-surface border border-border rounded-3xl p-5 sm:p-6 shadow-2xl animate-scale-up"
+            className="w-full max-w-md bg-surface border border-border/80 rounded-3xl p-5 sm:p-6 shadow-2xl animate-sheet-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3.5 border-b border-border">
+            <div className="flex items-center justify-between pb-3.5 border-b border-border/80">
               <div className="flex items-center gap-2.5">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow">
                   <Edit3 size={18} />
@@ -483,7 +491,7 @@ export function LoadingSheet({
 
               <button
                 onClick={() => setEditingTripIndex(null)}
-                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
@@ -671,14 +679,14 @@ export function LoadingSheet({
       {/* ── ADD TRUCK LOAD MODAL ─────────────────────────────────────────── */}
       {showAddModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/85 backdrop-blur-md animate-fade-in"
           onClick={() => setShowAddModal(false)}
         >
           <div
-            className="w-full max-w-md bg-surface border border-border rounded-3xl p-5 sm:p-6 shadow-2xl animate-scale-up"
+            className="w-full max-w-md bg-surface border border-border/80 rounded-3xl p-5 sm:p-6 shadow-2xl animate-sheet-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3.5 border-b border-border">
+            <div className="flex items-center justify-between pb-3.5 border-b border-border/80">
               <div className="flex items-center gap-2.5">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow">
                   <Truck size={18} />
@@ -691,7 +699,7 @@ export function LoadingSheet({
 
               <button
                 onClick={() => setShowAddModal(false)}
-                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
@@ -869,11 +877,11 @@ export function LoadingSheet({
       {/* ── REPORT PREVIEW MODAL ─────────────────────────────────────────── */}
       {showReportModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/85 backdrop-blur-md animate-fade-in"
           onClick={() => setShowReportModal(false)}
         >
           <div
-            className="w-full max-w-2xl bg-surface border border-border rounded-3xl p-5 sm:p-6 max-h-[90vh] flex flex-col shadow-2xl animate-scale-up"
+            className="w-full max-w-2xl bg-surface border border-border/80 rounded-3xl p-5 sm:p-6 max-h-[90vh] flex flex-col shadow-2xl animate-sheet-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
