@@ -83,6 +83,17 @@ export async function saveEntryLocal(entry: Entry): Promise<void> {
   await db.put("entries", entry);
 }
 
+/** Save a batch of entries to IndexedDB in a single lightning-fast readwrite transaction */
+export async function saveEntriesLocalBatch(entries: Entry[]): Promise<void> {
+  if (typeof indexedDB === "undefined" || entries.length === 0) return;
+  const db = await getDB();
+  const tx = db.transaction("entries", "readwrite");
+  for (const entry of entries) {
+    tx.store.put(entry);
+  }
+  await tx.done;
+}
+
 export async function getEntry(id: string): Promise<Entry | undefined> {
   if (typeof indexedDB === "undefined") return undefined;
   const db = await getDB();
