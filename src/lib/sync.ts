@@ -278,8 +278,55 @@ export async function pullAndMerge(): Promise<{ pulledCount: number; hasUpdates:
   for (const remote of remoteEntries) {
     const local = localMap.get(remote.id);
 
-    // If local version is newer or equal, preserve local changes
-    if (local && local.updatedAt >= remote.updated_at) {
+    // Map all remote attachments for this entry with signed URLs
+    const attsForEntry = remoteAttachments.filter((a: any) => a.entry_id === remote.id);
+    const remoteMappedAtts: Attachment[] = attsForEntry.map((a: any) => {
+      const existingLocalAtt = local?.attachments?.find((la) => la.id === a.id);
+      const signedUrl = a.storage_path ? signedUrlMap.get(a.storage_path) : undefined;
+
+      return {
+        id: a.id,
+        kind: a.kind,
+        mime: a.mime,
+        name: a.name ?? undefined,
+        caption: a.caption ?? undefined,
+        durationMs: a.duration_ms ?? undefined,
+        width: a.width ?? undefined,
+        height: a.height ?? undefined,
+        storagePath: a.storage_path,
+        blob: existingLocalAtt?.blob, // Preserve local blob if present
+        downloadUrl: signedUrl ?? existingLocalAtt?.downloadUrl,
+        createdAt: a.created_at,
+      } as Attachment;
+    });
+
+    // Merge attachments: remote attachments + local attachments not in remote
+    const attsMap = new Map<string, Attachment>();
+    for (const rAtt of remoteMappedAtts) {
+      attsMap.set(rAtt.id, rAtt);
+    }
+    if (local?.attachments) {
+      for (const lAtt of local.attachments) {
+        const existing = attsMap.get(lAtt.id);
+        if (existing) {
+          attsMap.set(lAtt.id, {
+            ...existing,
+            blob: lAtt.blob || existing.blob,
+            downloadUrl: existing.downloadUrl || lAtt.downloadUrl,
+          });
+        } else {
+          attsMap.set(lAtt.id, lAtt);
+        }
+      }
+    }
+    const finalAttachments = Array.from(attsMap.values());
+
+    // Check whether an update to IndexedDB is required
+    const isNewer = !local || remote.updated_at > local.updatedAt;
+    const hasMoreAttachments = !local || finalAttachments.length > (local.attachments?.length || 0);
+    const hasMissingUrls = local?.attachments?.some((a) => a.storagePath && !a.blob && !a.downloadUrl);
+
+    if (!isNewer && !hasMoreAttachments && !hasMissingUrls) {
       continue;
     }
 
@@ -306,46 +353,30 @@ export async function pullAndMerge(): Promise<{ pulledCount: number; hasUpdates:
       }
     }
 
-    // Map attachments for this entry with long-lived signed URLs
-    const attsForEntry = remoteAttachments.filter((a: any) => a.entry_id === remote.id);
-    const mergedAttachments: Attachment[] = attsForEntry.map((a: any) => {
-      const existingLocalAtt = local?.attachments?.find((la) => la.id === a.id);
-      const signedUrl = a.storage_path ? signedUrlMap.get(a.storage_path) : undefined;
-
-      return {
-        id: a.id,
-        kind: a.kind,
-        mime: a.mime,
-        name: a.name ?? undefined,
-        caption: a.caption ?? undefined,
-        durationMs: a.duration_ms ?? undefined,
-        width: a.width ?? undefined,
-        height: a.height ?? undefined,
-        storagePath: a.storage_path,
-        blob: existingLocalAtt?.blob, // Preserve local blob if already downloaded
-        downloadUrl: signedUrl ?? existingLocalAtt?.downloadUrl,
-        createdAt: a.created_at,
-      } as Attachment;
-    });
-
     const merged: Entry = {
       id: remote.id,
-      title: remote.title,
-      tags: remote.tags ?? [],
-      notes: userNotes,
-      trips: remote.trips ?? undefined,
-      loadingSheetTrips: loadingSheetTrips ?? local?.loadingSheetTrips,
-      despatcherName: despatcherName ?? local?.despatcherName,
-      expectedTotal: remote.expected_total ?? undefined,
-      attachments: mergedAttachments,
+      title: isNewer ? remote.title : (local?.title ?? remote.title),
+      tags: isNewer ? (remote.tags ?? []) : (local?.tags ?? remote.tags ?? []),
+      notes: isNewer ? userNotes : (local?.notes ?? userNotes),
+      trips: isNewer ? (remote.trips ?? undefined) : (local?.trips ?? remote.trips ?? undefined),
+      loadingSheetTrips: isNewer
+        ? (loadingSheetTrips ?? local?.loadingSheetTrips)
+        : (local?.loadingSheetTrips ?? loadingSheetTrips),
+      despatcherName: isNewer
+        ? (despatcherName ?? local?.despatcherName)
+        : (local?.despatcherName ?? despatcherName),
+      expectedTotal: isNewer
+        ? (remote.expected_total ?? undefined)
+        : (local?.expectedTotal ?? remote.expected_total ?? undefined),
+      attachments: finalAttachments,
       createdAt: remote.created_at,
-      updatedAt: remote.updated_at,
+      updatedAt: Math.max(remote.updated_at, local?.updatedAt ?? 0),
       dayKey: remote.day_key,
       monthKey: remote.month_key,
       yearKey: remote.year_key,
     };
 
-    // Save locally without triggering an unnecessary recursive cloud push
+    // Save locally without triggering recursive cloud push
     await saveEntryLocal(merged);
     updateCount++;
   }

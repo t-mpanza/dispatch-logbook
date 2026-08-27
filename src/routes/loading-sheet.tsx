@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, FileText } from "l
 import { AppShell } from "@/components/AppShell";
 import { LoadingSheet } from "@/components/LoadingSheet";
 import { allEntries, updateEntry, createEntry } from "@/lib/db";
-import { dayKey } from "@/lib/format";
+import { dayKey, uid } from "@/lib/format";
 import { syncTripsToLoadingSheet } from "@/lib/loading-presets";
 import type { Entry, LoadingSheetTrip } from "@/lib/types";
 import { parseISO, addDays, format } from "date-fns";
@@ -44,19 +44,39 @@ function LoadingSheetPage() {
     qc.invalidateQueries({ queryKey: ["entry", updatedEntry.id] });
   };
 
-  const handleCreateDailySheet = async (newTrips: LoadingSheetTrip[]) => {
-    const newEntry = await createEntry({
-      title: `DESPATCH LOADING SHEET - ${selectedDate}`,
-      tags: ["loading-sheet", "compliance"],
-      withCounter: true,
-    });
-    const saved = await updateEntry({
-      ...newEntry,
+  const handleCreateTruckLoad = async (tripData: LoadingSheetTrip) => {
+    const entryId = uid();
+    const now = Date.now();
+    const startMs = tripData.startTime || now;
+    const finishMs = tripData.finishTime || (startMs + 30 * 60 * 1000);
+    const qty = tripData.quantityLoaded || 0;
+
+    const fullTrip: LoadingSheetTrip = {
+      ...tripData,
+      id: tripData.id || uid(),
+      entryId: entryId,
+      createdAt: startMs,
+    };
+
+    // Create a real Entry for the day so it shows in the daily log and can hold media
+    const newEntry: Entry = {
+      id: entryId,
+      title: fullTrip.tripId || "Truck Load",
+      tags: ["truck-load", fullTrip.presetKey?.toLowerCase() || "custom"].filter(Boolean),
+      notes: [],
+      attachments: [],
+      trips: qty > 0 ? [{ id: uid(), count: qty, createdAt: finishMs }] : [],
+      loadingSheetTrips: [fullTrip],
+      createdAt: startMs,
+      updatedAt: now,
       dayKey: selectedDate,
-      loadingSheetTrips: newTrips,
-    });
+      monthKey: selectedDate.slice(0, 7),
+      yearKey: selectedDate.slice(0, 4),
+    };
+
+    await updateEntry(newEntry);
     qc.invalidateQueries({ queryKey: ["entries"] });
-    return saved;
+    qc.invalidateQueries({ queryKey: ["entry", entryId] });
   };
 
   // Build unified loading sheet trips for the selected date
@@ -162,12 +182,12 @@ function LoadingSheetPage() {
           <div className="space-y-4">
             <LoadingSheet
               entry={combinedEntry}
+              onCreateTruckLoad={handleCreateTruckLoad}
               onUpdateEntry={async (updated) => {
                 const updatedTrips = updated.loadingSheetTrips ?? [];
                 const newManualTrips = updatedTrips.filter(t => t.isManual);
                 
                 if (!primaryEntry) {
-                  await handleCreateDailySheet(newManualTrips);
                   return;
                 }
                 

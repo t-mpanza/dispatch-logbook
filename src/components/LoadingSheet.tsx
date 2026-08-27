@@ -11,8 +11,6 @@ import {
   Check,
   Clock,
   X,
-  ChevronDown,
-  Hash,
   Layers,
 } from "lucide-react";
 import type { Entry, LoadingSheetTrip, PresetKey } from "@/lib/types";
@@ -30,6 +28,7 @@ import { fmtDayLabel, uid } from "@/lib/format";
 export interface LoadingSheetProps {
   entry: Entry;
   onUpdateEntry: (updatedEntry: Entry) => void | Promise<void>;
+  onCreateTruckLoad?: (tripData: LoadingSheetTrip) => void | Promise<void>;
 }
 
 function msToTimeString(ms?: number): string {
@@ -53,10 +52,26 @@ function timeStringToMs(timeStr: string, baseDateMs: number): number | undefined
   return d.getTime();
 }
 
-export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
+export function LoadingSheet({
+  entry,
+  onUpdateEntry,
+  onCreateTruckLoad,
+}: LoadingSheetProps) {
   const [despatcherName, setDespatcherName] = useState<string>("Theolus");
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
+
+  // Add Truck Load Form State
+  const [addPreset, setAddPreset] = useState<PresetKey>("STOCKS");
+  const [addTripId, setAddTripId] = useState<string>("");
+  const [addReg, setAddReg] = useState<string>("");
+  const [addDriver, setAddDriver] = useState<string>("");
+  const [addQty, setAddQty] = useState<number>(0);
+  const [addStartTimeStr, setAddStartTimeStr] = useState<string>(msToTimeString(Date.now()));
+  const [addFinishTimeStr, setAddFinishTimeStr] = useState<string>(
+    msToTimeString(Date.now() + 30 * 60 * 1000),
+  );
 
   useEffect(() => {
     getDespatcherName().then((savedName) => {
@@ -80,6 +95,65 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
       ...entry,
       loadingSheetTrips: nextTrips,
     });
+  };
+
+  const handleOpenAddModal = () => {
+    const defaultPreset: PresetKey = "STOCKS";
+    const fill = getPresetFill(defaultPreset, {
+      dayKey: entry.dayKey,
+      existingTrips: rawTrips,
+    });
+    setAddPreset(defaultPreset);
+    setAddTripId(fill.tripId);
+    setAddReg(fill.reg || "");
+    setAddDriver(fill.driverName || "");
+    setAddQty(0);
+    const now = Date.now();
+    setAddStartTimeStr(msToTimeString(now));
+    setAddFinishTimeStr(msToTimeString(now + 30 * 60 * 1000));
+    setShowAddModal(true);
+  };
+
+  const handleAddPresetChange = (preset: PresetKey) => {
+    setAddPreset(preset);
+    const fill = getPresetFill(preset, {
+      dayKey: entry.dayKey,
+      existingTrips: rawTrips,
+    });
+    setAddTripId(fill.tripId);
+    if (fill.reg) setAddReg(fill.reg);
+    if (fill.driverName) setAddDriver(fill.driverName);
+  };
+
+  const handleSubmitAddTruck = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const baseDate = entry.createdAt || Date.now();
+    const startMs = timeStringToMs(addStartTimeStr, baseDate) || Date.now();
+    const finishMs = timeStringToMs(addFinishTimeStr, baseDate) || startMs + 30 * 60 * 1000;
+    const duration = calculateDurationMinutes(startMs, finishMs);
+
+    const trip: LoadingSheetTrip = {
+      id: uid(),
+      entryId: entry.id,
+      reg: addReg.trim().toUpperCase(),
+      driverName: addDriver.trim(),
+      tripId: addTripId.trim() || addPreset,
+      presetKey: addPreset,
+      startTime: startMs,
+      finishTime: finishMs,
+      durationMinutes: duration,
+      quantityLoaded: Math.max(0, addQty),
+      isManual: false,
+      createdAt: startMs,
+    };
+
+    if (onCreateTruckLoad) {
+      await onCreateTruckLoad(trip);
+    } else {
+      updateTrips([...rawTrips, trip]);
+    }
+
+    setShowAddModal(false);
   };
 
   const handlePresetSelect = (index: number, key: PresetKey) => {
@@ -128,30 +202,6 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
 
     current[index] = trip;
     updateTrips(current);
-  };
-
-  const handleAddManualRow = () => {
-    const now = Date.now();
-    const newTrip: LoadingSheetTrip = {
-      id: uid(),
-      entryId: entry.id,
-      reg: "",
-      driverName: "",
-      tripId: "STOCKS 1",
-      presetKey: "STOCKS",
-      startTime: now,
-      finishTime: now + 30 * 60 * 1000,
-      durationMinutes: 30,
-      quantityLoaded: 0,
-      isManual: true,
-      createdAt: now,
-    };
-    const fill = getPresetFill("STOCKS", {
-      dayKey: entry.dayKey,
-      existingTrips: rawTrips,
-    });
-    newTrip.tripId = fill.tripId;
-    updateTrips([...rawTrips, newTrip]);
   };
 
   const handleDeleteRow = (index: number) => {
@@ -271,7 +321,7 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
           </div>
 
           <button
-            onClick={handleAddManualRow}
+            onClick={handleOpenAddModal}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-xs"
           >
             <Plus size={15} />
@@ -290,7 +340,7 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
               Add a new truck load or record scans in the counter.
             </p>
             <button
-              onClick={handleAddManualRow}
+              onClick={handleOpenAddModal}
               className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground"
             >
               <Plus size={14} /> Add First Truck
@@ -613,6 +663,182 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
           </table>
         </div>
       </div>
+
+      {/* ── ADD TRUCK LOAD MODAL ─────────────────────────────────────────── */}
+      {showAddModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            className="w-full max-w-md bg-surface border border-border rounded-3xl p-5 sm:p-6 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3.5 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow">
+                  <Truck size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Add Truck Load</h3>
+                  <p className="text-xs text-muted-foreground">Creates a trip on the sheet and daily log</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitAddTruck} className="mt-4 space-y-3.5 text-xs">
+              {/* Preset Selector */}
+              <div>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  Preset / Destination
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {LOADING_PRESETS.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => handleAddPresetChange(p.key)}
+                      className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center truncate ${
+                        addPreset === p.key
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-surface-elevated border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {p.label.replace(" [i]", "")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Trip ID & Reg */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Trip ID
+                  </label>
+                  <input
+                    type="text"
+                    value={addTripId}
+                    onChange={(e) => setAddTripId(e.target.value)}
+                    placeholder="e.g. STOCKS 1"
+                    required
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Reg Plate
+                  </label>
+                  <input
+                    type="text"
+                    value={addReg}
+                    onChange={(e) => setAddReg(e.target.value.toUpperCase())}
+                    placeholder="e.g. MN05XNGP"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary-glow"
+                  />
+                </div>
+              </div>
+
+              {/* Driver & Quantity */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Driver Name
+                  </label>
+                  <input
+                    type="text"
+                    value={addDriver}
+                    onChange={(e) => setAddDriver(e.target.value)}
+                    placeholder="e.g. Neil"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Tyres Loaded
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setAddQty(Math.max(0, addQty - 1))}
+                      className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min="0"
+                      value={addQty}
+                      onChange={(e) => setAddQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAddQty(addQty + 1)}
+                      className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timings */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={addStartTimeStr}
+                    onChange={(e) => setAddStartTimeStr(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-primary-glow"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Finish Time
+                  </label>
+                  <input
+                    type="time"
+                    value={addFinishTimeStr}
+                    onChange={(e) => setAddFinishTimeStr(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-primary-glow"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Submit & Cancel */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-border text-xs font-semibold hover:bg-muted active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
+                >
+                  <Plus size={14} /> Add Truck Load
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── REPORT PREVIEW MODAL ─────────────────────────────────────────── */}
       {showReportModal && (
