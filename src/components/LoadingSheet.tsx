@@ -12,6 +12,9 @@ import {
   Clock,
   X,
   Layers,
+  Edit3,
+  AlertTriangle,
+  BadgeCheck,
 } from "lucide-react";
 import type { Entry, LoadingSheetTrip, PresetKey } from "@/lib/types";
 import {
@@ -61,6 +64,7 @@ export function LoadingSheet({
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [editingTripIndex, setEditingTripIndex] = useState<number | null>(null);
 
   // Add Truck Load Form State
   const [addPreset, setAddPreset] = useState<PresetKey>("STOCKS");
@@ -72,6 +76,15 @@ export function LoadingSheet({
   const [addFinishTimeStr, setAddFinishTimeStr] = useState<string>(
     msToTimeString(Date.now() + 30 * 60 * 1000),
   );
+
+  // Edit Truck Load Form State
+  const [editPreset, setEditPreset] = useState<PresetKey>("CUSTOM");
+  const [editTripId, setEditTripId] = useState<string>("");
+  const [editReg, setEditReg] = useState<string>("");
+  const [editDriver, setEditDriver] = useState<string>("");
+  const [editQty, setEditQty] = useState<number>(0);
+  const [editStartTimeStr, setEditStartTimeStr] = useState<string>("");
+  const [editFinishTimeStr, setEditFinishTimeStr] = useState<string>("");
 
   useEffect(() => {
     getDespatcherName().then((savedName) => {
@@ -156,57 +169,64 @@ export function LoadingSheet({
     setShowAddModal(false);
   };
 
-  const handlePresetSelect = (index: number, key: PresetKey) => {
-    const current = [...rawTrips];
-    const fill = getPresetFill(key, {
-      dayKey: entry.dayKey,
-      existingTrips: current,
-    });
-
-    const updatedTrip: LoadingSheetTrip = {
-      ...current[index],
-      presetKey: key,
-      tripId: fill.tripId,
-      ...(fill.driverName ? { driverName: fill.driverName } : {}),
-      ...(fill.reg ? { reg: fill.reg } : {}),
-    };
-
-    current[index] = updatedTrip;
-    updateTrips(current);
+  const handleOpenEditModal = (idx: number) => {
+    const trip = rawTrips[idx];
+    if (!trip) return;
+    setEditingTripIndex(idx);
+    setEditPreset(trip.presetKey || "CUSTOM");
+    setEditTripId(trip.tripId || "");
+    setEditReg(trip.reg || "");
+    setEditDriver(trip.driverName || "");
+    setEditQty(trip.quantityLoaded || 0);
+    setEditStartTimeStr(msToTimeString(trip.startTime));
+    setEditFinishTimeStr(msToTimeString(trip.finishTime));
   };
 
-  const handleRowChange = (
-    index: number,
-    field: keyof LoadingSheetTrip,
-    value: any,
-  ) => {
+  const handleEditPresetChange = (preset: PresetKey) => {
+    setEditPreset(preset);
+    const fill = getPresetFill(preset, {
+      dayKey: entry.dayKey,
+      existingTrips: rawTrips,
+    });
+    setEditTripId(fill.tripId);
+    if (fill.reg) setEditReg(fill.reg);
+    if (fill.driverName) setEditDriver(fill.driverName);
+  };
+
+  const handleSaveEditModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTripIndex === null) return;
     const current = [...rawTrips];
-    const trip = { ...current[index] };
+    const existing = current[editingTripIndex];
+    if (!existing) return;
 
-    if (field === "reg" && typeof value === "string") {
-      trip.reg = value.toUpperCase();
-    } else if (field === "startTime") {
-      const ms = timeStringToMs(value, trip.createdAt || entry.createdAt);
-      trip.startTime = ms;
-      trip.durationMinutes = calculateDurationMinutes(trip.startTime, trip.finishTime);
-    } else if (field === "finishTime") {
-      const ms = timeStringToMs(value, trip.createdAt || entry.createdAt);
-      trip.finishTime = ms;
-      trip.durationMinutes = calculateDurationMinutes(trip.startTime, trip.finishTime);
-    } else {
-      (trip as any)[field] = value;
-      if (field === "quantityLoaded") {
-        trip.quantityLoaded = Math.max(0, parseInt(value, 10) || 0);
-      }
-    }
+    const baseDate = existing.createdAt || entry.createdAt || Date.now();
+    const startMs = timeStringToMs(editStartTimeStr, baseDate);
+    const finishMs = timeStringToMs(editFinishTimeStr, baseDate);
+    const duration = calculateDurationMinutes(startMs, finishMs);
 
-    current[index] = trip;
+    current[editingTripIndex] = {
+      ...existing,
+      presetKey: editPreset,
+      tripId: editTripId.trim() || editPreset,
+      reg: editReg.trim().toUpperCase(),
+      driverName: editDriver.trim(),
+      quantityLoaded: Math.max(0, editQty),
+      startTime: startMs,
+      finishTime: finishMs,
+      durationMinutes: duration,
+    };
+
     updateTrips(current);
+    setEditingTripIndex(null);
   };
 
   const handleDeleteRow = (index: number) => {
     const current = rawTrips.filter((_, i) => i !== index);
     updateTrips(current);
+    if (editingTripIndex === index) {
+      setEditingTripIndex(null);
+    }
   };
 
   const totals = calculateLoadingSheetTotals(rawTrips);
@@ -330,175 +350,101 @@ export function LoadingSheet({
         </div>
       </div>
 
-      {/* ── MOBILE CARDS LAYOUT (Ultra-Clean, High Readability) ──────────── */}
-      <div className="block sm:hidden space-y-3">
+      {/* ── MINIMIZED SUMMARY CARDS LIST (Clean, High Legibility, Tap to Edit) ── */}
+      <div className="space-y-2.5">
         {rawTrips.length === 0 ? (
-          <div className="py-10 text-center text-muted-foreground text-xs bg-surface border border-dashed border-border rounded-2xl p-6">
-            <Truck size={32} className="mx-auto mb-2 text-muted-foreground/40" />
-            <p className="font-semibold text-foreground">No truck loads recorded yet</p>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Add a new truck load or record scans in the counter.
+          <div className="py-12 text-center text-muted-foreground text-xs bg-surface border border-dashed border-border rounded-2xl p-6">
+            <Truck size={36} className="mx-auto mb-2.5 text-muted-foreground/30" />
+            <p className="font-bold text-foreground text-sm">No truck loads logged for this date</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+              Tap "+ Add Truck Load" to record a truck trip or start scanning in the counter.
             </p>
             <button
               onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground"
+              className="inline-flex items-center gap-1.5 mt-4 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary text-primary-foreground shadow-sm"
             >
-              <Plus size={14} /> Add First Truck
+              <Plus size={14} /> Add First Truck Load
             </button>
           </div>
         ) : (
           rawTrips.map((trip, idx) => {
-            const currentPreset = trip.presetKey ?? "CUSTOM";
-            const calculatedMins = calculateDurationMinutes(trip.startTime, trip.finishTime);
+            const hasReg = Boolean(trip.reg && trip.reg.trim());
+            const hasDriver = Boolean(trip.driverName && trip.driverName.trim());
+            const durationMins = calculateDurationMinutes(trip.startTime, trip.finishTime);
+            const timeRange = trip.startTime || trip.finishTime
+              ? `${formatTimeHHmm(trip.startTime)} → ${formatTimeHHmm(trip.finishTime)}`
+              : "No timing";
 
             return (
               <div
                 key={trip.id || idx}
-                className="bg-surface border border-border rounded-2xl p-4 space-y-3.5 shadow-xs"
+                onClick={() => handleOpenEditModal(idx)}
+                className="group relative bg-surface border border-border hover:border-primary/50 rounded-2xl p-4 transition-all shadow-xs cursor-pointer active:scale-[0.99] space-y-2.5"
               >
-                {/* Card Top: Number, Reg & Preset */}
-                <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="h-6 w-6 rounded-full bg-muted grid place-items-center text-xs font-bold font-mono text-muted-foreground">
+                {/* Row Header: Number, Trip ID, Tyres count, Edit Button */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="h-6 w-6 rounded-full bg-muted font-mono font-bold text-xs grid place-items-center text-muted-foreground shrink-0">
                       {idx + 1}
                     </span>
-                    <input
-                      type="text"
-                      value={trip.reg || ""}
-                      onChange={(e) => handleRowChange(idx, "reg", e.target.value)}
-                      placeholder="REG PLATE"
-                      className="bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-black uppercase text-foreground outline-none focus:border-primary-glow w-32 tracking-wider"
-                    />
+                    <h3 className="font-mono text-sm font-black tracking-wide uppercase text-foreground truncate">
+                      {trip.tripId || `TRIP ${idx + 1}`}
+                    </h3>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={currentPreset}
-                      onChange={(e) => handlePresetSelect(idx, e.target.value as PresetKey)}
-                      className="bg-background border border-border rounded-xl px-2 py-1.5 text-xs font-bold text-foreground outline-none focus:border-primary-glow"
-                    >
-                      {LOADING_PRESETS.map((p) => (
-                        <option key={p.key} value={p.key}>
-                          {p.label}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="px-2.5 py-1 rounded-lg bg-primary/15 border border-primary/30 text-primary-glow font-mono font-black text-xs tabular-nums">
+                      {trip.quantityLoaded || 0} tyres
+                    </span>
 
                     <button
-                      onClick={() => handleDeleteRow(idx)}
-                      className="h-8 w-8 rounded-lg grid place-items-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      title="Delete truck row"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEditModal(idx);
+                      }}
+                      className="h-8 px-2.5 rounded-xl bg-surface-elevated border border-border text-foreground hover:border-primary/50 text-xs font-bold flex items-center gap-1 transition-all"
                     >
-                      <Trash2 size={15} />
+                      <Edit3 size={13} className="text-primary-glow" />
+                      <span>Edit</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Custom Trip ID if needed */}
-                {(currentPreset === "CUSTOM" ||
-                  !LOADING_PRESETS.some((p) => p.key === currentPreset)) && (
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                      Trip ID
-                    </label>
-                    <input
-                      type="text"
-                      value={trip.tripId || ""}
-                      onChange={(e) => handleRowChange(idx, "tripId", e.target.value)}
-                      placeholder="e.g. STOCKS 2, NLH, DBN"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
-                    />
-                  </div>
-                )}
-
-                {/* Driver Name & Quantity Loaded */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                      Driver Name
-                    </label>
-                    <input
-                      type="text"
-                      value={trip.driverName || ""}
-                      onChange={(e) => handleRowChange(idx, "driverName", e.target.value)}
-                      placeholder="e.g. Neil"
-                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                      Tyres Loaded
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() =>
-                          handleRowChange(
-                            idx,
-                            "quantityLoaded",
-                            Math.max(0, (trip.quantityLoaded || 0) - 1),
-                          )
-                        }
-                        className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        min="0"
-                        value={trip.quantityLoaded}
-                        onChange={(e) => handleRowChange(idx, "quantityLoaded", e.target.value)}
-                        className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow"
-                      />
-                      <button
-                        onClick={() =>
-                          handleRowChange(
-                            idx,
-                            "quantityLoaded",
-                            (trip.quantityLoaded || 0) + 1,
-                          )
-                        }
-                        className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Load Timings (Start → Finish = Duration) */}
-                <div className="bg-background/80 border border-border rounded-xl p-2.5 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Clock size={14} className="text-primary-glow shrink-0" />
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] uppercase font-bold text-muted-foreground">Start</span>
-                        <input
-                          type="time"
-                          value={msToTimeString(trip.startTime)}
-                          onChange={(e) => handleRowChange(idx, "startTime", e.target.value)}
-                          className="bg-surface border border-border rounded-lg px-2 py-1 text-xs font-mono font-bold outline-none"
-                        />
-                      </div>
-                      <span className="text-muted-foreground text-xs mt-3">→</span>
-                      <div className="flex flex-col">
-                        <span className="text-[9px] uppercase font-bold text-muted-foreground">Finish</span>
-                        <input
-                          type="time"
-                          value={msToTimeString(trip.finishTime)}
-                          onChange={(e) => handleRowChange(idx, "finishTime", e.target.value)}
-                          className="bg-surface border border-border rounded-lg px-2 py-1 text-xs font-mono font-bold outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end">
-                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Duration</span>
-                    <span className="bg-primary/15 border border-primary/30 text-primary-glow font-mono font-black px-2 py-1 rounded-lg text-xs">
-                      {calculatedMins}m
+                {/* Status Badges & Details Row */}
+                <div className="flex items-center gap-2 text-xs flex-wrap">
+                  {/* Reg Badge */}
+                  {hasReg ? (
+                    <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-surface-elevated border border-border text-foreground">
+                      <Truck size={12} className="text-primary-glow" />
+                      {trip.reg}
                     </span>
-                  </div>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                      <AlertTriangle size={11} /> No Reg
+                    </span>
+                  )}
+
+                  {/* Driver Badge */}
+                  {hasDriver ? (
+                    <span className="inline-flex items-center gap-1 font-medium text-xs px-2.5 py-1 rounded-lg bg-surface-elevated border border-border text-foreground">
+                      <User size={12} className="text-primary-glow" />
+                      {trip.driverName}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                      <AlertTriangle size={11} /> No Driver
+                    </span>
+                  )}
+
+                  {/* Time & Duration */}
+                  <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground ml-auto">
+                    <Clock size={11} />
+                    {timeRange}
+                    <span className="font-bold text-foreground bg-muted px-1.5 py-0.5 rounded">
+                      {durationMins}m
+                    </span>
+                  </span>
                 </div>
               </div>
             );
@@ -506,163 +452,191 @@ export function LoadingSheet({
         )}
       </div>
 
-      {/* ── DESKTOP TABLE LAYOUT (Tablets & Desktops) ────────────────────── */}
-      <div className="hidden sm:block bg-surface border border-border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-muted/40 text-muted-foreground font-bold uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-3.5 min-w-[120px]">Reg Plate</th>
-                <th className="py-3 px-3.5 min-w-[130px]">Driver Name</th>
-                <th className="py-3 px-3.5 min-w-[160px]">Trip ID / Preset</th>
-                <th className="py-3 px-3 text-center min-w-[110px]">Start Time</th>
-                <th className="py-3 px-3 text-center min-w-[110px]">Finish Time</th>
-                <th className="py-3 px-3 text-center min-w-[90px]">Duration</th>
-                <th className="py-3 px-3.5 text-right min-w-[120px]">Tyres Loaded</th>
-                <th className="py-3 px-2 w-10 text-center"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {rawTrips.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-10 text-center text-muted-foreground text-xs">
-                    No loading sheet trips recorded yet. Click{" "}
-                    <span className="font-semibold text-foreground">"+ Add Truck Load"</span> to add
-                    one.
-                  </td>
-                </tr>
-              ) : (
-                rawTrips.map((trip, idx) => {
-                  const currentPreset = trip.presetKey ?? "CUSTOM";
-                  const calculatedMins = calculateDurationMinutes(trip.startTime, trip.finishTime);
+      {/* ── EDIT TRUCK LOAD MODAL ────────────────────────────────────────── */}
+      {editingTripIndex !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setEditingTripIndex(null)}
+        >
+          <div
+            className="w-full max-w-md bg-surface border border-border rounded-3xl p-5 sm:p-6 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3.5 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow">
+                  <Edit3 size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Edit Truck Load</h3>
+                  <p className="text-xs text-muted-foreground">Modify details, quantity and timing</p>
+                </div>
+              </div>
 
-                  return (
-                    <tr key={trip.id || idx} className="hover:bg-muted/10 transition-colors">
-                      <td className="py-2.5 px-3.5">
-                        <input
-                          type="text"
-                          value={trip.reg || ""}
-                          onChange={(e) => handleRowChange(idx, "reg", e.target.value)}
-                          placeholder="MN05XNGP"
-                          className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold uppercase text-foreground outline-none focus:border-primary-glow"
-                        />
-                      </td>
+              <button
+                onClick={() => setEditingTripIndex(null)}
+                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-                      <td className="py-2.5 px-3.5">
-                        <input
-                          type="text"
-                          value={trip.driverName || ""}
-                          onChange={(e) => handleRowChange(idx, "driverName", e.target.value)}
-                          placeholder="Neil"
-                          className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none focus:border-primary-glow"
-                        />
-                      </td>
+            <form onSubmit={handleSaveEditModal} className="mt-4 space-y-3.5 text-xs">
+              {/* Preset Selector */}
+              <div>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  Preset / Destination
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {LOADING_PRESETS.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => handleEditPresetChange(p.key)}
+                      className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center truncate ${
+                        editPreset === p.key
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-surface-elevated border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {p.label.replace(" [i]", "")}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                      <td className="py-2.5 px-3.5">
-                        <div className="flex items-center gap-1.5">
-                          <select
-                            value={currentPreset}
-                            onChange={(e) => handlePresetSelect(idx, e.target.value as PresetKey)}
-                            className="bg-background border border-border rounded-lg px-2 py-1.5 text-xs font-semibold outline-none focus:border-primary-glow"
-                          >
-                            {LOADING_PRESETS.map((p) => (
-                              <option key={p.key} value={p.key}>
-                                {p.label}
-                              </option>
-                            ))}
-                          </select>
-                          {(currentPreset === "CUSTOM" ||
-                            !LOADING_PRESETS.some((p) => p.key === currentPreset)) && (
-                            <input
-                              type="text"
-                              value={trip.tripId || ""}
-                              onChange={(e) => handleRowChange(idx, "tripId", e.target.value)}
-                              placeholder="Trip ID"
-                              className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs font-semibold outline-none focus:border-primary-glow"
-                            />
-                          )}
-                        </div>
-                      </td>
+              {/* Trip ID & Reg */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Trip ID
+                  </label>
+                  <input
+                    type="text"
+                    value={editTripId}
+                    onChange={(e) => setEditTripId(e.target.value)}
+                    placeholder="e.g. STOCKS 1"
+                    required
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
+                  />
+                </div>
 
-                      <td className="py-2.5 px-3 text-center">
-                        <input
-                          type="time"
-                          value={msToTimeString(trip.startTime)}
-                          onChange={(e) => handleRowChange(idx, "startTime", e.target.value)}
-                          className="bg-background border border-border rounded-lg px-2 py-1 text-xs font-mono font-bold text-center outline-none focus:border-primary-glow"
-                        />
-                      </td>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Reg Plate
+                  </label>
+                  <input
+                    type="text"
+                    value={editReg}
+                    onChange={(e) => setEditReg(e.target.value.toUpperCase())}
+                    placeholder="e.g. MN05XNGP"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary-glow"
+                  />
+                </div>
+              </div>
 
-                      <td className="py-2.5 px-3 text-center">
-                        <input
-                          type="time"
-                          value={msToTimeString(trip.finishTime)}
-                          onChange={(e) => handleRowChange(idx, "finishTime", e.target.value)}
-                          className="bg-background border border-border rounded-lg px-2 py-1 text-xs font-mono font-bold text-center outline-none focus:border-primary-glow"
-                        />
-                      </td>
+              {/* Driver & Quantity */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Driver Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editDriver}
+                    onChange={(e) => setEditDriver(e.target.value)}
+                    placeholder="e.g. Neil"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
+                  />
+                </div>
 
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="bg-primary/10 border border-primary/20 text-primary-glow px-2 py-1 rounded-md font-mono font-bold text-xs">
-                          {calculatedMins}m
-                        </span>
-                      </td>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Tyres Loaded
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditQty(Math.max(0, editQty - 1))}
+                      className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editQty}
+                      onChange={(e) => setEditQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditQty(editQty + 1)}
+                      className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-                      <td className="py-2.5 px-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() =>
-                              handleRowChange(
-                                idx,
-                                "quantityLoaded",
-                                Math.max(0, (trip.quantityLoaded || 0) - 1),
-                              )
-                            }
-                            className="h-7 w-7 rounded-md bg-muted text-foreground font-bold flex items-center justify-center shrink-0 active:scale-95"
-                          >
-                            -
-                          </button>
-                          <input
-                            type="number"
-                            min="0"
-                            value={trip.quantityLoaded}
-                            onChange={(e) =>
-                              handleRowChange(idx, "quantityLoaded", e.target.value)
-                            }
-                            className="w-16 bg-background border border-border rounded-md px-2 py-1 text-xs font-mono font-bold text-center text-primary-glow outline-none focus:border-primary-glow"
-                          />
-                          <button
-                            onClick={() =>
-                              handleRowChange(
-                                idx,
-                                "quantityLoaded",
-                                (trip.quantityLoaded || 0) + 1,
-                              )
-                            }
-                            className="h-7 w-7 rounded-md bg-muted text-foreground font-bold flex items-center justify-center shrink-0 active:scale-95"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </td>
+              {/* Timings */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={editStartTimeStr}
+                    onChange={(e) => setEditStartTimeStr(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-primary-glow"
+                  />
+                </div>
 
-                      <td className="py-2.5 px-2 text-center">
-                        <button
-                          onClick={() => handleDeleteRow(idx)}
-                          className="text-muted-foreground hover:text-destructive p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
-                          title="Delete truck"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Finish Time
+                  </label>
+                  <input
+                    type="time"
+                    value={editFinishTimeStr}
+                    onChange={(e) => setEditFinishTimeStr(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-primary-glow"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-border mt-4">
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRow(editingTripIndex)}
+                  className="px-3 py-2.5 rounded-xl text-destructive hover:bg-destructive/10 text-xs font-bold flex items-center gap-1.5 transition-all"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingTripIndex(null)}
+                    className="px-4 py-2.5 rounded-xl border border-border text-xs font-semibold hover:bg-muted active:scale-95 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 active:scale-95 transition-all shadow-sm"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── ADD TRUCK LOAD MODAL ─────────────────────────────────────────── */}
       {showAddModal && (
