@@ -115,12 +115,16 @@ export async function generatePDFReport(
 
   printContainer.innerHTML = `
     <style>
+      #printable-loading-sheet {
+        display: none;
+      }
       @media print {
         body * {
           visibility: hidden !important;
         }
         #printable-loading-sheet, #printable-loading-sheet * {
           visibility: visible !important;
+          display: block !important;
         }
         #printable-loading-sheet {
           position: absolute !important;
@@ -133,6 +137,21 @@ export async function generatePDFReport(
           color: #000000 !important;
           font-family: Arial, sans-serif !important;
           font-size: 12px !important;
+        }
+        #printable-loading-sheet table {
+          display: table !important;
+        }
+        #printable-loading-sheet thead {
+          display: table-header-group !important;
+        }
+        #printable-loading-sheet tbody {
+          display: table-row-group !important;
+        }
+        #printable-loading-sheet tr {
+          display: table-row !important;
+        }
+        #printable-loading-sheet th, #printable-loading-sheet td {
+          display: table-cell !important;
         }
       }
     </style>
@@ -164,7 +183,7 @@ export async function generatePDFReport(
         </tbody>
       </table>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #000; pt-12; padding-top: 12px; font-weight: bold; font-size: 13px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #000; padding-top: 12px; font-weight: bold; font-size: 13px;">
         <div>
           <span>TOTAL LOADING TIME: ${timeFormatted}</span>
         </div>
@@ -177,7 +196,15 @@ export async function generatePDFReport(
 
   document.body.appendChild(printContainer);
 
+  const cleanup = () => {
+    const el = document.getElementById("printable-loading-sheet");
+    if (el) el.remove();
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup);
+
   setTimeout(() => {
     window.print();
+    setTimeout(cleanup, 1000);
   }, 100);
 }

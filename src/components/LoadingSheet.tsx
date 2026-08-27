@@ -1,5 +1,20 @@
 import { useState, useEffect } from "react";
-import { Printer, Share2, Plus, Trash2, Truck, User, Calendar, Check, Clock, ChevronRight } from "lucide-react";
+import {
+  FileText,
+  Printer,
+  Share2,
+  Plus,
+  Trash2,
+  Truck,
+  User,
+  Calendar,
+  Check,
+  Clock,
+  X,
+  ChevronDown,
+  Hash,
+  Layers,
+} from "lucide-react";
 import type { Entry, LoadingSheetTrip, PresetKey } from "@/lib/types";
 import {
   LOADING_PRESETS,
@@ -8,7 +23,7 @@ import {
   calculateLoadingSheetTotals,
 } from "@/lib/loading-presets";
 import { getDespatcherName, saveDespatcherName } from "@/lib/db";
-import { generatePDFReport } from "@/lib/export-pdf";
+import { generatePDFReport, formatTimeHHmm } from "@/lib/export-pdf";
 import { formatWhatsAppShareText, shareWhatsAppText } from "@/lib/export-whatsapp";
 import { fmtDayLabel, uid } from "@/lib/format";
 
@@ -41,7 +56,7 @@ function timeStringToMs(timeStr: string, baseDateMs: number): number | undefined
 export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
   const [despatcherName, setDespatcherName] = useState<string>("Theolus");
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
-  const [editingTripId, setEditingTripId] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState<boolean>(false);
 
   useEffect(() => {
     getDespatcherName().then((savedName) => {
@@ -89,7 +104,7 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
   const handleRowChange = (
     index: number,
     field: keyof LoadingSheetTrip,
-    value: any
+    value: any,
   ) => {
     const current = [...rawTrips];
     const trip = { ...current[index] };
@@ -119,14 +134,15 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
     const now = Date.now();
     const newTrip: LoadingSheetTrip = {
       id: uid(),
+      entryId: entry.id,
       reg: "",
       driverName: "",
       tripId: "STOCKS 1",
       presetKey: "STOCKS",
       startTime: now,
-      finishTime: now,
-      durationMinutes: 1,
-      quantityLoaded: 2,
+      finishTime: now + 30 * 60 * 1000,
+      durationMinutes: 30,
+      quantityLoaded: 0,
       isManual: true,
       createdAt: now,
     };
@@ -136,7 +152,6 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
     });
     newTrip.tripId = fill.tripId;
     updateTrips([...rawTrips, newTrip]);
-    setEditingTripId(newTrip.id);
   };
 
   const handleDeleteRow = (index: number) => {
@@ -165,53 +180,88 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden text-card-foreground">
-      {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <div className="p-4 sm:p-5 border-b border-border bg-muted/30">
+    <div className="space-y-4">
+      {/* ── KPI / SUMMARY STATS BANNER ───────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 bg-surface-elevated border border-border/80 rounded-2xl p-3.5 sm:p-4 shadow-sm">
+        <div className="flex flex-col">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+            <Truck size={13} className="text-primary-glow" /> Trucks
+          </span>
+          <span className="mt-1 text-lg sm:text-2xl font-black font-mono text-foreground">
+            {rawTrips.length}
+          </span>
+        </div>
+
+        <div className="flex flex-col border-x border-border/60 px-2 sm:px-4">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+            <Clock size={13} className="text-primary-glow" /> Total Time
+          </span>
+          <span className="mt-1 text-sm sm:text-lg font-bold font-mono text-foreground truncate">
+            {timeFormatted}
+          </span>
+        </div>
+
+        <div className="flex flex-col text-right sm:text-left">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-end sm:justify-start gap-1">
+            <Layers size={13} className="text-primary-glow" /> Tyres
+          </span>
+          <span className="mt-1 text-lg sm:text-2xl font-black font-mono text-primary-glow">
+            {totals.totalTyresLoaded}
+          </span>
+        </div>
+      </div>
+
+      {/* ── HEADER & TOOLBAR ─────────────────────────────────────────────── */}
+      <div className="bg-surface border border-border rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary-glow">
-              <Truck size={16} />
-              <span>Despatch Loading Sheet</span>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow shrink-0">
+              <Truck size={20} />
             </div>
-            <div className="flex items-center gap-2 mt-1 text-sm font-medium text-foreground">
-              <Calendar size={14} className="text-muted-foreground" />
-              <span>{fmtDayLabel(entry.createdAt)}</span>
-              <span className="text-xs font-mono text-muted-foreground">({entry.dayKey})</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold tracking-tight text-foreground">
+                  Truck Loading Log
+                </h2>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  Compliance
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {fmtDayLabel(entry.createdAt)} · <span className="font-mono">{entry.dayKey}</span>
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-background/80 border border-border rounded-xl px-3 py-1.5 shadow-xs">
+          <div className="flex items-center gap-2 bg-background border border-border rounded-xl px-3 py-2 shadow-xs">
             <User size={15} className="text-primary-glow shrink-0" />
-            <span className="text-xs font-medium text-muted-foreground shrink-0">
-              Despatcher:
-            </span>
+            <span className="text-xs font-medium text-muted-foreground shrink-0">Despatcher:</span>
             <input
               type="text"
               value={despatcherName}
               onChange={(e) => handleDespatcherChange(e.target.value)}
               placeholder="Theolus"
-              className="bg-transparent text-sm font-semibold outline-none w-28 sm:w-36 text-foreground placeholder:text-muted-foreground/60"
+              className="bg-transparent text-xs font-bold outline-none w-28 text-foreground"
             />
           </div>
         </div>
 
-        {/* Action Bar Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-3 border-t border-border/50">
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border/60">
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrintPDF}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 active:scale-95 transition-all shadow-xs"
+              onClick={() => setShowReportModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-surface-elevated border border-border text-foreground hover:border-primary/50 active:scale-95 transition-all shadow-xs"
             >
-              <Printer size={15} />
-              <span>PDF / Print</span>
+              <Printer size={15} className="text-primary-glow" />
+              <span>Preview & Print PDF</span>
             </button>
             <button
               onClick={handleShareWhatsApp}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600/15 text-emerald-500 hover:bg-emerald-600/25 active:scale-95 transition-all shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600/15 border border-emerald-600/30 text-emerald-500 hover:bg-emerald-600/25 active:scale-95 transition-all shadow-xs"
             >
               <Share2 size={15} />
-              <span>WhatsApp Share</span>
+              <span>Share WhatsApp</span>
             </button>
             {shareFeedback && (
               <span className="text-xs text-emerald-500 font-medium flex items-center gap-1 animate-fade-in">
@@ -224,25 +274,27 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
             onClick={handleAddManualRow}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-xs"
           >
-            <Plus size={16} />
+            <Plus size={15} />
             <span>+ Add Truck Load</span>
           </button>
         </div>
       </div>
 
-      {/* ── MOBILE CARD LAYOUT (Shown on small screens) ──────────────────── */}
-      <div className="block sm:hidden p-3 space-y-3">
+      {/* ── MOBILE CARDS LAYOUT (Ultra-Clean, High Readability) ──────────── */}
+      <div className="block sm:hidden space-y-3">
         {rawTrips.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground text-xs bg-muted/20 rounded-xl p-4 border border-dashed border-border">
-            No truck loads logged for today yet.
-            <div className="mt-3">
-              <button
-                onClick={handleAddManualRow}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground"
-              >
-                <Plus size={14} /> + Add Truck Load
-              </button>
-            </div>
+          <div className="py-10 text-center text-muted-foreground text-xs bg-surface border border-dashed border-border rounded-2xl p-6">
+            <Truck size={32} className="mx-auto mb-2 text-muted-foreground/40" />
+            <p className="font-semibold text-foreground">No truck loads recorded yet</p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Add a new truck load or record scans in the counter.
+            </p>
+            <button
+              onClick={handleAddManualRow}
+              className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground"
+            >
+              <Plus size={14} /> Add First Truck
+            </button>
           </div>
         ) : (
           rawTrips.map((trip, idx) => {
@@ -252,61 +304,65 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
             return (
               <div
                 key={trip.id || idx}
-                className="rounded-xl border border-border bg-surface p-3.5 space-y-3 shadow-xs"
+                className="bg-surface border border-border rounded-2xl p-4 space-y-3.5 shadow-xs"
               >
-                {/* Mobile Card Header */}
-                <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2.5">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-xs font-mono font-bold text-muted-foreground">
-                      #{idx + 1}
+                {/* Card Top: Number, Reg & Preset */}
+                <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-6 w-6 rounded-full bg-muted grid place-items-center text-xs font-bold font-mono text-muted-foreground">
+                      {idx + 1}
                     </span>
                     <input
                       type="text"
                       value={trip.reg || ""}
                       onChange={(e) => handleRowChange(idx, "reg", e.target.value)}
-                      placeholder="TRUCK REG"
-                      className="bg-background border border-border rounded-lg px-2.5 py-1 text-sm font-mono font-black uppercase outline-none focus:border-primary w-32"
+                      placeholder="REG PLATE"
+                      className="bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-black uppercase text-foreground outline-none focus:border-primary-glow w-32 tracking-wider"
                     />
                   </div>
 
-                  {/* Preset Selector */}
-                  <select
-                    value={currentPreset}
-                    onChange={(e) => handlePresetSelect(idx, e.target.value as PresetKey)}
-                    className="bg-background border border-border rounded-lg px-2 py-1 text-xs font-bold outline-none focus:border-primary"
-                  >
-                    {LOADING_PRESETS.map((p) => (
-                      <option key={p.key} value={p.key}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={currentPreset}
+                      onChange={(e) => handlePresetSelect(idx, e.target.value as PresetKey)}
+                      className="bg-background border border-border rounded-xl px-2 py-1.5 text-xs font-bold text-foreground outline-none focus:border-primary-glow"
+                    >
+                      {LOADING_PRESETS.map((p) => (
+                        <option key={p.key} value={p.key}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
 
-                  <button
-                    onClick={() => handleDeleteRow(idx)}
-                    className="text-muted-foreground hover:text-destructive p-1 rounded-lg hover:bg-destructive/10"
-                    title="Delete truck"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                    <button
+                      onClick={() => handleDeleteRow(idx)}
+                      className="h-8 w-8 rounded-lg grid place-items-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      title="Delete truck row"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Custom Trip ID input if CUSTOM */}
+                {/* Custom Trip ID if needed */}
                 {(currentPreset === "CUSTOM" ||
                   !LOADING_PRESETS.some((p) => p.key === currentPreset)) && (
                   <div>
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                      Trip ID
+                    </label>
                     <input
                       type="text"
                       value={trip.tripId || ""}
                       onChange={(e) => handleRowChange(idx, "tripId", e.target.value)}
-                      placeholder="Enter custom Trip ID..."
-                      className="w-full bg-background border border-border rounded-lg px-2.5 py-1 text-xs outline-none focus:border-primary"
+                      placeholder="e.g. STOCKS 2, NLH, DBN"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
                     />
                   </div>
                 )}
 
-                {/* Driver Name & Tyres Grid */}
-                <div className="grid grid-cols-2 gap-2">
+                {/* Driver Name & Quantity Loaded */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
                       Driver Name
@@ -315,25 +371,25 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
                       type="text"
                       value={trip.driverName || ""}
                       onChange={(e) => handleRowChange(idx, "driverName", e.target.value)}
-                      placeholder="Neil"
-                      className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary"
+                      placeholder="e.g. Neil"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
                     />
                   </div>
 
                   <div>
                     <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                      Quantity Loaded
+                      Tyres Loaded
                     </label>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={() =>
                           handleRowChange(
                             idx,
                             "quantityLoaded",
-                            Math.max(0, (trip.quantityLoaded || 0) - 1)
+                            Math.max(0, (trip.quantityLoaded || 0) - 1),
                           )
                         }
-                        className="h-7 w-7 rounded-md bg-muted text-foreground font-bold flex items-center justify-center shrink-0 active:scale-95"
+                        className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
                       >
                         -
                       </button>
@@ -342,17 +398,17 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
                         min="0"
                         value={trip.quantityLoaded}
                         onChange={(e) => handleRowChange(idx, "quantityLoaded", e.target.value)}
-                        className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs font-mono font-bold text-center outline-none focus:border-primary"
+                        className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow"
                       />
                       <button
                         onClick={() =>
                           handleRowChange(
                             idx,
                             "quantityLoaded",
-                            (trip.quantityLoaded || 0) + 1
+                            (trip.quantityLoaded || 0) + 1,
                           )
                         }
-                        className="h-7 w-7 rounded-md bg-muted text-foreground font-bold flex items-center justify-center shrink-0 active:scale-95"
+                        className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
                       >
                         +
                       </button>
@@ -360,28 +416,39 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
                   </div>
                 </div>
 
-                {/* Times & Duration Row */}
-                <div className="flex items-center justify-between gap-2 bg-muted/30 border border-border/50 rounded-xl p-2 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={13} className="text-muted-foreground shrink-0" />
-                    <input
-                      type="time"
-                      value={msToTimeString(trip.startTime)}
-                      onChange={(e) => handleRowChange(idx, "startTime", e.target.value)}
-                      className="bg-background border border-border rounded-md px-1.5 py-0.5 text-xs font-mono outline-none"
-                    />
-                    <span className="text-muted-foreground">→</span>
-                    <input
-                      type="time"
-                      value={msToTimeString(trip.finishTime)}
-                      onChange={(e) => handleRowChange(idx, "finishTime", e.target.value)}
-                      className="bg-background border border-border rounded-md px-1.5 py-0.5 text-xs font-mono outline-none"
-                    />
+                {/* Load Timings (Start → Finish = Duration) */}
+                <div className="bg-background/80 border border-border rounded-xl p-2.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Clock size={14} className="text-primary-glow shrink-0" />
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] uppercase font-bold text-muted-foreground">Start</span>
+                        <input
+                          type="time"
+                          value={msToTimeString(trip.startTime)}
+                          onChange={(e) => handleRowChange(idx, "startTime", e.target.value)}
+                          className="bg-surface border border-border rounded-lg px-2 py-1 text-xs font-mono font-bold outline-none"
+                        />
+                      </div>
+                      <span className="text-muted-foreground text-xs mt-3">→</span>
+                      <div className="flex flex-col">
+                        <span className="text-[9px] uppercase font-bold text-muted-foreground">Finish</span>
+                        <input
+                          type="time"
+                          value={msToTimeString(trip.finishTime)}
+                          onChange={(e) => handleRowChange(idx, "finishTime", e.target.value)}
+                          className="bg-surface border border-border rounded-lg px-2 py-1 text-xs font-mono font-bold outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <span className="bg-primary/15 text-primary-glow font-mono font-bold px-2 py-0.5 rounded-md text-[11px] shrink-0">
-                    {calculatedMins}m
-                  </span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Duration</span>
+                    <span className="bg-primary/15 border border-primary/30 text-primary-glow font-mono font-black px-2 py-1 rounded-lg text-xs">
+                      {calculatedMins}m
+                    </span>
+                  </div>
                 </div>
               </div>
             );
@@ -389,169 +456,295 @@ export function LoadingSheet({ entry, onUpdateEntry }: LoadingSheetProps) {
         )}
       </div>
 
-      {/* ── DESKTOP TABLE LAYOUT (Shown on tablets/desktops) ────────────── */}
-      <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-border bg-muted/50 text-muted-foreground font-semibold uppercase tracking-wider text-[11px]">
-              <th className="py-2.5 px-3 min-w-[110px]">Reg</th>
-              <th className="py-2.5 px-3 min-w-[120px]">Driver Name</th>
-              <th className="py-2.5 px-3 min-w-[150px]">Trip ID</th>
-              <th className="py-2.5 px-3 min-w-[100px] text-center">Start Time</th>
-              <th className="py-2.5 px-3 min-w-[100px] text-center">Finished Time</th>
-              <th className="py-2.5 px-3 min-w-[80px] text-right">Minutes</th>
-              <th className="py-2.5 px-3 min-w-[90px] text-right">Qty Loaded</th>
-              <th className="py-2.5 px-2 w-10 text-center"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/60">
-            {rawTrips.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="py-8 text-center text-muted-foreground text-xs"
-                >
-                  No loading sheet trips recorded yet. Click{" "}
-                  <span className="font-semibold text-foreground">
-                    "+ Add Truck Load"
-                  </span>{" "}
-                  or scan tyres to add.
-                </td>
+      {/* ── DESKTOP TABLE LAYOUT (Tablets & Desktops) ────────────────────── */}
+      <div className="hidden sm:block bg-surface border border-border rounded-2xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-muted-foreground font-bold uppercase tracking-wider text-[11px]">
+                <th className="py-3 px-3.5 min-w-[120px]">Reg Plate</th>
+                <th className="py-3 px-3.5 min-w-[130px]">Driver Name</th>
+                <th className="py-3 px-3.5 min-w-[160px]">Trip ID / Preset</th>
+                <th className="py-3 px-3 text-center min-w-[110px]">Start Time</th>
+                <th className="py-3 px-3 text-center min-w-[110px]">Finish Time</th>
+                <th className="py-3 px-3 text-center min-w-[90px]">Duration</th>
+                <th className="py-3 px-3.5 text-right min-w-[120px]">Tyres Loaded</th>
+                <th className="py-3 px-2 w-10 text-center"></th>
               </tr>
-            ) : (
-              rawTrips.map((trip, idx) => {
-                const currentPreset = trip.presetKey ?? "CUSTOM";
-                const calculatedMins = calculateDurationMinutes(trip.startTime, trip.finishTime);
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {rawTrips.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-10 text-center text-muted-foreground text-xs">
+                    No loading sheet trips recorded yet. Click{" "}
+                    <span className="font-semibold text-foreground">"+ Add Truck Load"</span> to add
+                    one.
+                  </td>
+                </tr>
+              ) : (
+                rawTrips.map((trip, idx) => {
+                  const currentPreset = trip.presetKey ?? "CUSTOM";
+                  const calculatedMins = calculateDurationMinutes(trip.startTime, trip.finishTime);
 
-                return (
-                  <tr
-                    key={trip.id || idx}
-                    className="hover:bg-muted/20 transition-colors group"
-                  >
-                    <td className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={trip.reg || ""}
-                        onChange={(e) => handleRowChange(idx, "reg", e.target.value)}
-                        placeholder="MN05XNGP"
-                        className="w-full bg-background border border-border/70 rounded-md px-2 py-1 text-xs font-mono font-bold uppercase outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                      />
-                    </td>
+                  return (
+                    <tr key={trip.id || idx} className="hover:bg-muted/10 transition-colors">
+                      <td className="py-2.5 px-3.5">
+                        <input
+                          type="text"
+                          value={trip.reg || ""}
+                          onChange={(e) => handleRowChange(idx, "reg", e.target.value)}
+                          placeholder="MN05XNGP"
+                          className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold uppercase text-foreground outline-none focus:border-primary-glow"
+                        />
+                      </td>
 
-                    <td className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={trip.driverName || ""}
-                        onChange={(e) => handleRowChange(idx, "driverName", e.target.value)}
-                        placeholder="Neil"
-                        className="w-full bg-background border border-border/70 rounded-md px-2 py-1 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                      />
-                    </td>
+                      <td className="py-2.5 px-3.5">
+                        <input
+                          type="text"
+                          value={trip.driverName || ""}
+                          onChange={(e) => handleRowChange(idx, "driverName", e.target.value)}
+                          placeholder="Neil"
+                          className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none focus:border-primary-glow"
+                        />
+                      </td>
 
-                    <td className="py-2 px-3">
-                      <div className="flex flex-col gap-1">
-                        <select
-                          value={currentPreset}
-                          onChange={(e) => handlePresetSelect(idx, e.target.value as PresetKey)}
-                          className="w-full bg-background border border-border/70 rounded-md px-2 py-1 text-xs font-medium outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                        >
-                          {LOADING_PRESETS.map((p) => (
-                            <option key={p.key} value={p.key}>
-                              {p.label}
-                            </option>
-                          ))}
-                        </select>
-                        {(currentPreset === "CUSTOM" ||
-                          !LOADING_PRESETS.some((p) => p.key === currentPreset)) && (
+                      <td className="py-2.5 px-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={currentPreset}
+                            onChange={(e) => handlePresetSelect(idx, e.target.value as PresetKey)}
+                            className="bg-background border border-border rounded-lg px-2 py-1.5 text-xs font-semibold outline-none focus:border-primary-glow"
+                          >
+                            {LOADING_PRESETS.map((p) => (
+                              <option key={p.key} value={p.key}>
+                                {p.label}
+                              </option>
+                            ))}
+                          </select>
+                          {(currentPreset === "CUSTOM" ||
+                            !LOADING_PRESETS.some((p) => p.key === currentPreset)) && (
+                            <input
+                              type="text"
+                              value={trip.tripId || ""}
+                              onChange={(e) => handleRowChange(idx, "tripId", e.target.value)}
+                              placeholder="Trip ID"
+                              className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs font-semibold outline-none focus:border-primary-glow"
+                            />
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-2.5 px-3 text-center">
+                        <input
+                          type="time"
+                          value={msToTimeString(trip.startTime)}
+                          onChange={(e) => handleRowChange(idx, "startTime", e.target.value)}
+                          className="bg-background border border-border rounded-lg px-2 py-1 text-xs font-mono font-bold text-center outline-none focus:border-primary-glow"
+                        />
+                      </td>
+
+                      <td className="py-2.5 px-3 text-center">
+                        <input
+                          type="time"
+                          value={msToTimeString(trip.finishTime)}
+                          onChange={(e) => handleRowChange(idx, "finishTime", e.target.value)}
+                          className="bg-background border border-border rounded-lg px-2 py-1 text-xs font-mono font-bold text-center outline-none focus:border-primary-glow"
+                        />
+                      </td>
+
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="bg-primary/10 border border-primary/20 text-primary-glow px-2 py-1 rounded-md font-mono font-bold text-xs">
+                          {calculatedMins}m
+                        </span>
+                      </td>
+
+                      <td className="py-2.5 px-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() =>
+                              handleRowChange(
+                                idx,
+                                "quantityLoaded",
+                                Math.max(0, (trip.quantityLoaded || 0) - 1),
+                              )
+                            }
+                            className="h-7 w-7 rounded-md bg-muted text-foreground font-bold flex items-center justify-center shrink-0 active:scale-95"
+                          >
+                            -
+                          </button>
                           <input
-                            type="text"
-                            value={trip.tripId || ""}
-                            onChange={(e) => handleRowChange(idx, "tripId", e.target.value)}
-                            placeholder="Custom Trip ID"
-                            className="w-full bg-background border border-border/70 rounded-md px-2 py-1 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                            type="number"
+                            min="0"
+                            value={trip.quantityLoaded}
+                            onChange={(e) =>
+                              handleRowChange(idx, "quantityLoaded", e.target.value)
+                            }
+                            className="w-16 bg-background border border-border rounded-md px-2 py-1 text-xs font-mono font-bold text-center text-primary-glow outline-none focus:border-primary-glow"
                           />
-                        )}
-                      </div>
-                    </td>
+                          <button
+                            onClick={() =>
+                              handleRowChange(
+                                idx,
+                                "quantityLoaded",
+                                (trip.quantityLoaded || 0) + 1,
+                              )
+                            }
+                            className="h-7 w-7 rounded-md bg-muted text-foreground font-bold flex items-center justify-center shrink-0 active:scale-95"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </td>
 
-                    <td className="py-2 px-3 text-center">
-                      <input
-                        type="time"
-                        value={msToTimeString(trip.startTime)}
-                        onChange={(e) => handleRowChange(idx, "startTime", e.target.value)}
-                        className="bg-background border border-border/70 rounded-md px-1.5 py-1 text-xs font-mono text-center outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                      />
-                    </td>
+                      <td className="py-2.5 px-2 text-center">
+                        <button
+                          onClick={() => handleDeleteRow(idx)}
+                          className="text-muted-foreground hover:text-destructive p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+                          title="Delete truck"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                    <td className="py-2 px-3 text-center">
-                      <input
-                        type="time"
-                        value={msToTimeString(trip.finishTime)}
-                        onChange={(e) => handleRowChange(idx, "finishTime", e.target.value)}
-                        className="bg-background border border-border/70 rounded-md px-1.5 py-1 text-xs font-mono text-center outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                      />
-                    </td>
+      {/* ── REPORT PREVIEW MODAL ─────────────────────────────────────────── */}
+      {showReportModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setShowReportModal(false)}
+        >
+          <div
+            className="w-full max-w-2xl bg-surface border border-border rounded-3xl p-5 sm:p-6 max-h-[90vh] flex flex-col shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow">
+                  <FileText size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Despatch Loading Report</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {entry.dayKey} · Despatcher: {despatcherName}
+                  </p>
+                </div>
+              </div>
 
-                    <td className="py-2 px-3 text-right">
-                      <span className="inline-block bg-muted px-2 py-1 rounded-md font-mono font-semibold text-xs tabular-nums text-foreground">
-                        {calculatedMins}m
-                      </span>
-                    </td>
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-                    <td className="py-2 px-3 text-right">
-                      <input
-                        type="number"
-                        min="0"
-                        value={trip.quantityLoaded}
-                        onChange={(e) => handleRowChange(idx, "quantityLoaded", e.target.value)}
-                        className="w-16 bg-background border border-border/70 rounded-md px-2 py-1 text-xs font-mono font-bold text-right outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                      />
-                    </td>
+            {/* Scrollable Document Preview Sheet */}
+            <div className="flex-1 overflow-y-auto my-4 p-4 bg-white text-black rounded-2xl shadow-inner font-sans text-xs">
+              <div className="border-b-2 border-black pb-3 mb-3 flex items-start justify-between">
+                <div>
+                  <h1 className="text-lg font-black tracking-wide uppercase">
+                    Despatch Loading Sheet
+                  </h1>
+                  <p className="text-xs font-semibold text-gray-700">DATE: {entry.dayKey}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-gray-900">
+                    DESPATCHER: {despatcherName || "Theolus"}
+                  </p>
+                </div>
+              </div>
 
-                    <td className="py-2 px-2 text-center">
-                      <button
-                        onClick={() => handleDeleteRow(idx)}
-                        className="text-muted-foreground hover:text-destructive p-1 rounded-md hover:bg-destructive/10 transition-colors"
-                        title="Delete row"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
+              <table className="w-full border-collapse text-left text-xs mb-4">
+                <thead>
+                  <tr className="bg-gray-100 border border-black font-bold uppercase text-[11px]">
+                    <th className="border border-black p-1.5">Reg</th>
+                    <th className="border border-black p-1.5">Driver</th>
+                    <th className="border border-black p-1.5">Trip ID</th>
+                    <th className="border border-black p-1.5 text-center">Start</th>
+                    <th className="border border-black p-1.5 text-center">Finish</th>
+                    <th className="border border-black p-1.5 text-right">Mins</th>
+                    <th className="border border-black p-1.5 text-right">Qty Loaded</th>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                </thead>
+                <tbody>
+                  {rawTrips.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="border border-black p-4 text-center text-gray-500">
+                        No truck trips logged for this date.
+                      </td>
+                    </tr>
+                  ) : (
+                    rawTrips.map((t, i) => (
+                      <tr key={t.id || i} className="border border-black">
+                        <td className="border border-black p-1.5 font-bold uppercase font-mono">
+                          {t.reg || "-"}
+                        </td>
+                        <td className="border border-black p-1.5">{t.driverName || "-"}</td>
+                        <td className="border border-black p-1.5 font-semibold">
+                          {t.tripId || "-"}
+                        </td>
+                        <td className="border border-black p-1.5 text-center font-mono">
+                          {formatTimeHHmm(t.startTime)}
+                        </td>
+                        <td className="border border-black p-1.5 text-center font-mono">
+                          {formatTimeHHmm(t.finishTime)}
+                        </td>
+                        <td className="border border-black p-1.5 text-right font-mono">
+                          {t.durationMinutes ?? calculateDurationMinutes(t.startTime, t.finishTime)}m
+                        </td>
+                        <td className="border border-black p-1.5 text-right font-black font-mono">
+                          {t.quantityLoaded}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
 
-      {/* ── SUMMARY FOOTER ────────────────────────────────────────────────── */}
-      <div className="p-4 bg-muted/40 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="text-xs text-muted-foreground">
-          Showing <span className="font-semibold text-foreground">{rawTrips.length}</span>{" "}
-          {rawTrips.length === 1 ? "truck" : "trucks"} loaded
-        </div>
+              <div className="border-t-2 border-black pt-2 flex items-center justify-between font-black text-xs">
+                <span>TOTAL LOADING TIME: {timeFormatted}</span>
+                <span>TOTAL TYRES LOADED: {totals.totalTyresLoaded}</span>
+              </div>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-sm w-full sm:w-auto justify-between sm:justify-end">
-          <div className="flex items-center gap-2">
-            <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
-              Total Time:
-            </span>
-            <span className="font-mono font-bold text-sm text-foreground tabular-nums">
-              {timeFormatted}
-            </span>
+            {/* Modal Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-border text-xs font-semibold hover:bg-muted active:scale-95 transition-all"
+              >
+                Close
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleShareWhatsApp}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600/15 border border-emerald-600/30 text-emerald-500 hover:bg-emerald-600/25 active:scale-95 transition-all"
+                >
+                  <Share2 size={15} />
+                  <span>Share WhatsApp</span>
+                </button>
+
+                <button
+                  onClick={handlePrintPDF}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-sm"
+                >
+                  <Printer size={15} />
+                  <span>Print / Save PDF</span>
+                </button>
+              </div>
+            </div>
           </div>
-
-          <div className="flex items-center gap-2 bg-background border border-border rounded-xl px-3 py-1 shadow-xs">
-            <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
-              Total Tyres:
-            </span>
-            <span className="font-mono font-black text-base text-primary-glow tabular-nums">
-              {totals.totalTyresLoaded}
-            </span>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

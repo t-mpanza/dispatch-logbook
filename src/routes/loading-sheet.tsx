@@ -61,14 +61,31 @@ function LoadingSheetPage() {
 
   // Build unified loading sheet trips for the selected date
   const autoTrips: LoadingSheetTrip[] = dayEntries.reduce((acc, e) => {
+    // 1. If entry already has loadingSheetTrips saved, preserve those user edits (canonical editor)
+    const existingAutoTrips = (e.loadingSheetTrips || [])
+      .filter((t) => !t.isManual)
+      .map((t) => ({ ...t, entryId: t.entryId || e.id }));
+
+    if (existingAutoTrips.length > 0) {
+      return [...acc, ...existingAutoTrips];
+    }
+
+    // 2. Only if no loadingSheetTrips exist yet, auto-generate initial row from counter trips
     if (Array.isArray(e.trips) && e.trips.length > 0) {
       const synced = syncTripsToLoadingSheet(e, e.trips);
-      return [...acc, ...synced.filter(t => !t.isManual)];
+      return [
+        ...acc,
+        ...synced
+          .filter((t) => !t.isManual)
+          .map((t) => ({ ...t, entryId: e.id })),
+      ];
     }
     return acc;
   }, [] as LoadingSheetTrip[]);
 
-  const manualTrips = dayEntries.flatMap(e => e.loadingSheetTrips?.filter(t => t.isManual) || []);
+  const manualTrips = dayEntries.flatMap(
+    (e) => (e.loadingSheetTrips?.filter((t) => t.isManual) || []).map((t) => ({ ...t, entryId: t.entryId || e.id }))
+  );
   const combinedTrips = [...autoTrips.sort((a, b) => (a.startTime || 0) - (b.startTime || 0)), ...manualTrips];
 
   const combinedEntry: Entry = primaryEntry ? {
