@@ -14,8 +14,17 @@ type LogItem = TripGroup | NoteItem | AttItem;
 // ─── Log builder ──────────────────────────────────────────────────────────────
 
 function buildLog(notes: NoteBlock[], attachments: Attachment[], trips: Trip[]): LogItem[] {
+  const cleanNotes = (notes || []).filter(
+    (n) =>
+      n &&
+      n.id !== "__meta_sheet__" &&
+      typeof n.text === "string" &&
+      !n.text.startsWith('{"loadingSheetTrips"') &&
+      !n.text.startsWith('{"despatcherName"'),
+  );
+
   const raw = [
-    ...notes.map((n) => ({ type: "note" as const, at: n.createdAt, data: n })),
+    ...cleanNotes.map((n) => ({ type: "note" as const, at: n.createdAt, data: n })),
     ...attachments.map((a) => ({
       type: "att" as const,
       at: a.createdAt,

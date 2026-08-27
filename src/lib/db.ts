@@ -1,5 +1,5 @@
 import { openDB, type IDBPDatabase } from "idb";
-import type { Entry, Reminder } from "./types";
+import type { Entry, Reminder, NoteBlock } from "./types";
 import { dayKey, monthKey, uid, yearKey } from "./format";
 import { pushEntry, deleteRemoteEntry } from "./sync";
 
@@ -68,19 +68,56 @@ export async function entriesWithCounter(): Promise<Entry[]> {
   return all.filter((e) => Array.isArray(e.trips));
 }
 
+/** Sanitize entry so metadata encoded in notes is converted to proper properties and never exposed as user notes */
+export function sanitizeEntry(entry: Entry): Entry {
+  if (!entry) return entry;
+  const cleanNotes: NoteBlock[] = [];
+  let loadingSheetTrips = entry.loadingSheetTrips;
+  let despatcherName = entry.despatcherName;
+
+  for (const n of entry.notes || []) {
+    if (!n) continue;
+    if (
+      n.id === "__meta_sheet__" ||
+      (typeof n.text === "string" &&
+        (n.text.startsWith('{"loadingSheetTrips"') || n.text.startsWith('{"despatcherName"')))
+    ) {
+      try {
+        const parsed = JSON.parse(n.text);
+        if (Array.isArray(parsed.loadingSheetTrips) && !loadingSheetTrips) {
+          loadingSheetTrips = parsed.loadingSheetTrips;
+        }
+        if (typeof parsed.despatcherName === "string" && !despatcherName) {
+          despatcherName = parsed.despatcherName;
+        }
+      } catch {}
+    } else {
+      cleanNotes.push(n);
+    }
+  }
+
+  return {
+    ...entry,
+    notes: cleanNotes,
+    loadingSheetTrips,
+    despatcherName,
+  };
+}
+
 export async function updateEntry(entry: Entry) {
-  entry.updatedAt = Date.now();
+  const clean = sanitizeEntry({ ...entry, updatedAt: Date.now() });
   if (typeof indexedDB === "undefined") return;
   const db = await getDB();
-  await db.put("entries", entry);
-  pushEntry(entry).catch(console.error);
+  await db.put("entries", clean);
+  pushEntry(clean).catch(console.error);
 }
 
 /** Save entry to local IndexedDB without triggering cloud push (used during pull/sync) */
 export async function saveEntryLocal(entry: Entry): Promise<void> {
   if (typeof indexedDB === "undefined") return;
+  const clean = sanitizeEntry(entry);
   const db = await getDB();
-  await db.put("entries", entry);
+  await db.put("entries", clean);
 }
 
 /** Save a batch of entries to IndexedDB in a single lightning-fast readwrite transaction */
@@ -89,7 +126,7 @@ export async function saveEntriesLocalBatch(entries: Entry[]): Promise<void> {
   const db = await getDB();
   const tx = db.transaction("entries", "readwrite");
   for (const entry of entries) {
-    tx.store.put(entry);
+    tx.store.put(sanitizeEntry(entry));
   }
   await tx.done;
 }
@@ -97,7 +134,8 @@ export async function saveEntriesLocalBatch(entries: Entry[]): Promise<void> {
 export async function getEntry(id: string): Promise<Entry | undefined> {
   if (typeof indexedDB === "undefined") return undefined;
   const db = await getDB();
-  return db.get("entries", id);
+  const entry = await db.get("entries", id);
+  return entry ? sanitizeEntry(entry) : undefined;
 }
 
 export async function deleteEntry(id: string) {
@@ -115,20 +153,21 @@ export async function entriesByDay(day: string): Promise<Entry[]> {
   if (typeof indexedDB === "undefined") return [];
   const db = await getDB();
   const list = await db.getAllFromIndex("entries", "byDay", day);
-  return list.sort((a, b) => b.createdAt - a.createdAt);
+  return list.map(sanitizeEntry).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function entriesByMonth(month: string): Promise<Entry[]> {
   if (typeof indexedDB === "undefined") return [];
   const db = await getDB();
-  return db.getAllFromIndex("entries", "byMonth", month);
+  const list = await db.getAllFromIndex("entries", "byMonth", month);
+  return list.map(sanitizeEntry);
 }
 
 export async function allEntries(): Promise<Entry[]> {
   if (typeof indexedDB === "undefined") return [];
   const db = await getDB();
   const list = await db.getAll("entries");
-  return list.sort((a, b) => b.createdAt - a.createdAt);
+  return list.map(sanitizeEntry).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function searchEntries(q: string): Promise<Entry[]> {

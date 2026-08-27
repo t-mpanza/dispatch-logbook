@@ -22,20 +22,12 @@ export const LOADING_PRESETS: PresetConfig[] = [
 
 export const PRESET_KEYS: PresetKey[] = LOADING_PRESETS.map((p) => p.key);
 
-const STOCKS_STORAGE_KEY = "dispatch_stocks_counter";
-let inMemoryStocksState = { dateKey: "", count: 0 };
-
 export function resetStocksCounter(): void {
-  inMemoryStocksState = { dateKey: "", count: 0 };
-  if (typeof window !== "undefined" && window.localStorage) {
-    try {
-      localStorage.removeItem(STOCKS_STORAGE_KEY);
-    } catch {}
-  }
+  // Pure dynamic counter based on actual trips logged for the day
 }
 
 export function getNextStocksTripId(
-  todayDayKey: string,
+  todayDayKey?: string,
   existingTrips: LoadingSheetTrip[] = []
 ): string {
   let maxExisting = 0;
@@ -43,7 +35,7 @@ export function getNextStocksTripId(
 
   for (const trip of existingTrips) {
     if (trip.tripId) {
-      const match = trip.tripId.match(stocksRegex);
+      const match = trip.tripId.trim().match(stocksRegex);
       if (match) {
         const num = parseInt(match[1], 10);
         if (!isNaN(num) && num > maxExisting) {
@@ -53,40 +45,7 @@ export function getNextStocksTripId(
     }
   }
 
-  let storedCount = 0;
-  if (typeof window !== "undefined" && window.localStorage) {
-    try {
-      const raw = localStorage.getItem(STOCKS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.dateKey === todayDayKey && typeof parsed.count === "number") {
-          storedCount = parsed.count;
-        }
-      }
-    } catch (e) {
-      console.error("Error reading STOCKS counter state:", e);
-    }
-  }
-
-  if (inMemoryStocksState.dateKey !== todayDayKey) {
-    inMemoryStocksState = { dateKey: todayDayKey, count: 0 };
-  }
-  storedCount = Math.max(storedCount, inMemoryStocksState.count);
-
-  const nextIndex = Math.max(maxExisting, storedCount) + 1;
-  inMemoryStocksState.count = nextIndex;
-
-  if (typeof window !== "undefined" && window.localStorage) {
-    try {
-      localStorage.setItem(
-        STOCKS_STORAGE_KEY,
-        JSON.stringify({ dateKey: todayDayKey, count: nextIndex })
-      );
-    } catch (e) {
-      console.error("Error saving STOCKS counter state:", e);
-    }
-  }
-
+  const nextIndex = maxExisting + 1;
   return `STOCKS ${nextIndex}`;
 }
 

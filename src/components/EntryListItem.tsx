@@ -17,7 +17,15 @@ export const EntryListItem = memo(function EntryListItem({ entry }: { entry: Ent
   const tripTotal = trips?.reduce((n, t) => n + t.count + (t.rejected || 0), 0) ?? 
                     sheetTrips?.reduce((n, t) => n + (t.quantityLoaded || 0), 0) ?? 0;
 
-  const preview = entry.notes[0]?.text;
+  const realNotes = (entry.notes || []).filter(
+    (n) =>
+      n &&
+      n.id !== "__meta_sheet__" &&
+      typeof n.text === "string" &&
+      !n.text.startsWith('{"loadingSheetTrips"') &&
+      !n.text.startsWith('{"despatcherName"'),
+  );
+  const preview = realNotes[0]?.text;
   const firstSheetTrip = sheetTrips?.[0];
 
   return (
