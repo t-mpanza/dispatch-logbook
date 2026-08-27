@@ -6,7 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { LoadingSheet } from "@/components/LoadingSheet";
 import { allEntries, updateEntry, createEntry } from "@/lib/db";
 import { dayKey, uid } from "@/lib/format";
-import { syncTripsToLoadingSheet } from "@/lib/loading-presets";
+import { syncTripsToLoadingSheet, calculateDurationMinutes } from "@/lib/loading-presets";
 import type { Entry, LoadingSheetTrip } from "@/lib/types";
 import { parseISO, addDays, format } from "date-fns";
 
@@ -47,15 +47,19 @@ function LoadingSheetPage() {
   const handleCreateTruckLoad = async (tripData: LoadingSheetTrip) => {
     const entryId = uid();
     const now = Date.now();
-    const startMs = tripData.startTime || now;
-    const finishMs = tripData.finishTime || (startMs + 30 * 60 * 1000);
+    const startMs = tripData.startTime;
+    const finishMs = tripData.finishTime;
+    const duration = (startMs && finishMs) ? calculateDurationMinutes(startMs, finishMs) : undefined;
     const qty = tripData.quantityLoaded || 0;
 
     const fullTrip: LoadingSheetTrip = {
       ...tripData,
       id: tripData.id || uid(),
       entryId: entryId,
-      createdAt: startMs,
+      startTime: startMs,
+      finishTime: finishMs,
+      durationMinutes: duration,
+      createdAt: startMs || now,
     };
 
     // Create a real Entry for the day so it shows in the daily log and can hold media
@@ -65,9 +69,9 @@ function LoadingSheetPage() {
       tags: ["truck-load", fullTrip.presetKey?.toLowerCase() || "custom"].filter(Boolean),
       notes: [],
       attachments: [],
-      trips: qty > 0 ? [{ id: uid(), count: qty, createdAt: finishMs }] : [],
+      trips: qty > 0 ? [{ id: uid(), count: qty, createdAt: finishMs || startMs || now }] : [],
       loadingSheetTrips: [fullTrip],
-      createdAt: startMs,
+      createdAt: startMs || now,
       updatedAt: now,
       dayKey: selectedDate,
       monthKey: selectedDate.slice(0, 7),

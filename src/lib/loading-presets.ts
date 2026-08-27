@@ -144,8 +144,8 @@ export function resolvePreset(
 }
 
 export function calculateDurationMinutes(startTime?: number, finishTime?: number): number {
-  if (!startTime) return 0;
-  if (!finishTime || finishTime <= startTime) return 1;
+  if (!startTime || !finishTime) return 0;
+  if (finishTime < startTime) return 0;
   const diffMs = finishTime - startTime;
   return Math.max(1, Math.round(diffMs / (1000 * 60)));
 }
@@ -161,8 +161,10 @@ export function calculateLoadingSheetTotals(trips: LoadingSheetTrip[]): {
     const qty = Math.max(0, trip.quantityLoaded || 0);
     totalTyresLoaded += qty;
 
-    const duration = calculateDurationMinutes(trip.startTime, trip.finishTime);
-    totalLoadingTimeMinutes += (trip.durationMinutes && trip.durationMinutes > 0) ? trip.durationMinutes : duration;
+    if (trip.startTime && trip.finishTime) {
+      const duration = calculateDurationMinutes(trip.startTime, trip.finishTime);
+      totalLoadingTimeMinutes += (trip.durationMinutes && trip.durationMinutes > 0) ? trip.durationMinutes : duration;
+    }
   }
 
   return {

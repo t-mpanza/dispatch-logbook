@@ -7,14 +7,12 @@ import {
   Trash2,
   Truck,
   User,
-  Calendar,
   Check,
   Clock,
   X,
   Layers,
   Edit3,
   AlertTriangle,
-  BadgeCheck,
 } from "lucide-react";
 import type { Entry, LoadingSheetTrip, PresetKey } from "@/lib/types";
 import {
@@ -43,7 +41,7 @@ function msToTimeString(ms?: number): string {
 }
 
 function timeStringToMs(timeStr: string, baseDateMs: number): number | undefined {
-  if (!timeStr) return undefined;
+  if (!timeStr || !timeStr.trim()) return undefined;
   const parts = timeStr.split(":");
   if (parts.length !== 2) return undefined;
   const hours = parseInt(parts[0], 10);
@@ -66,16 +64,14 @@ export function LoadingSheet({
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [editingTripIndex, setEditingTripIndex] = useState<number | null>(null);
 
-  // Add Truck Load Form State
+  // Add Truck Load Form State (Timestamps empty by default)
   const [addPreset, setAddPreset] = useState<PresetKey>("STOCKS");
   const [addTripId, setAddTripId] = useState<string>("");
   const [addReg, setAddReg] = useState<string>("");
   const [addDriver, setAddDriver] = useState<string>("");
   const [addQty, setAddQty] = useState<number>(0);
-  const [addStartTimeStr, setAddStartTimeStr] = useState<string>(msToTimeString(Date.now()));
-  const [addFinishTimeStr, setAddFinishTimeStr] = useState<string>(
-    msToTimeString(Date.now() + 30 * 60 * 1000),
-  );
+  const [addStartTimeStr, setAddStartTimeStr] = useState<string>("");
+  const [addFinishTimeStr, setAddFinishTimeStr] = useState<string>("");
 
   // Edit Truck Load Form State
   const [editPreset, setEditPreset] = useState<PresetKey>("CUSTOM");
@@ -121,9 +117,8 @@ export function LoadingSheet({
     setAddReg(fill.reg || "");
     setAddDriver(fill.driverName || "");
     setAddQty(0);
-    const now = Date.now();
-    setAddStartTimeStr(msToTimeString(now));
-    setAddFinishTimeStr(msToTimeString(now + 30 * 60 * 1000));
+    setAddStartTimeStr("");
+    setAddFinishTimeStr("");
     setShowAddModal(true);
   };
 
@@ -141,9 +136,9 @@ export function LoadingSheet({
   const handleSubmitAddTruck = async (e: React.FormEvent) => {
     e.preventDefault();
     const baseDate = entry.createdAt || Date.now();
-    const startMs = timeStringToMs(addStartTimeStr, baseDate) || Date.now();
-    const finishMs = timeStringToMs(addFinishTimeStr, baseDate) || startMs + 30 * 60 * 1000;
-    const duration = calculateDurationMinutes(startMs, finishMs);
+    const startMs = addStartTimeStr ? timeStringToMs(addStartTimeStr, baseDate) : undefined;
+    const finishMs = addFinishTimeStr ? timeStringToMs(addFinishTimeStr, baseDate) : undefined;
+    const duration = (startMs && finishMs) ? calculateDurationMinutes(startMs, finishMs) : undefined;
 
     const trip: LoadingSheetTrip = {
       id: uid(),
@@ -157,7 +152,7 @@ export function LoadingSheet({
       durationMinutes: duration,
       quantityLoaded: Math.max(0, addQty),
       isManual: false,
-      createdAt: startMs,
+      createdAt: startMs || Date.now(),
     };
 
     if (onCreateTruckLoad) {
@@ -178,8 +173,8 @@ export function LoadingSheet({
     setEditReg(trip.reg || "");
     setEditDriver(trip.driverName || "");
     setEditQty(trip.quantityLoaded || 0);
-    setEditStartTimeStr(msToTimeString(trip.startTime));
-    setEditFinishTimeStr(msToTimeString(trip.finishTime));
+    setEditStartTimeStr(trip.startTime ? msToTimeString(trip.startTime) : "");
+    setEditFinishTimeStr(trip.finishTime ? msToTimeString(trip.finishTime) : "");
   };
 
   const handleEditPresetChange = (preset: PresetKey) => {
@@ -201,9 +196,9 @@ export function LoadingSheet({
     if (!existing) return;
 
     const baseDate = existing.createdAt || entry.createdAt || Date.now();
-    const startMs = timeStringToMs(editStartTimeStr, baseDate);
-    const finishMs = timeStringToMs(editFinishTimeStr, baseDate);
-    const duration = calculateDurationMinutes(startMs, finishMs);
+    const startMs = editStartTimeStr ? timeStringToMs(editStartTimeStr, baseDate) : undefined;
+    const finishMs = editFinishTimeStr ? timeStringToMs(editFinishTimeStr, baseDate) : undefined;
+    const duration = (startMs && finishMs) ? calculateDurationMinutes(startMs, finishMs) : undefined;
 
     current[editingTripIndex] = {
       ...existing,
@@ -234,7 +229,11 @@ export function LoadingSheet({
   const hours = Math.floor(totalMins / 60);
   const mins = totalMins % 60;
   const timeFormatted =
-    hours > 0 ? `${hours}h ${mins}m (${totalMins}m)` : `${totalMins} mins`;
+    totalMins > 0
+      ? hours > 0
+        ? `${hours}h ${mins}m (${totalMins}m)`
+        : `${totalMins} mins`
+      : "0 mins";
 
   const handlePrintPDF = () => {
     generatePDFReport(entry, despatcherName || "Theolus");
@@ -370,10 +369,13 @@ export function LoadingSheet({
           rawTrips.map((trip, idx) => {
             const hasReg = Boolean(trip.reg && trip.reg.trim());
             const hasDriver = Boolean(trip.driverName && trip.driverName.trim());
-            const durationMins = calculateDurationMinutes(trip.startTime, trip.finishTime);
-            const timeRange = trip.startTime || trip.finishTime
+            const hasTiming = Boolean(trip.startTime && trip.finishTime);
+            const durationMins = hasTiming
+              ? calculateDurationMinutes(trip.startTime, trip.finishTime)
+              : 0;
+            const timeRange = hasTiming
               ? `${formatTimeHHmm(trip.startTime)} → ${formatTimeHHmm(trip.finishTime)}`
-              : "No timing";
+              : "No timestamps";
 
             return (
               <div
@@ -438,13 +440,19 @@ export function LoadingSheet({
                   )}
 
                   {/* Time & Duration */}
-                  <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground ml-auto">
-                    <Clock size={11} />
-                    {timeRange}
-                    <span className="font-bold text-foreground bg-muted px-1.5 py-0.5 rounded">
-                      {durationMins}m
+                  {hasTiming ? (
+                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground ml-auto">
+                      <Clock size={11} className="text-primary-glow" />
+                      {timeRange}
+                      <span className="font-bold text-foreground bg-muted px-1.5 py-0.5 rounded">
+                        {durationMins}m
+                      </span>
                     </span>
-                  </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60 ml-auto">
+                      <Clock size={11} /> No timestamps
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -583,9 +591,20 @@ export function LoadingSheet({
               {/* Timings */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                    Start Time
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
+                      Start Time
+                    </label>
+                    {editStartTimeStr && (
+                      <button
+                        type="button"
+                        onClick={() => setEditStartTimeStr("")}
+                        className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="time"
                     value={editStartTimeStr}
@@ -595,9 +614,20 @@ export function LoadingSheet({
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                    Finish Time
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
+                      Finish Time
+                    </label>
+                    {editFinishTimeStr && (
+                      <button
+                        type="button"
+                        onClick={() => setEditFinishTimeStr("")}
+                        className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="time"
                     value={editFinishTimeStr}
@@ -766,12 +796,23 @@ export function LoadingSheet({
                 </div>
               </div>
 
-              {/* Timings */}
+              {/* Timings (Optional) */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                    Start Time
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
+                      Start Time
+                    </label>
+                    {addStartTimeStr && (
+                      <button
+                        type="button"
+                        onClick={() => setAddStartTimeStr("")}
+                        className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="time"
                     value={addStartTimeStr}
@@ -781,9 +822,20 @@ export function LoadingSheet({
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                    Finish Time
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
+                      Finish Time
+                    </label>
+                    {addFinishTimeStr && (
+                      <button
+                        type="button"
+                        onClick={() => setAddFinishTimeStr("")}
+                        className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="time"
                     value={addFinishTimeStr}
@@ -892,13 +944,15 @@ export function LoadingSheet({
                           {t.tripId || "-"}
                         </td>
                         <td className="border border-black p-1.5 text-center font-mono">
-                          {formatTimeHHmm(t.startTime)}
+                          {t.startTime ? formatTimeHHmm(t.startTime) : "-"}
                         </td>
                         <td className="border border-black p-1.5 text-center font-mono">
-                          {formatTimeHHmm(t.finishTime)}
+                          {t.finishTime ? formatTimeHHmm(t.finishTime) : "-"}
                         </td>
                         <td className="border border-black p-1.5 text-right font-mono">
-                          {t.durationMinutes ?? calculateDurationMinutes(t.startTime, t.finishTime)}m
+                          {t.startTime && t.finishTime
+                            ? `${t.durationMinutes ?? calculateDurationMinutes(t.startTime, t.finishTime)}m`
+                            : "-"}
                         </td>
                         <td className="border border-black p-1.5 text-right font-black font-mono">
                           {t.quantityLoaded}
