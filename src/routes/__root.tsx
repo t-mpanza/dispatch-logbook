@@ -1,81 +1,67 @@
-import { useEffect } from "react";
+import {
+  HeadContent,
+  Outlet,
+  Scripts,
+  createRootRouteWithContext,
+  useRouter,
+} from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { Toaster, toast } from "sonner";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
+import { SplashScreen } from "@capacitor/splash-screen";
+import { Network } from "@capacitor/network";
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
-import { Toaster, toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 import { fullSync, setupRealtimeSync } from "@/lib/sync";
-import {
-  Outlet,
-  Link,
-  createRootRouteWithContext,
-  useRouter,
-  HeadContent,
-  Scripts,
-} from "@tanstack/react-router";
+import { supabase } from "@/lib/supabase";
 
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+      <div className="text-center">
+        <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-bold">404</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-100">Page Not Found</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          The page you are looking for does not exist.
         </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
-        </div>
+        <a
+          href="/"
+          className="mt-6 inline-flex items-center justify-center rounded-2xl bg-blue-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg ios-press"
+        >
+          Return to Today
+        </a>
       </div>
     </div>
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
-  const router = useRouter();
-
+function ErrorComponent({ error }: { error: Error }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+      <div className="text-center max-w-md">
+        <p className="text-xs uppercase tracking-[0.2em] text-rose-400 font-bold">Application Error</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-100">Something went wrong</h1>
+        <p className="mt-2 text-xs text-slate-400 font-mono bg-black/40 p-3 rounded-xl border border-white/10 text-left overflow-auto max-h-40">
+          {error.message}
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Try again
-          </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Go home
-          </a>
-        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-6 inline-flex items-center justify-center rounded-2xl bg-blue-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg ios-press"
+        >
+          Reload Application
+        </button>
       </div>
     </div>
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+export const Route = createRootRouteWithContext<{
+  queryClient: QueryClient;
+}>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -87,35 +73,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Fast-capture operational diary for dispatch — voice, photo, video, files. On-device.",
+          "Fast-capture operational diary for dispatch — voice, photo, video, files. Local-first & offline resilient.",
       },
-      { name: "theme-color", content: "#0a0a1a" },
+      { name: "theme-color", content: "#0b0c12" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Diary" },
+      { name: "apple-mobile-web-app-title", content: "Dispatch Diary" },
       { property: "og:title", content: "Dispatch Diary" },
       {
         property: "og:description",
-        content: "On-device voice, photo, video and file diary for dispatch work.",
+        content: "Local-first voice, photo, video and loading sheet diary for dispatch work.",
       },
-      { property: "og:type", content: "website" },
-      { name: "twitter:title", content: "Dispatch Diary" },
-      {
-        name: "description",
-        content:
-          "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files.",
-      },
-      {
-        property: "og:description",
-        content:
-          "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files.",
-      },
-      {
-        name: "twitter:description",
-        content:
-          "A mobile-first diary app for documenting operational incidents with voice, photos, video, and files.",
-      },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -165,7 +133,7 @@ async function checkForOTA() {
         });
 
         toast("App Update Ready", {
-          description: `Version ${latestTag} has been downloaded.`,
+          description: `Version ${latestTag} downloaded. Tap to restart.`,
           action: {
             label: "Restart",
             onClick: () => CapacitorUpdater.set({ id: bundle.id }),
@@ -194,11 +162,12 @@ function RootComponent() {
 
     if (Capacitor.isNativePlatform()) {
       CapacitorUpdater.notifyAppReady().catch(console.error);
+      SplashScreen.hide().catch(console.error);
       checkForOTA();
 
       if (Capacitor.getPlatform() === "android") {
         StatusBar.setOverlaysWebView({ overlay: false }).catch(console.error);
-        StatusBar.setBackgroundColor({ color: "#0a0a1a" }).catch(console.error);
+        StatusBar.setBackgroundColor({ color: "#0b0c12" }).catch(console.error);
       }
       StatusBar.setStyle({ style: Style.Dark }).catch(console.error);
     }
@@ -237,7 +206,13 @@ function RootComponent() {
     // Setup Supabase Realtime synchronization across devices
     const cleanupRealtime = setupRealtimeSync(queryClient);
 
-    // Auto-sync whenever internet connection is restored
+    // Auto-sync whenever internet connection is restored (Capacitor Network + Web)
+    const networkHandler = Network.addListener("networkStatusChange", (status) => {
+      if (status.connected) {
+        fullSync(queryClient).catch(console.error);
+      }
+    });
+
     const handleOnline = () => {
       fullSync(queryClient).catch(console.error);
     };
@@ -255,6 +230,7 @@ function RootComponent() {
       subscription.unsubscribe();
       cleanupRealtime();
       window.removeEventListener("online", handleOnline);
+      networkHandler.then((h) => h.remove());
       backHandler.then((h) => h.remove());
     };
   }, [router, queryClient]);
