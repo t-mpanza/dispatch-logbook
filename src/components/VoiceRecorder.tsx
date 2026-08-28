@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Mic, Square, X } from "lucide-react";
 import { formatDuration, uid } from "@/lib/format";
 import type { Attachment } from "@/lib/types";
+import { vibrate } from "@/lib/haptics";
 
 export function VoiceRecorder({
   onSave,
@@ -82,9 +83,9 @@ export function VoiceRecorder({
 
   if (error) {
     return (
-      <div className="rounded-xl bg-destructive/15 p-4 text-sm text-destructive-foreground">
-        <p className="font-medium">{error}</p>
-        <button onClick={onCancel} className="mt-2 underline">
+      <div className="rounded-2xl bg-rose-500/15 border border-rose-500/30 p-4 text-xs text-rose-300">
+        <p className="font-bold">{error}</p>
+        <button onClick={onCancel} className="mt-2 underline text-white">
           Close
         </button>
       </div>
@@ -92,35 +93,41 @@ export function VoiceRecorder({
   }
 
   return (
-    <div className="rounded-2xl bg-surface-elevated p-5 border border-border shadow-[var(--shadow-elevated)]">
+    <div className="ios-glass-card p-5 border border-white/[0.1] shadow-2xl space-y-3 animate-fade-in-scale">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span
             className={`h-3 w-3 rounded-full ${
-              recording ? "bg-destructive animate-pulse" : "bg-muted-foreground"
+              recording ? "bg-rose-500 animate-pulse shadow-[0_0_10px_rgba(244,63,94,0.8)]" : "bg-slate-500"
             }`}
           />
-          <span className="font-mono text-lg tabular-nums">{formatDuration(elapsed)}</span>
+          <span className="font-mono text-xl font-bold tabular-nums text-slate-100">{formatDuration(elapsed)}</span>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={onCancel}
-            className="h-10 w-10 rounded-full bg-muted hover:bg-muted/70 grid place-items-center"
+            onClick={() => {
+              vibrate("light");
+              onCancel();
+            }}
+            className="h-10 w-10 rounded-full bg-white/[0.06] border border-white/[0.1] hover:bg-white/[0.12] text-slate-300 grid place-items-center ios-press"
             aria-label="Cancel recording"
           >
             <X size={18} />
           </button>
           <button
-            onClick={() => stop(false)}
+            onClick={() => {
+              vibrate("success");
+              stop(false);
+            }}
             disabled={!recording}
-            className="h-12 px-5 rounded-full bg-primary text-primary-foreground font-medium flex items-center gap-2 shadow-[var(--shadow-glow)] disabled:opacity-50"
+            className="h-11 px-5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-2 shadow-[0_8px_25px_rgba(37,99,235,0.4)] disabled:opacity-50 ios-press"
           >
-            <Square size={16} fill="currentColor" /> Stop & save
+            <Square size={14} fill="currentColor" /> Stop & Save
           </button>
         </div>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
-        <Mic size={12} /> Recording from your microphone — stored on this device only.
+      <p className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+        <Mic size={13} className="text-blue-400" /> Recording audio memo — stored securely on this device.
       </p>
     </div>
   );

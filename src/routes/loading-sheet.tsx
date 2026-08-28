@@ -139,8 +139,8 @@ function LoadingSheetPage() {
           <FileText size={14} />
           <span>Daily Compliance</span>
         </div>
-        <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-white font-sans">Despatch Loading Sheet</h1>
-        <p className="mt-1 text-xs text-white/50 font-medium">
+        <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-100 font-sans">Despatch Loading Sheet</h1>
+        <p className="mt-1 text-xs text-slate-400 font-medium">
           View, edit, and export all truck loads for any date.
         </p>
 
@@ -151,7 +151,7 @@ function LoadingSheetPage() {
               vibrate("light");
               handleDateChange(-1);
             }}
-            className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] active:scale-90 text-white transition-all"
+            className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] active:scale-90 text-slate-100 transition-all"
             title="Previous Day"
           >
             <ChevronLeft size={18} />
@@ -163,10 +163,10 @@ function LoadingSheetPage() {
               type="date"
               value={selectedDate}
               onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-              className="bg-transparent text-xs font-bold font-mono outline-none text-white cursor-pointer"
+              className="bg-transparent text-xs font-bold font-mono outline-none text-slate-100 cursor-pointer"
             />
             {selectedDate === dayKey(Date.now()) && (
-              <span className="text-[10px] uppercase font-bold bg-primary/20 border border-primary-glow/30 text-primary-glow px-2 py-0.5 rounded-full">
+              <span className="text-[10px] uppercase font-bold bg-blue-500/15 border border-blue-500/30 text-blue-400 px-2 py-0.5 rounded-full">
                 Today
               </span>
             )}
@@ -177,7 +177,7 @@ function LoadingSheetPage() {
               vibrate("light");
               handleDateChange(1);
             }}
-            className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] active:scale-90 text-white transition-all"
+            className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] active:scale-90 text-slate-100 transition-all"
             title="Next Day"
           >
             <ChevronRight size={18} />
@@ -188,7 +188,7 @@ function LoadingSheetPage() {
       {/* ── MAIN CONTENT ─────────────────────────────────────────────────── */}
       <div className="px-5 pb-20">
         {isLoading ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">Loading daily sheet…</p>
+          <p className="text-xs text-slate-500 py-8 text-center font-mono">Loading daily sheet…</p>
         ) : (
           <div className="space-y-4">
             <LoadingSheet

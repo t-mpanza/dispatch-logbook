@@ -70,7 +70,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
   return (
     <div className="ios-glass-elevated overflow-hidden shadow-2xl p-1.5 space-y-2.5">
       {/* iOS Segmented Control Tab Row */}
-      <div className="p-1 rounded-xl bg-black/30 border border-white/[0.08] flex items-center gap-1">
+      <div className="p-1 rounded-xl bg-black/40 border border-white/[0.08] flex items-center gap-1">
         {(["scanned", "manual"] as const).map((t) => (
           <button
             key={t}
@@ -80,8 +80,8 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
             }}
             className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ios-press ${
               tab === t
-                ? "bg-white/[0.15] text-white shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/20 font-black"
-                : "text-white/50 hover:text-white"
+                ? "bg-white/[0.12] text-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/20 font-black"
+                : "text-slate-400 hover:text-slate-200"
             }`}
           >
             {t === "scanned" ? "Scanned" : "Manual (No-NFC)"}
@@ -99,7 +99,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
               ? setCount((c) => Math.max(0, c - 1))
               : setManualCount((c) => Math.max(1, c - 1));
           }}
-          className="h-12 w-12 shrink-0 rounded-2xl bg-white/[0.06] border border-white/[0.12] grid place-items-center ios-press-bounce text-white/80 hover:text-white shadow-md active:bg-white/[0.12]"
+          className="h-12 w-12 shrink-0 rounded-2xl bg-white/[0.06] border border-white/[0.1] grid place-items-center ios-press-bounce text-slate-300 hover:text-slate-100 shadow-md active:bg-white/[0.12]"
         >
           <Minus size={20} />
         </button>
@@ -114,7 +114,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
             tab === "scanned" ? setCount(n) : setManualCount(n);
           }}
           placeholder={tab === "scanned" ? "0" : "1"}
-          className="h-12 w-16 shrink-0 rounded-2xl bg-black/40 border border-white/[0.14] text-center text-2xl font-black tabular-nums outline-none text-white focus:border-primary-glow shadow-inner font-mono"
+          className="h-12 w-16 shrink-0 rounded-2xl bg-black/40 border border-white/[0.1] text-center text-2xl font-black tabular-nums outline-none text-slate-100 focus:border-blue-500 shadow-inner font-mono"
         />
 
         {/* Stepper Up */}
@@ -123,7 +123,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
             vibrate("light");
             tab === "scanned" ? setCount((c) => c + 1) : setManualCount((c) => c + 1);
           }}
-          className="h-12 w-12 shrink-0 rounded-2xl bg-white/[0.06] border border-white/[0.12] grid place-items-center ios-press-bounce text-white/80 hover:text-white shadow-md active:bg-white/[0.12]"
+          className="h-12 w-12 shrink-0 rounded-2xl bg-white/[0.06] border border-white/[0.1] grid place-items-center ios-press-bounce text-slate-300 hover:text-slate-100 shadow-md active:bg-white/[0.12]"
         >
           <Plus size={20} />
         </button>
@@ -138,7 +138,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
                   vibrate("light");
                   setCount((c) => c + n);
                 }}
-                className="h-12 flex-1 rounded-2xl bg-white/[0.06] border border-white/[0.12] text-xs font-black tabular-nums text-white hover:text-primary-glow ios-press-bounce shadow-md active:bg-white/[0.14] flex items-center justify-center font-mono"
+                className="h-12 flex-1 rounded-2xl bg-white/[0.06] border border-white/[0.1] text-xs font-black tabular-nums text-slate-200 hover:text-blue-400 ios-press-bounce shadow-md active:bg-white/[0.14] flex items-center justify-center font-mono"
               >
                 +{n}
               </button>
@@ -151,7 +151,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
               value={slipNumber}
               onChange={(e) => setSlipNumber(e.target.value)}
               placeholder="Slip #"
-              className="h-12 flex-1 rounded-2xl bg-black/40 border border-white/[0.12] px-3.5 text-sm font-mono outline-none text-white focus:border-orange-500 placeholder:text-white/30"
+              className="h-12 flex-1 rounded-2xl bg-black/40 border border-white/[0.1] px-3.5 text-sm font-mono outline-none text-slate-100 focus:border-amber-500 placeholder:text-slate-500"
             />
             {onAttachment && (
               <button
@@ -160,7 +160,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
                   setShowCamera(true);
                 }}
                 disabled={processing}
-                className="h-12 w-12 shrink-0 rounded-2xl border border-dashed border-orange-500/50 bg-orange-500/10 text-orange-400 grid place-items-center ios-press-bounce disabled:opacity-40 shadow-md"
+                className="h-12 w-12 shrink-0 rounded-2xl border border-dashed border-amber-500/50 bg-amber-500/10 text-amber-400 grid place-items-center ios-press-bounce disabled:opacity-40 shadow-md"
               >
                 <Camera size={20} />
               </button>
@@ -176,8 +176,8 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
           disabled={!canLog || processing}
           className={`w-full h-12 rounded-2xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 ios-press disabled:opacity-30 cursor-pointer shadow-xl ${
             tab === "scanned"
-              ? "bg-[image:var(--gradient-primary)] text-white shadow-[0_8px_25px_rgba(139,92,246,0.45)] border-t border-white/25"
-              : "bg-orange-500 text-white shadow-[0_8px_25px_rgba(249,115,22,0.45)] border-t border-white/25"
+              ? "bg-blue-600 hover:bg-blue-500 text-white shadow-[0_8px_25px_rgba(37,99,235,0.4)] border-t border-white/25"
+              : "bg-amber-600 hover:bg-amber-500 text-white shadow-[0_8px_25px_rgba(217,119,6,0.4)] border-t border-white/25"
           }`}
         >
           <Check size={18} />

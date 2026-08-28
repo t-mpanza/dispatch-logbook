@@ -16,7 +16,7 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "Today — Dispatch Diary" },
       { name: "description", content: "Fast-capture operational diary for dispatch." },
-      { name: "theme-color", content: "#080816" },
+      { name: "theme-color", content: "#0b0c12" },
     ],
     links: [
       { rel: "manifest", href: "/manifest.webmanifest" },
@@ -115,8 +115,8 @@ function TodayPage() {
       <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-3 flex items-start justify-between">
         <div>
           <p className="text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">Today</p>
-          <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-white font-sans">{fmtDayLabel(today)}</h1>
-          <p className="mt-1 text-xs text-white/50 font-medium">
+          <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-100 font-sans">{fmtDayLabel(today)}</h1>
+          <p className="mt-1 text-xs text-slate-400 font-medium">
             {entries.length === 0
               ? "Nothing logged yet. Tap + to capture."
               : `${entries.length} ${entries.length === 1 ? "trip entry" : "trip entries"}`}
@@ -128,7 +128,7 @@ function TodayPage() {
             to="/day/$date"
             params={{ date: yesterdayDateStr }}
             onClick={() => vibrate("light")}
-            className="h-9 px-3.5 rounded-full ios-glass flex items-center gap-1 text-xs font-bold text-white/80 hover:text-white ios-press shadow-md"
+            className="h-9 px-3.5 rounded-full ios-glass flex items-center gap-1 text-xs font-bold text-slate-200 hover:text-white ios-press shadow-md"
             aria-label="Yesterday"
           >
             <ChevronLeft size={16} className="text-primary-glow" />
@@ -141,7 +141,7 @@ function TodayPage() {
               setShowAbout(true);
               setUpdateStatus(null);
             }}
-            className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white/80 transition-colors px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]"
+            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]"
             aria-label="App version info"
           >
             <Smartphone size={10} />
@@ -165,12 +165,12 @@ function TodayPage() {
 
             <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
               <div>
-                <h2 className="text-base font-bold text-white">Dispatch Diary</h2>
-                <p className="text-xs text-white/50">System Info & Cloud Diagnostics</p>
+                <h2 className="text-base font-bold text-slate-100">Dispatch Diary</h2>
+                <p className="text-xs text-slate-400">System Info & Cloud Diagnostics</p>
               </div>
               <button
                 onClick={() => setShowAbout(false)}
-                className="h-8 w-8 rounded-full bg-white/[0.08] grid place-items-center text-white/60 hover:text-white active:scale-90 transition-all"
+                className="h-8 w-8 rounded-full bg-white/[0.06] grid place-items-center text-slate-400 hover:text-slate-200 active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
@@ -178,15 +178,15 @@ function TodayPage() {
 
             <div className="space-y-3 text-xs mt-4">
               <div className="flex justify-between py-2 border-b border-white/[0.06]">
-                <span className="text-white/50">Version</span>
-                <span className="font-mono font-bold text-white">{APP_VERSION}</span>
+                <span className="text-slate-400">Version</span>
+                <span className="font-mono font-bold text-slate-100">{APP_VERSION}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-white/[0.06]">
-                <span className="text-white/50">Platform</span>
-                <span className="font-mono text-white/90">{Capacitor.isNativePlatform() ? Capacitor.getPlatform() : "web"}</span>
+                <span className="text-slate-400">Platform</span>
+                <span className="font-mono text-slate-200">{Capacitor.isNativePlatform() ? Capacitor.getPlatform() : "web"}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-white/[0.06]">
-                <span className="text-white/50">Database Sync</span>
+                <span className="text-slate-400">Database Sync</span>
                 <span className="flex items-center gap-1.5 font-medium text-xs">
                   {syncState.status === "syncing" ? (
                     <>
@@ -196,7 +196,7 @@ function TodayPage() {
                   ) : syncState.status === "error" ? (
                     <span className="text-rose-400 font-bold">Sync Error</span>
                   ) : syncState.status === "offline" ? (
-                    <span className="text-white/40">Offline</span>
+                    <span className="text-slate-500">Offline</span>
                   ) : (
                     <>
                       <Cloud size={12} className="text-primary-glow" />
@@ -208,7 +208,7 @@ function TodayPage() {
                 </span>
               </div>
               <div className="flex justify-between py-2 border-b border-white/[0.06]">
-                <span className="text-white/50">Repository</span>
+                <span className="text-slate-400">Repository</span>
                 <span className="font-mono text-primary-glow text-xs">t-mpanza/dispatch-logbook</span>
               </div>
             </div>
@@ -217,7 +217,7 @@ function TodayPage() {
               <button
                 onClick={handleModalSync}
                 disabled={syncingModal || syncState.status === "syncing"}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-white/[0.06] border border-white/[0.12] text-white py-3 text-xs font-semibold hover:bg-white/[0.12] ios-press disabled:opacity-40 shadow-sm"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-white/[0.06] border border-white/[0.12] text-slate-200 py-3 text-xs font-semibold hover:bg-white/[0.12] ios-press disabled:opacity-40 shadow-sm"
               >
                 <RefreshCw size={14} className={syncingModal || syncState.status === "syncing" ? "animate-spin text-primary-glow" : ""} />
                 {syncingModal || syncState.status === "syncing" ? "Syncing…" : "Sync Database"}
@@ -234,7 +234,7 @@ function TodayPage() {
             </div>
 
             {updateStatus && (
-              <p className="mt-3 text-center text-xs text-white/70 bg-black/40 py-2.5 rounded-xl border border-white/[0.08] font-mono shadow-inner">{updateStatus}</p>
+              <p className="mt-3 text-center text-xs text-slate-300 bg-black/40 py-2.5 rounded-xl border border-white/[0.08] font-mono shadow-inner">{updateStatus}</p>
             )}
           </div>
         </div>
@@ -243,7 +243,7 @@ function TodayPage() {
       {/* Entry List */}
       <div className="px-4 space-y-3">
         {isLoading ? (
-          <p className="text-xs text-white/40 text-center py-8 font-mono">Loading entries…</p>
+          <p className="text-xs text-slate-500 text-center py-8 font-mono">Loading entries…</p>
         ) : entries.length === 0 ? (
           <EmptyState />
         ) : (
@@ -251,11 +251,11 @@ function TodayPage() {
         )}
       </div>
 
-      {/* iOS Floating Action Button (Glass Glow) */}
+      {/* iOS Floating Action Button (Precision Cobalt) */}
       <Link
         to="/entry/new"
         onClick={() => vibrate("medium")}
-        className="fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full bg-[image:var(--gradient-primary)] text-white grid place-items-center shadow-[0_8px_30px_rgba(139,92,246,0.55)] border-t border-white/30 ios-press-bounce cursor-pointer"
+        className="fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white grid place-items-center shadow-[0_8px_30px_rgba(37,99,235,0.45)] border-t border-white/30 ios-press-bounce cursor-pointer"
         aria-label="New entry"
       >
         <Plus size={26} />
@@ -267,11 +267,11 @@ function TodayPage() {
 function EmptyState() {
   return (
     <div className="mt-6 ios-glass-card p-8 text-center border-dashed">
-      <div className="mx-auto h-14 w-14 rounded-full bg-primary/20 border border-primary-glow/40 grid place-items-center shadow-lg text-primary-glow">
+      <div className="mx-auto h-14 w-14 rounded-full bg-blue-500/15 border border-blue-500/30 grid place-items-center shadow-lg text-blue-400">
         <Plus size={24} />
       </div>
-      <h2 className="mt-4 font-bold text-white text-base">Start logging</h2>
-      <p className="mt-1 text-xs text-white/50 max-w-xs mx-auto">
+      <h2 className="mt-4 font-bold text-slate-100 text-base">Start logging</h2>
+      <p className="mt-1 text-xs text-slate-400 max-w-xs mx-auto">
         Voice notes, photos, videos, and loading sheets — stored securely on this device.
       </p>
       <Link

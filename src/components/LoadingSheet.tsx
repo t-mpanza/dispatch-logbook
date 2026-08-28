@@ -255,28 +255,28 @@ export function LoadingSheet({
       {/* ── KPI / SUMMARY STATS BANNER ───────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4 ios-glass-elevated p-4 shadow-xl">
         <div className="flex flex-col">
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/50 flex items-center gap-1.5">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
             <Truck size={13} className="text-primary-glow" /> Trucks
           </span>
-          <span className="mt-1 text-xl sm:text-2xl font-black font-mono text-white">
+          <span className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-100">
             {rawTrips.length}
           </span>
         </div>
 
         <div className="flex flex-col border-x border-white/[0.08] px-3 sm:px-4">
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/50 flex items-center gap-1.5">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
             <Clock size={13} className="text-primary-glow" /> Total Time
           </span>
-          <span className="mt-1 text-sm sm:text-lg font-bold font-mono text-white/90 truncate">
+          <span className="mt-1 text-sm sm:text-lg font-bold font-mono text-slate-200 truncate">
             {timeFormatted}
           </span>
         </div>
 
         <div className="flex flex-col text-right sm:text-left">
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/50 flex items-center justify-end sm:justify-start gap-1.5">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-end sm:justify-start gap-1.5">
             <Layers size={13} className="text-primary-glow" /> Tyres
           </span>
-          <span className="mt-1 text-xl sm:text-2xl font-black font-mono text-primary-glow">
+          <span className="mt-1 text-xl sm:text-2xl font-black font-mono text-blue-400">
             {totals.totalTyresLoaded}
           </span>
         </div>
@@ -286,33 +286,33 @@ export function LoadingSheet({
       <div className="ios-glass-card p-4 sm:p-5 shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-primary/20 border border-primary-glow/30 grid place-items-center text-primary-glow shrink-0 shadow-md">
+            <div className="h-10 w-10 rounded-2xl bg-blue-500/15 border border-blue-500/30 grid place-items-center text-blue-400 shrink-0 shadow-md">
               <Truck size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold tracking-tight text-white">
+                <h2 className="text-base font-bold tracking-tight text-slate-100">
                   Truck Loading Log
                 </h2>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.1] text-white/70">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.1] text-slate-300">
                   Compliance
                 </span>
               </div>
-              <p className="text-xs text-white/50 mt-0.5">
-                {fmtDayLabel(entry.createdAt)} · <span className="font-mono">{entry.dayKey}</span>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {fmtDayLabel(entry.createdAt)} · <span className="font-mono text-slate-300">{entry.dayKey}</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 bg-black/30 border border-white/[0.1] rounded-2xl px-3.5 py-2 shadow-inner">
             <User size={15} className="text-primary-glow shrink-0" />
-            <span className="text-xs font-medium text-white/50 shrink-0">Despatcher:</span>
+            <span className="text-xs font-medium text-slate-400 shrink-0">Despatcher:</span>
             <input
               type="text"
               value={despatcherName}
               onChange={(e) => handleDespatcherChange(e.target.value)}
               placeholder="Theolus"
-              className="bg-transparent text-xs font-bold outline-none w-28 text-white focus:text-primary-glow"
+              className="bg-transparent text-xs font-bold outline-none w-28 text-slate-100 focus:text-primary-glow"
             />
           </div>
         </div>
@@ -325,7 +325,7 @@ export function LoadingSheet({
                 vibrate("light");
                 setShowReportModal(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/[0.06] border border-white/[0.12] text-white hover:bg-white/[0.12] ios-press shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/[0.06] border border-white/[0.12] text-slate-200 hover:bg-white/[0.12] ios-press shadow-sm"
             >
               <Printer size={15} className="text-primary-glow" />
               <span>Preview & Print PDF</span>
@@ -402,7 +402,7 @@ export function LoadingSheet({
                 {/* Row Header: Number, Trip ID, Tyres count, Edit Button */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="h-6 w-6 rounded-full bg-white/[0.08] font-mono font-bold text-xs grid place-items-center text-white/70 shrink-0 border border-white/[0.1]">
+                    <span className="h-6 w-6 rounded-full bg-white/[0.06] font-mono font-bold text-xs grid place-items-center text-slate-300 shrink-0 border border-white/[0.08]">
                       {idx + 1}
                     </span>
                     <span className={`text-[11px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-lg tracking-wider truncate shrink-0 ${badgeClass}`}>
@@ -411,7 +411,7 @@ export function LoadingSheet({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-2.5 py-1 rounded-xl bg-primary/20 border border-primary-glow/30 text-primary-glow font-mono font-black text-xs tabular-nums shadow-xs">
+                    <span className="px-2.5 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-mono font-black text-xs tabular-nums shadow-xs">
                       {trip.quantityLoaded || 0} tyres
                     </span>
 
@@ -422,7 +422,7 @@ export function LoadingSheet({
                         vibrate("light");
                         handleOpenEditModal(idx);
                       }}
-                      className="h-8 px-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-white hover:bg-white/[0.14] text-xs font-bold flex items-center gap-1.5 active:scale-90 transition-all shadow-xs"
+                      className="h-8 px-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-slate-200 hover:bg-white/[0.12] text-xs font-bold flex items-center gap-1.5 active:scale-90 transition-all shadow-xs"
                     >
                       <Edit3 size={13} className="text-primary-glow" />
                       <span>Edit</span>
@@ -434,39 +434,39 @@ export function LoadingSheet({
                 <div className="flex items-center gap-2 text-xs flex-wrap">
                   {/* Reg Badge */}
                   {hasReg ? (
-                    <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white/90">
+                    <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.1] text-slate-200">
                       <Truck size={12} className="text-primary-glow" />
                       {trip.reg}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/12 border border-amber-500/25 text-amber-400">
                       <AlertTriangle size={11} /> No Reg
                     </span>
                   )}
 
                   {/* Driver Badge */}
                   {hasDriver ? (
-                    <span className="inline-flex items-center gap-1 font-medium text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white/90">
+                    <span className="inline-flex items-center gap-1 font-medium text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.1] text-slate-200">
                       <User size={12} className="text-primary-glow" />
                       {trip.driverName}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/12 border border-amber-500/25 text-amber-400">
                       <AlertTriangle size={11} /> No Driver
                     </span>
                   )}
 
                   {/* Time & Duration */}
                   {hasTiming ? (
-                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-white/60 ml-auto bg-black/30 px-2.5 py-1 rounded-lg border border-white/[0.08]">
+                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-slate-400 ml-auto bg-black/30 px-2.5 py-1 rounded-lg border border-white/[0.08]">
                       <Clock size={11} className="text-primary-glow" />
                       {timeRange}
-                      <span className="font-bold text-white bg-white/[0.12] px-1.5 py-0.5 rounded ml-1">
+                      <span className="font-bold text-slate-100 bg-white/[0.12] px-1.5 py-0.5 rounded ml-1">
                         {durationMins}m
                       </span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-white/40 ml-auto">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 ml-auto">
                       <Clock size={11} /> No timestamps
                     </span>
                   )}
@@ -492,18 +492,18 @@ export function LoadingSheet({
 
             <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-2xl bg-primary/20 border border-primary-glow/30 grid place-items-center text-primary-glow shadow-md">
+                <div className="h-9 w-9 rounded-2xl bg-blue-500/15 border border-blue-500/30 grid place-items-center text-blue-400 shadow-md">
                   <Edit3 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Edit Truck Load</h3>
-                  <p className="text-xs text-white/50">Modify details, quantity and timing</p>
+                  <h3 className="text-base font-bold text-slate-100">Edit Truck Load</h3>
+                  <p className="text-xs text-slate-400">Modify details, quantity and timing</p>
                 </div>
               </div>
 
               <button
                 onClick={() => setEditingTripIndex(null)}
-                className="h-8 w-8 rounded-full bg-white/[0.08] grid place-items-center text-white/60 hover:text-white active:scale-90 transition-all"
+                className="h-8 w-8 rounded-full bg-white/[0.06] grid place-items-center text-slate-400 hover:text-slate-200 active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
@@ -512,7 +512,7 @@ export function LoadingSheet({
             <form onSubmit={handleSaveEditModal} className="mt-4 space-y-3.5 text-xs">
               {/* Preset Selector */}
               <div>
-                <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                   Preset / Destination
                 </label>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -524,7 +524,7 @@ export function LoadingSheet({
                       className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center truncate ios-press ${
                         editPreset === p.key
                           ? "bg-primary text-white border-primary shadow-md font-black"
-                          : "bg-white/[0.05] border-white/[0.1] text-white/60 hover:text-white"
+                          : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:text-slate-200"
                       }`}
                     >
                       {p.label.replace(" [i]", "")}
@@ -536,7 +536,7 @@ export function LoadingSheet({
               {/* Trip ID & Reg */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                     Trip ID
                   </label>
                   <input
@@ -545,12 +545,12 @@ export function LoadingSheet({
                     onChange={(e) => setEditTripId(e.target.value)}
                     placeholder="e.g. STOCKS 1"
                     required
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-semibold text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                     Reg Plate
                   </label>
                   <input
@@ -558,7 +558,7 @@ export function LoadingSheet({
                     value={editReg}
                     onChange={(e) => setEditReg(e.target.value.toUpperCase())}
                     placeholder="e.g. MN05XNGP"
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
               </div>
@@ -566,7 +566,7 @@ export function LoadingSheet({
               {/* Driver & Quantity */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                     Driver Name
                   </label>
                   <input
@@ -574,19 +574,19 @@ export function LoadingSheet({
                     value={editDriver}
                     onChange={(e) => setEditDriver(e.target.value)}
                     placeholder="e.g. Neil"
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-semibold text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                     Tyres Loaded
                   </label>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setEditQty(Math.max(0, editQty - 1))}
-                      className="h-8 w-8 rounded-xl bg-white/[0.08] border border-white/[0.14] text-white font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
+                      className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.12] text-slate-100 font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
                     >
                       -
                     </button>
@@ -595,12 +595,12 @@ export function LoadingSheet({
                       min="0"
                       value={editQty}
                       onChange={(e) => setEditQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow shadow-inner"
+                      className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-2 py-1.5 text-sm font-mono font-black text-center text-blue-400 outline-none focus:border-primary-glow shadow-inner"
                     />
                     <button
                       type="button"
                       onClick={() => setEditQty(editQty + 1)}
-                      className="h-8 w-8 rounded-xl bg-white/[0.08] border border-white/[0.14] text-white font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
+                      className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.12] text-slate-100 font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
                     >
                       +
                     </button>
@@ -612,14 +612,14 @@ export function LoadingSheet({
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                       Start Time
                     </label>
                     {editStartTimeStr && (
                       <button
                         type="button"
                         onClick={() => setEditStartTimeStr("")}
-                        className="text-[10px] text-white/40 hover:text-rose-400 transition-colors"
+                        className="text-[10px] text-slate-500 hover:text-rose-400 transition-colors"
                       >
                         Clear
                       </button>
@@ -629,20 +629,20 @@ export function LoadingSheet({
                     type="time"
                     value={editStartTimeStr}
                     onChange={(e) => setEditStartTimeStr(e.target.value)}
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                       Finish Time
                     </label>
                     {editFinishTimeStr && (
                       <button
                         type="button"
                         onClick={() => setEditFinishTimeStr("")}
-                        className="text-[10px] text-white/40 hover:text-rose-400 transition-colors"
+                        className="text-[10px] text-slate-500 hover:text-rose-400 transition-colors"
                       >
                         Clear
                       </button>
@@ -652,7 +652,7 @@ export function LoadingSheet({
                     type="time"
                     value={editFinishTimeStr}
                     onChange={(e) => setEditFinishTimeStr(e.target.value)}
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
               </div>
@@ -671,7 +671,7 @@ export function LoadingSheet({
                   <button
                     type="button"
                     onClick={() => setEditingTripIndex(null)}
-                    className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-xs font-semibold text-white/80 hover:bg-white/[0.12] ios-press"
+                    className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-xs font-semibold text-slate-300 hover:bg-white/[0.12] ios-press"
                   >
                     Cancel
                   </button>
@@ -703,18 +703,18 @@ export function LoadingSheet({
 
             <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-2xl bg-primary/20 border border-primary-glow/30 grid place-items-center text-primary-glow shadow-md">
+                <div className="h-9 w-9 rounded-2xl bg-blue-500/15 border border-blue-500/30 grid place-items-center text-blue-400 shadow-md">
                   <Truck size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Add Truck Load</h3>
-                  <p className="text-xs text-white/50">Creates a trip on the sheet and daily log</p>
+                  <h3 className="text-base font-bold text-slate-100">Add Truck Load</h3>
+                  <p className="text-xs text-slate-400">Creates a trip on the sheet and daily log</p>
                 </div>
               </div>
 
               <button
                 onClick={() => setShowAddModal(false)}
-                className="h-8 w-8 rounded-full bg-white/[0.08] grid place-items-center text-white/60 hover:text-white active:scale-90 transition-all"
+                className="h-8 w-8 rounded-full bg-white/[0.06] grid place-items-center text-slate-400 hover:text-slate-200 active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
@@ -723,7 +723,7 @@ export function LoadingSheet({
             <form onSubmit={handleSubmitAddTruck} className="mt-4 space-y-3.5 text-xs">
               {/* Preset Selector */}
               <div>
-                <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                   Preset / Destination
                 </label>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -735,7 +735,7 @@ export function LoadingSheet({
                       className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center truncate ios-press ${
                         addPreset === p.key
                           ? "bg-primary text-white border-primary shadow-md font-black"
-                          : "bg-white/[0.05] border-white/[0.1] text-white/60 hover:text-white"
+                          : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:text-slate-200"
                       }`}
                     >
                       {p.label.replace(" [i]", "")}
@@ -747,7 +747,7 @@ export function LoadingSheet({
               {/* Trip ID & Reg */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                     Trip ID
                   </label>
                   <input
@@ -756,12 +756,12 @@ export function LoadingSheet({
                     onChange={(e) => setAddTripId(e.target.value)}
                     placeholder="e.g. STOCKS 1"
                     required
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-semibold text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                     Reg Plate
                   </label>
                   <input
@@ -769,7 +769,7 @@ export function LoadingSheet({
                     value={addReg}
                     onChange={(e) => setAddReg(e.target.value.toUpperCase())}
                     placeholder="e.g. MN05XNGP"
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
               </div>
@@ -777,7 +777,7 @@ export function LoadingSheet({
               {/* Driver & Quantity */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                     Driver Name
                   </label>
                   <input
@@ -785,19 +785,19 @@ export function LoadingSheet({
                     value={addDriver}
                     onChange={(e) => setAddDriver(e.target.value)}
                     placeholder="e.g. Neil"
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-semibold text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5 tracking-wider">
                     Tyres Loaded
                   </label>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setAddQty(Math.max(0, addQty - 1))}
-                      className="h-8 w-8 rounded-xl bg-white/[0.08] border border-white/[0.14] text-white font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
+                      className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.12] text-slate-100 font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
                     >
                       -
                     </button>
@@ -806,12 +806,12 @@ export function LoadingSheet({
                       min="0"
                       value={addQty}
                       onChange={(e) => setAddQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow shadow-inner"
+                      className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-2 py-1.5 text-sm font-mono font-black text-center text-blue-400 outline-none focus:border-primary-glow shadow-inner"
                     />
                     <button
                       type="button"
                       onClick={() => setAddQty(addQty + 1)}
-                      className="h-8 w-8 rounded-xl bg-white/[0.08] border border-white/[0.14] text-white font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
+                      className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.12] text-slate-100 font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
                     >
                       +
                     </button>
@@ -823,14 +823,14 @@ export function LoadingSheet({
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                       Start Time
                     </label>
                     {addStartTimeStr && (
                       <button
                         type="button"
                         onClick={() => setAddStartTimeStr("")}
-                        className="text-[10px] text-white/40 hover:text-rose-400 transition-colors"
+                        className="text-[10px] text-slate-500 hover:text-rose-400 transition-colors"
                       >
                         Clear
                       </button>
@@ -840,20 +840,20 @@ export function LoadingSheet({
                     type="time"
                     value={addStartTimeStr}
                     onChange={(e) => setAddStartTimeStr(e.target.value)}
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                       Finish Time
                     </label>
                     {addFinishTimeStr && (
                       <button
                         type="button"
                         onClick={() => setAddFinishTimeStr("")}
-                        className="text-[10px] text-white/40 hover:text-rose-400 transition-colors"
+                        className="text-[10px] text-slate-500 hover:text-rose-400 transition-colors"
                       >
                         Clear
                       </button>
@@ -863,7 +863,7 @@ export function LoadingSheet({
                     type="time"
                     value={addFinishTimeStr}
                     onChange={(e) => setAddFinishTimeStr(e.target.value)}
-                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-primary-glow shadow-inner"
+                    className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-100 outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
               </div>
@@ -873,7 +873,7 @@ export function LoadingSheet({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-xs font-semibold text-white/80 hover:bg-white/[0.12] ios-press"
+                  className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-xs font-semibold text-slate-300 hover:bg-white/[0.12] ios-press"
                 >
                   Cancel
                 </button>
@@ -905,12 +905,12 @@ export function LoadingSheet({
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-2xl bg-primary/20 border border-primary-glow/30 grid place-items-center text-primary-glow shadow-md">
+                <div className="h-9 w-9 rounded-2xl bg-blue-500/15 border border-blue-500/30 grid place-items-center text-blue-400 shadow-md">
                   <FileText size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Despatch Loading Report</h3>
-                  <p className="text-xs text-white/50">
+                  <h3 className="text-base font-bold text-slate-100">Despatch Loading Report</h3>
+                  <p className="text-xs text-slate-400">
                     {entry.dayKey} · Despatcher: {despatcherName}
                   </p>
                 </div>
@@ -918,7 +918,7 @@ export function LoadingSheet({
 
               <button
                 onClick={() => setShowReportModal(false)}
-                className="h-8 w-8 rounded-full bg-white/[0.08] grid place-items-center text-white/60 hover:text-white active:scale-90 transition-all"
+                className="h-8 w-8 rounded-full bg-white/[0.06] grid place-items-center text-slate-400 hover:text-slate-200 active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
@@ -1001,7 +1001,7 @@ export function LoadingSheet({
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
               <button
                 onClick={() => setShowReportModal(false)}
-                className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-xs font-semibold text-white/80 hover:bg-white/[0.12] ios-press"
+                className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-xs font-semibold text-slate-300 hover:bg-white/[0.12] ios-press"
               >
                 Close
               </button>

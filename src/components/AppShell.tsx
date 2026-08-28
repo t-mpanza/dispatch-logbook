@@ -50,49 +50,52 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-transparent text-foreground flex flex-col max-w-md mx-auto relative antialiased">
-      {/* Top ambient status bar spacing */}
+      {/* Hardware-Composited Fixed Background Layer (Zero scroll invalidation) */}
+      <div className="ios-ambient-bg" />
+
+      {/* Main scrollable content container */}
       <main className="flex-1 pb-32">{children}</main>
 
-      {/* Floating Apple-style Dock Navigation */}
+      {/* Floating Titanium Obsidian Dock Navigation */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-40 pointer-events-none">
         <nav className="ios-glass-dock px-2 py-1.5 pointer-events-auto flex items-center justify-between shadow-2xl">
-          <NavBtn to="/" active={isActive("/")} label="Today" icon={<Home size={20} />} />
+          <NavBtn to="/" active={isActive("/")} label="Today" icon={<Home size={19} />} />
           <NavBtn
             to="/loading-sheet"
             active={isActive("/loading-sheet")}
             label="Sheet"
-            icon={<FileText size={20} />}
+            icon={<FileText size={19} />}
           />
           <NavBtn
             to="/counter"
             active={isActive("/counter")}
             label="Counter"
-            icon={<Truck size={20} />}
+            icon={<Truck size={19} />}
           />
           <NavBtn
             to="/search"
             active={isActive("/search")}
             label="Search"
-            icon={<Search size={20} />}
+            icon={<Search size={19} />}
           />
           <NavBtn
             to="/archive"
             active={isActive("/archive")}
             label="Archive"
-            icon={<Archive size={20} />}
+            icon={<Archive size={19} />}
           />
 
           {/* Interactive Cloud Sync status button */}
           <button
             onClick={handleManualSync}
             disabled={syncState.status === "syncing"}
-            className={`flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-2xl ios-press ${
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-2xl ios-press ${
               syncState.status === "syncing"
                 ? "text-primary-glow"
                 : syncState.status === "error"
                   ? "text-destructive"
                   : syncState.status === "offline"
-                    ? "text-white/40"
+                    ? "text-slate-500"
                     : "text-primary-glow/90 hover:text-primary-glow"
             }`}
             title="Tap to sync with cloud database"
@@ -100,13 +103,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <div className="relative grid place-items-center h-7 w-7 rounded-xl bg-white/[0.04] border border-white/[0.08]">
               {syncState.status === "syncing" ? (
-                <RefreshCw size={15} className="animate-spin text-primary-glow" />
+                <RefreshCw size={14} className="animate-spin text-primary-glow" />
               ) : syncState.status === "error" ? (
-                <AlertCircle size={15} className="text-destructive animate-pulse" />
+                <AlertCircle size={14} className="text-destructive animate-pulse" />
               ) : syncState.status === "offline" ? (
-                <CloudOff size={15} className="text-white/40" />
+                <CloudOff size={14} className="text-slate-500" />
               ) : (
-                <Cloud size={15} className="text-primary-glow" />
+                <Cloud size={14} className="text-primary-glow" />
               )}
             </div>
             <span className="text-[9px] font-bold uppercase tracking-wider truncate max-w-[48px] scale-90">
@@ -144,21 +147,21 @@ function NavBtn({
       to={to}
       onClick={() => vibrate("light")}
       className={`flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-2xl ios-press relative ${
-        active ? "text-primary-glow" : "text-white/50 hover:text-white"
+        active ? "text-primary-glow" : "text-slate-400 hover:text-slate-200"
       }`}
     >
       <div
-        className={`grid place-items-center h-7 w-7 rounded-xl transition-all duration-300 ${
+        className={`grid place-items-center h-7 w-7 rounded-xl transition-all duration-200 ${
           active
-            ? "bg-primary/25 border border-primary-glow/40 shadow-[0_0_14px_rgba(139,92,246,0.4)] text-primary-glow scale-105"
-            : "bg-transparent text-white/50"
+            ? "bg-primary/20 border border-primary-glow/40 shadow-[0_0_14px_rgba(59,130,246,0.35)] text-primary-glow scale-105"
+            : "bg-transparent text-slate-400"
         }`}
       >
         {icon}
       </div>
       <span
         className={`text-[9px] tracking-wide uppercase transition-all duration-200 ${
-          active ? "font-bold text-white scale-95" : "font-medium text-white/40"
+          active ? "font-bold text-slate-100 scale-95" : "font-medium text-slate-500"
         }`}
       >
         {label}

@@ -24,7 +24,7 @@ function SearchPage() {
     <AppShell>
       <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-2">
         <p className="text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">Search</p>
-        <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-white font-sans">Find Anything</h1>
+        <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-100 font-sans">Find Anything</h1>
       </header>
 
       <div className="px-5 mt-3">
@@ -36,7 +36,7 @@ function SearchPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Reg, trip ID, driver, tag, note…"
-            className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-white/40 font-sans"
+            className="flex-1 bg-transparent outline-none text-sm text-slate-100 placeholder:text-slate-500 font-sans"
           />
           {q && (
             <button
@@ -44,7 +44,7 @@ function SearchPage() {
                 vibrate("light");
                 setQ("");
               }}
-              className="h-6 w-6 rounded-full bg-white/[0.1] grid place-items-center text-white/70 hover:text-white"
+              className="h-6 w-6 rounded-full bg-white/[0.08] grid place-items-center text-slate-400 hover:text-slate-200"
             >
               <X size={13} />
             </button>
@@ -53,7 +53,7 @@ function SearchPage() {
 
         {tags.length > 0 && (
           <div className="mt-4">
-            <p className="text-[10px] uppercase tracking-wider text-white/50 font-bold mb-2">
+            <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-2">
               Popular Tags
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -64,7 +64,7 @@ function SearchPage() {
                     vibrate("light");
                     setQ(t);
                   }}
-                  className="text-xs px-3 py-1 rounded-full ios-glass text-primary-glow hover:bg-white/[0.1] ios-press font-mono font-semibold shadow-xs"
+                  className="text-xs px-3 py-1 rounded-full ios-glass text-blue-400 hover:bg-white/[0.08] ios-press font-mono font-semibold shadow-xs"
                 >
                   #{t}
                 </button>
@@ -75,7 +75,7 @@ function SearchPage() {
 
         <div className="mt-5 space-y-3">
           {results.length === 0 ? (
-            <p className="text-xs text-white/40 text-center py-8 font-mono">
+            <p className="text-xs text-slate-500 text-center py-8 font-mono">
               {q ? "No matches found." : "Type to search across titles, tags, drivers, and notes."}
             </p>
           ) : (

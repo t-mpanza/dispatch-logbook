@@ -36,7 +36,7 @@ export const EntryListItem = memo(function EntryListItem({ entry }: { entry: Ent
       to="/entry/$id"
       params={{ id: entry.id }}
       onClick={() => vibrate("light")}
-      className="block ios-glass-card p-4 ios-press group hover:border-white/20 transition-all shadow-lg"
+      className="block ios-glass-card p-4 ios-press group transition-all shadow-lg"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
@@ -44,64 +44,64 @@ export const EntryListItem = memo(function EntryListItem({ entry }: { entry: Ent
             {entry.title}
           </span>
           {firstSheetTrip?.reg && (
-            <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-md bg-white/[0.08] text-white/90 border border-white/[0.12] shrink-0">
+            <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-md bg-white/[0.06] text-slate-200 border border-white/[0.1] shrink-0">
               {firstSheetTrip.reg}
             </span>
           )}
           {firstSheetTrip?.driverName && (
-            <span className="text-[10px] font-medium text-white/60 flex items-center gap-1 shrink-0">
-              <User size={10} className="text-white/40" /> {firstSheetTrip.driverName}
+            <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1 shrink-0">
+              <User size={10} className="text-slate-500" /> {firstSheetTrip.driverName}
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-xs text-white/50 font-mono tabular-nums">
+          <span className="text-xs text-slate-400 font-mono tabular-nums">
             {fmtTime(entry.createdAt)}
           </span>
-          <ChevronRight size={14} className="text-white/30 group-hover:text-white/70 group-hover:translate-x-0.5 transition-all" />
+          <ChevronRight size={14} className="text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
         </div>
       </div>
 
       {preview && (
-        <p className="mt-2 text-xs text-white/80 line-clamp-2 leading-relaxed bg-black/20 p-2.5 rounded-xl border border-white/[0.06] font-sans">
+        <p className="mt-2 text-xs text-slate-300 line-clamp-2 leading-relaxed bg-black/25 p-2.5 rounded-xl border border-white/[0.06] font-sans">
           {preview}
         </p>
       )}
 
       <div className="mt-3 flex items-center gap-2 text-xs flex-wrap">
         {(Array.isArray(trips) || Array.isArray(sheetTrips)) && (
-          <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-primary/20 text-primary-glow font-bold font-mono text-[11px] tabular-nums border border-primary/30">
+          <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-blue-500/15 text-blue-400 font-bold font-mono text-[11px] tabular-nums border border-blue-500/30">
             <Truck size={12} /> {tripTotal} tyres
           </span>
         )}
 
         {counts.image > 0 && (
-          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-400 font-semibold text-[11px] border border-emerald-500/25">
+          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-500/12 text-emerald-400 font-semibold text-[11px] border border-emerald-500/25">
             <ImageIcon size={12} /> {counts.image} {counts.image === 1 ? "photo" : "photos"}
           </span>
         )}
 
         {counts.audio > 0 && (
-          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-violet-500/15 text-violet-400 font-semibold text-[11px] border border-violet-500/25">
+          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-500/12 text-indigo-300 font-semibold text-[11px] border border-indigo-500/25">
             <Mic size={12} /> {counts.audio} voice
           </span>
         )}
 
         {counts.video > 0 && (
-          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-blue-500/15 text-blue-400 font-semibold text-[11px] border border-blue-500/25">
+          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-500/12 text-cyan-300 font-semibold text-[11px] border border-cyan-500/25">
             <Video size={12} /> {counts.video} video
           </span>
         )}
 
         {counts.file > 0 && (
-          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-500/15 text-amber-400 font-semibold text-[11px] border border-amber-500/25">
+          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-500/12 text-amber-400 font-semibold text-[11px] border border-amber-500/25">
             <Paperclip size={12} /> {counts.file}
           </span>
         )}
 
         {entry.tags.length > 0 && (
-          <span className="ml-auto truncate text-[11px] text-white/40 font-mono">
+          <span className="ml-auto truncate text-[11px] text-slate-500 font-mono">
             {entry.tags.map((t) => `#${t}`).join(" ")}
           </span>
         )}

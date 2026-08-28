@@ -40,7 +40,7 @@ export function FloatingNoteBar({ onAdd, onAttachment, onStartVoice }: Props) {
     <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <div
         className={`flex items-end gap-2 rounded-3xl ios-glass-dock shadow-2xl transition-all duration-200 ${
-          expanded ? "border-primary/50 px-3 py-3" : "px-3 py-2"
+          expanded ? "border-blue-500/50 px-3 py-3" : "px-3 py-2"
         }`}
       >
         <CaptureBar onAttachment={onAttachment} onStartVoice={onStartVoice} />
@@ -55,13 +55,13 @@ export function FloatingNoteBar({ onAdd, onAttachment, onStartVoice }: Props) {
             if (!text.trim()) setExpanded(false);
           }}
           onKeyDown={handleKey}
-          placeholder="Message or log…"
-          className="flex-1 resize-none bg-transparent text-sm text-white outline-none placeholder:text-white/30 leading-snug py-1.5 font-sans"
+          placeholder="Log observation or note…"
+          className="flex-1 resize-none bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500 leading-snug py-1.5 font-sans"
         />
         <button
           onClick={submit}
           disabled={!text.trim()}
-          className="shrink-0 h-9 w-9 rounded-full bg-primary text-white grid place-items-center disabled:opacity-30 ios-press shadow-md"
+          className="shrink-0 h-9 w-9 rounded-full bg-blue-600 hover:bg-blue-500 text-white grid place-items-center disabled:opacity-30 ios-press shadow-md"
           aria-label="Add note"
         >
           <Send size={15} />

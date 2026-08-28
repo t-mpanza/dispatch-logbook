@@ -30,19 +30,19 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
   return (
     <div className="ios-glass-elevated overflow-hidden relative shadow-2xl p-4">
       {/* Specular ambient lights */}
-      <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/20 blur-2xl" />
-      <div className="pointer-events-none absolute -left-8 -bottom-8 h-32 w-32 rounded-full bg-purple-500/15 blur-2xl" />
+      <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-blue-500/10 blur-2xl" />
+      <div className="pointer-events-none absolute -left-8 -bottom-8 h-32 w-32 rounded-full bg-slate-500/10 blur-2xl" />
 
       <div className="relative z-10 space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black tabular-nums leading-none tracking-tight text-white font-mono">
+            <span className="text-4xl font-black tabular-nums leading-none tracking-tight text-slate-100 font-mono">
               {total}
             </span>
             {hasTarget && (
-              <span className="text-lg font-bold text-white/50 font-mono">/ {expectedTotal}</span>
+              <span className="text-lg font-bold text-slate-500 font-mono">/ {expectedTotal}</span>
             )}
-            <span className="text-xs font-semibold text-white/40 uppercase tracking-wider ml-1">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">
               tyres
             </span>
           </div>
@@ -55,7 +55,7 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
                   setDraft(expectedTotal?.toString() ?? "");
                   setEditing(true);
                 }}
-                className="flex items-center gap-1.5 rounded-full bg-white/[0.08] border border-white/[0.14] px-3 py-1.5 text-xs font-bold text-white hover:bg-white/[0.15] ios-press shadow-md"
+                className="flex items-center gap-1.5 rounded-full bg-white/[0.06] border border-white/[0.1] px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-white/[0.12] ios-press shadow-md"
               >
                 <Pencil size={11} className="text-primary-glow" /> Set Target
               </button>
@@ -74,8 +74,8 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
             )}
 
             {hasTarget && !isComplete && !isOver && remaining !== null && (
-              <span className="font-bold text-base leading-none text-white/90 tabular-nums">
-                {remaining} <span className="text-xs font-semibold text-white/50">remaining</span>
+              <span className="font-bold text-base leading-none text-slate-100 tabular-nums">
+                {remaining} <span className="text-xs font-semibold text-slate-400">remaining</span>
               </span>
             )}
 
@@ -86,7 +86,7 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
                   setDraft(expectedTotal?.toString() ?? "");
                   setEditing(true);
                 }}
-                className="mt-1 text-[10px] uppercase font-bold text-white/40 hover:text-white flex items-center gap-1 transition-colors"
+                className="mt-1 text-[10px] uppercase font-bold text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors"
               >
                 Edit target <Pencil size={9} />
               </button>
@@ -105,7 +105,7 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && commit()}
               placeholder="Target"
-              className="w-20 rounded-xl bg-black/40 border border-white/[0.2] px-3 py-1 text-sm font-bold text-white outline-none focus:border-primary-glow text-center font-mono"
+              className="w-20 rounded-xl bg-black/40 border border-white/[0.1] px-3 py-1 text-sm font-bold text-slate-100 outline-none focus:border-blue-500 text-center font-mono"
             />
             <button
               onClick={commit}
@@ -115,7 +115,7 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
             </button>
             <button
               onClick={() => setEditing(false)}
-              className="rounded-xl p-1.5 bg-white/[0.08] hover:bg-white/[0.15] text-white/70"
+              className="rounded-xl p-1.5 bg-white/[0.06] hover:bg-white/[0.12] text-slate-400"
             >
               <X size={14} />
             </button>
@@ -124,14 +124,14 @@ export function CounterProgress({ total, tripCount, expectedTotal, onSetExpected
 
         {/* Liquid progress bar */}
         {hasTarget && (
-          <div className="h-2 mt-1 rounded-full bg-white/[0.1] border border-white/[0.08] overflow-hidden p-0.5 shadow-inner">
+          <div className="h-2 mt-1 rounded-full bg-white/[0.08] border border-white/[0.06] overflow-hidden p-0.5 shadow-inner">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 isOver
-                  ? "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.7)]"
+                  ? "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]"
                   : isComplete
-                    ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.7)]"
-                    : "bg-gradient-to-r from-indigo-500 to-violet-400 shadow-[0_0_12px_rgba(139,92,246,0.7)]"
+                    ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.6)]"
+                    : "bg-gradient-to-r from-blue-600 to-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.6)]"
               }`}
               style={{ width: `${pct}%` }}
             />

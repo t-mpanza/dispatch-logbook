@@ -103,20 +103,20 @@ function ArchivePage() {
     <AppShell>
       <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-3">
         <p className="text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">Archive</p>
-        <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-white font-sans">All Records</h1>
-        <p className="mt-1 text-xs text-white/50 font-medium">
+        <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-100 font-sans">All Records</h1>
+        <p className="mt-1 text-xs text-slate-400 font-medium">
           {entries.length} {entries.length === 1 ? "entry" : "entries"} stored on this device
         </p>
       </header>
 
       <div className="px-4 space-y-5">
-        {isLoading && <p className="text-xs text-white/40 text-center py-8 font-mono">Loading archive…</p>}
+        {isLoading && <p className="text-xs text-slate-500 text-center py-8 font-mono">Loading archive…</p>}
         {!isLoading && grouped.length === 0 && (
-          <p className="text-xs text-white/40 text-center py-8 font-mono">No entries archived yet.</p>
+          <p className="text-xs text-slate-500 text-center py-8 font-mono">No entries archived yet.</p>
         )}
         {grouped.map((y) => (
           <section key={y.year}>
-            <h2 className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-2 px-1">
+            <h2 className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 px-1">
               {y.year}
             </h2>
             <div className="space-y-3">
@@ -128,8 +128,8 @@ function ArchivePage() {
                 >
                   <summary className="flex items-center gap-3 px-4 py-3.5 cursor-pointer list-none ios-press">
                     <Folder size={17} className="text-primary-glow" />
-                    <span className="font-bold text-sm text-white flex-1">{m.monthLabel}</span>
-                    <span className="text-xs font-mono font-bold text-white/50 bg-white/[0.08] px-2 py-0.5 rounded-md">
+                    <span className="font-bold text-sm text-slate-100 flex-1">{m.monthLabel}</span>
+                    <span className="text-xs font-mono font-bold text-slate-400 bg-white/[0.06] px-2 py-0.5 rounded-md">
                       {m.weeks.reduce(
                         (n, w) => n + w.days.reduce((nn, d) => nn + d.entries.length, 0),
                         0,
@@ -137,17 +137,17 @@ function ArchivePage() {
                     </span>
                     <ChevronRight
                       size={16}
-                      className="text-white/40 transition-transform group-open:rotate-90"
+                      className="text-slate-400 transition-transform group-open:rotate-90"
                     />
                   </summary>
                   <div className="border-t border-white/[0.08] divide-y divide-white/[0.06]">
                     {m.weeks.map((w) => (
                       <details key={w.weekNum} className="group/w">
-                        <summary className="flex items-center gap-3 px-5 py-2.5 cursor-pointer list-none bg-black/20 text-xs font-semibold text-white/80">
+                        <summary className="flex items-center gap-3 px-5 py-2.5 cursor-pointer list-none bg-black/20 text-xs font-semibold text-slate-300">
                           <span className="flex-1">{w.weekLabel}</span>
                           <ChevronRight
                             size={14}
-                            className="text-white/40 transition-transform group-open/w:rotate-90"
+                            className="text-slate-500 transition-transform group-open/w:rotate-90"
                           />
                         </summary>
                         <ul className="bg-black/30 divide-y divide-white/[0.04]">
@@ -157,10 +157,10 @@ function ArchivePage() {
                                 to="/day/$date"
                                 params={{ date: d.dayKey }}
                                 onClick={() => vibrate("light")}
-                                className="flex items-center justify-between px-6 py-2.5 text-xs text-white/90 hover:bg-white/[0.06] ios-press"
+                                className="flex items-center justify-between px-6 py-2.5 text-xs text-slate-200 hover:bg-white/[0.06] ios-press"
                               >
                                 <span className="font-medium">{d.dayLabel}</span>
-                                <span className="font-mono font-bold text-[11px] text-white/50 tabular-nums">
+                                <span className="font-mono font-bold text-[11px] text-slate-500 tabular-nums">
                                   {d.entries.length} {d.entries.length === 1 ? "entry" : "entries"}
                                 </span>
                               </Link>

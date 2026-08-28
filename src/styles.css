@@ -34,46 +34,46 @@
   --color-surface-elevated: var(--surface-elevated);
 }
 
-/* Midnight Indigo & iOS Glassmorphic Theme */
+/* ── Obsidian & Precision Cobalt / Titanium Theme (Human-Crafted Production) ── */
 :root {
   --radius: 1rem;
 
-  --background: oklch(0.12 0.04 275);
-  --foreground: oklch(0.97 0.008 270);
+  --background: oklch(0.11 0.015 260); /* Deep Obsidian #0b0c12 */
+  --foreground: oklch(0.98 0.005 260); /* Titanium White #f8fafc */
 
-  --surface: oklch(0.16 0.045 275);
-  --surface-elevated: oklch(0.20 0.05 275);
+  --surface: oklch(0.15 0.02 260); /* Satin Graphite #141622 */
+  --surface-elevated: oklch(0.19 0.025 260); /* Elevated Titanium #1c2030 */
 
-  --card: oklch(0.16 0.045 275);
-  --card-foreground: oklch(0.97 0.008 270);
+  --card: oklch(0.15 0.02 260);
+  --card-foreground: oklch(0.98 0.005 260);
 
-  --popover: oklch(0.18 0.05 275);
-  --popover-foreground: oklch(0.97 0.008 270);
+  --popover: oklch(0.17 0.02 260);
+  --popover-foreground: oklch(0.98 0.005 260);
 
-  --primary: oklch(0.64 0.22 278);
-  --primary-foreground: oklch(0.99 0.002 270);
-  --primary-glow: oklch(0.74 0.23 282);
+  --primary: oklch(0.60 0.20 250); /* Precision Cobalt #3b82f6 */
+  --primary-foreground: #ffffff;
+  --primary-glow: oklch(0.72 0.18 250); /* Cobalt Glow #60a5fa */
 
-  --secondary: oklch(0.22 0.05 275);
-  --secondary-foreground: oklch(0.97 0.008 270);
+  --secondary: oklch(0.20 0.02 260);
+  --secondary-foreground: oklch(0.95 0.01 260);
 
-  --muted: oklch(0.20 0.04 275);
-  --muted-foreground: oklch(0.70 0.025 270);
+  --muted: oklch(0.17 0.015 260);
+  --muted-foreground: oklch(0.65 0.015 260); /* Slate #94a3b8 */
 
-  --accent: oklch(0.74 0.23 282);
-  --accent-foreground: oklch(0.12 0.04 275);
+  --accent: oklch(0.75 0.16 75); /* Industrial Amber #f59e0b */
+  --accent-foreground: oklch(0.11 0.015 260);
 
-  --destructive: oklch(0.62 0.22 25);
-  --destructive-foreground: oklch(0.99 0.002 270);
+  --destructive: oklch(0.60 0.22 25); /* Crimson #f43f5e */
+  --destructive-foreground: #ffffff;
 
-  --border: oklch(0.28 0.05 275);
-  --input: oklch(0.22 0.05 275);
-  --ring: oklch(0.64 0.22 278);
+  --border: oklch(0.24 0.02 260); /* Hairline #282c3f */
+  --input: oklch(0.18 0.02 260);
+  --ring: oklch(0.60 0.20 250);
 
-  --gradient-primary: linear-gradient(135deg, oklch(0.64 0.22 278), oklch(0.74 0.23 282));
+  --gradient-primary: linear-gradient(135deg, #2563eb, #3b82f6);
   --gradient-surface: linear-gradient(180deg, var(--surface), var(--background));
-  --shadow-glow: 0 10px 40px -10px oklch(0.64 0.22 278 / 0.45);
-  --shadow-elevated: 0 12px 32px -8px rgba(0, 0, 0, 0.65);
+  --shadow-glow: 0 10px 36px -10px rgba(59, 130, 246, 0.4);
+  --shadow-elevated: 0 12px 36px -8px rgba(0, 0, 0, 0.75);
 }
 
 @layer base {
@@ -83,12 +83,7 @@
 
   html,
   body {
-    background-color: #080816;
-    background-image: 
-      radial-gradient(circle at 10% 5%, rgba(99, 102, 241, 0.18) 0px, transparent 45%),
-      radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.15) 0px, transparent 45%),
-      radial-gradient(circle at 50% 95%, rgba(59, 130, 246, 0.12) 0px, transparent 50%);
-    background-attachment: fixed;
+    background-color: #0b0c12;
     color: var(--color-foreground);
     -webkit-tap-highlight-color: transparent;
     font-family:
@@ -97,16 +92,18 @@
       "SF Pro Display",
       "SF Pro Text",
       "SF Pro",
+      "Inter",
       "Helvetica Neue",
       Helvetica,
       Arial,
-      system-ui,
       sans-serif;
     letter-spacing: -0.01em;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   body {
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: contain;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -121,60 +118,82 @@
   }
 }
 
-/* ── Apple iOS Glassmorphism System ───────────────────────────────────── */
-.ios-glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+/* ── Hardware-Composited Fixed Background Layer (Zero Scroll Invalidation) ─ */
+.ios-ambient-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-color: #0b0c12;
+  background-image: 
+    radial-gradient(circle at 15% 5%, rgba(59, 130, 246, 0.09) 0px, transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(99, 102, 241, 0.06) 0px, transparent 40%),
+    radial-gradient(circle at 50% 95%, rgba(14, 165, 233, 0.06) 0px, transparent 45%);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
 
+/* ── High-Performance Liquid Glass Architecture ──────────────────────── */
+
+/* 1. Scrollable List Cards: 0ms GPU Blur Shader Pass, Pure Hardware Composite */
 .ios-glass-card {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%), rgba(20, 23, 34, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  border-radius: 1.25rem;
+  transform: translateZ(0);
+  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 110px;
+}
+
+/* 2. Fixed Floating Dock: Selective Hardware Blur (Static on Screen) */
+.ios-glass-dock {
+  background: rgba(14, 16, 26, 0.88);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.8), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  border-radius: 2rem;
+  transform: translateZ(0);
+}
+
+/* 3. Fixed Modals / Bottom Sheets */
+.ios-glass-elevated {
+  background: rgba(20, 23, 36, 0.94);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.85), inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
+  border-radius: 1.5rem;
+  transform: translateZ(0);
+}
+
+/* 4. Glass Pills & Buttons */
+.ios-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%), rgba(20, 23, 34, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-top: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
-  border-radius: 1.25rem;
-}
-
-.ios-glass-elevated {
-  background: rgba(255, 255, 255, 0.075);
-  backdrop-filter: blur(36px) saturate(200%);
-  -webkit-backdrop-filter: blur(36px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-top: 1px solid rgba(255, 255, 255, 0.28);
-  box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
-  border-radius: 1.5rem;
-}
-
-.ios-glass-dock {
-  background: rgba(18, 18, 36, 0.76);
-  backdrop-filter: blur(32px) saturate(210%);
-  -webkit-backdrop-filter: blur(32px) saturate(210%);
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-top: 1px solid rgba(255, 255, 255, 0.26);
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.75), inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
-  border-radius: 2rem;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  transform: translateZ(0);
 }
 
 .ios-glass-pill {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 9999px;
+  transform: translateZ(0);
 }
 
 .ios-grabber {
   width: 38px;
   height: 5px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.24);
   margin: 0 auto 14px auto;
 }
 
@@ -182,44 +201,46 @@
   width: 136px;
   height: 4.5px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.3);
   margin: 6px auto 2px auto;
 }
 
-/* ── iOS Spring Tap States ────────────────────────────────────────────── */
+/* ── iOS Spring Tap States (Optimized Transitions) ────────────────────── */
 .ios-press {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease-out;
+  will-change: transform;
 }
 
 .ios-press:active {
-  transform: scale(0.96);
+  transform: scale(0.965);
   opacity: 0.85;
 }
 
 .ios-press-bounce {
-  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  will-change: transform;
 }
 
 .ios-press-bounce:active {
-  transform: scale(0.92);
+  transform: scale(0.93);
 }
 
-/* ── Modern UI Micro-Animations & Keyframes ───────────────────────────── */
+/* ── Micro-Animations ─────────────────────────────────────────────────── */
 @keyframes sheetSlideUp {
   from {
     opacity: 0;
-    transform: translateY(32px) scale(0.98);
+    transform: translateY(28px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes fadeInScale {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.96);
   }
   to {
     opacity: 1;
@@ -227,75 +248,53 @@
   }
 }
 
-@keyframes pulseGlow {
-  0%, 100% {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
-
 .animate-sheet-slide-up {
-  animation: sheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: sheetSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-fade-in-scale {
-  animation: fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeInScale 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.animate-pulse-glow {
-  animation: pulseGlow 2.5s ease-in-out infinite;
-}
-
-/* ── Route Preset Semantic Color Badges (Translucent Liquid Glass) ─────── */
+/* ── Logistics Preset Badges (Authentic Transport Identity) ───────────── */
 .badge-preset-nlh {
-  background: rgba(16, 185, 129, 0.14);
+  background: rgba(16, 185, 129, 0.12);
   color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.3);
 }
 
 .badge-preset-stocks {
-  background: rgba(139, 92, 246, 0.16);
-  color: #c084fc;
-  border: 1px solid rgba(192, 132, 252, 0.4);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
 }
 
 .badge-preset-dbn {
-  background: rgba(14, 165, 233, 0.14);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.3);
 }
 
 .badge-preset-plk {
-  background: rgba(245, 158, 11, 0.14);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+  background: rgba(249, 115, 22, 0.12);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.3);
 }
 
 .badge-preset-bloem {
-  background: rgba(244, 63, 94, 0.14);
+  background: rgba(244, 63, 94, 0.12);
   color: #fb7185;
-  border: 1px solid rgba(251, 113, 133, 0.35);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(251, 113, 133, 0.3);
 }
 
 .badge-preset-tirepoint {
-  background: rgba(6, 182, 212, 0.14);
-  color: #22d3ee;
-  border: 1px solid rgba(34, 211, 238, 0.35);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+  background: rgba(20, 184, 166, 0.12);
+  color: #2dd4bf;
+  border: 1px solid rgba(45, 212, 191, 0.3);
 }
 
 .badge-preset-custom {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+  border: 1px solid rgba(203, 213, 225, 0.25);
 }

@@ -43,16 +43,16 @@ function NewEntryPage() {
               vibrate("light");
               navigate({ to: "/" });
             }}
-            className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] ios-press text-white"
+            className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] ios-press text-slate-100"
             aria-label="Back"
           >
             <ArrowLeft size={18} />
           </button>
-          <span className="text-sm font-bold text-white">New Entry</span>
+          <span className="text-sm font-bold text-slate-100">New Entry</span>
           <button
             onClick={create}
             disabled={saving}
-            className="px-5 h-9 rounded-full bg-primary text-white text-xs font-bold ios-press shadow-md disabled:opacity-40"
+            className="px-5 h-9 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold ios-press shadow-md disabled:opacity-40"
           >
             {saving ? "Creating…" : "Create"}
           </button>
@@ -61,7 +61,7 @@ function NewEntryPage() {
 
       <div className="p-5 space-y-6">
         <div>
-          <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold block">
+          <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
             Trip Header / Destination Title
           </label>
           <input
@@ -69,12 +69,12 @@ function NewEntryPage() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. STOCKS 1, NLH, Bay 4…"
             autoFocus
-            className="mt-2 w-full bg-transparent border-b border-white/[0.2] focus:border-primary-glow outline-none py-2 text-2xl font-mono uppercase font-bold tracking-wider text-white placeholder:text-white/30 placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:text-base"
+            className="mt-2 w-full bg-transparent border-b border-white/[0.2] focus:border-blue-500 outline-none py-2 text-2xl font-mono uppercase font-bold tracking-wider text-slate-100 placeholder:text-slate-500 placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:text-base"
           />
         </div>
 
         <div>
-          <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold block">
+          <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
             Tags
           </label>
           <div className="mt-2 rounded-2xl ios-glass p-3 shadow-md">
@@ -91,7 +91,7 @@ function NewEntryPage() {
               <button
                 key={t.label}
                 onClick={() => applyTemplate(t)}
-                className="px-3.5 py-1.5 rounded-full text-xs font-bold ios-glass text-white/90 hover:bg-white/[0.12] ios-press shadow-xs"
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold ios-glass text-slate-200 hover:bg-white/[0.12] ios-press shadow-xs"
               >
                 {t.label}
               </button>
@@ -107,18 +107,18 @@ function NewEntryPage() {
               vibrate("light");
               setWithCounter(e.target.checked);
             }}
-            className="h-5 w-5 rounded-lg accent-violet-500 cursor-pointer"
+            className="h-5 w-5 rounded-lg accent-blue-600 cursor-pointer"
           />
           <div className="flex-1">
-            <p className="text-xs font-bold text-white">Enable Tyre Counter</p>
-            <p className="text-[11px] text-white/50 mt-0.5">
+            <p className="text-xs font-bold text-slate-100">Enable Tyre Counter</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
               Adds a running tally for tyre counting and loading sheet logging.
             </p>
           </div>
         </label>
 
-        <p className="text-xs text-white/40 pt-2 text-center font-medium">
-          Tap <span className="text-white font-bold">Create</span> to log trips, record voice memos, or take photos.
+        <p className="text-xs text-slate-400 pt-2 text-center font-medium">
+          Tap <span className="text-slate-100 font-bold">Create</span> to log trips, record voice memos, or take photos.
         </p>
       </div>
     </div>

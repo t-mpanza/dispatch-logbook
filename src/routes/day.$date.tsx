@@ -43,7 +43,7 @@ function DayPage() {
                 vibrate("light");
                 navigate({ to: "/archive" });
               }}
-              className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] ios-press flex-shrink-0 text-white"
+              className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] ios-press flex-shrink-0 text-slate-100"
               aria-label="Back to archive"
             >
               <ArrowLeft size={18} />
@@ -52,7 +52,7 @@ function DayPage() {
               <p className="text-[10px] uppercase tracking-widest text-primary-glow font-bold">
                 Daily Log
               </p>
-              <h1 className="text-base font-bold truncate text-white">{label}</h1>
+              <h1 className="text-base font-bold truncate text-slate-100">{label}</h1>
             </div>
           </div>
 
@@ -63,7 +63,7 @@ function DayPage() {
                   vibrate("light");
                   navigate({ to: `/day/${prevDateStr}` });
                 }}
-                className="h-8 w-8 rounded-xl grid place-items-center hover:bg-white/[0.1] text-white/70 hover:text-white ios-press"
+                className="h-8 w-8 rounded-xl grid place-items-center hover:bg-white/[0.1] text-slate-400 hover:text-slate-200 ios-press"
                 aria-label="Previous day"
               >
                 <ChevronLeft size={18} />
@@ -73,7 +73,7 @@ function DayPage() {
                   vibrate("light");
                   navigate({ to: `/day/${nextDateStr}` });
                 }}
-                className="h-8 w-8 rounded-xl grid place-items-center hover:bg-white/[0.1] text-white/70 hover:text-white ios-press"
+                className="h-8 w-8 rounded-xl grid place-items-center hover:bg-white/[0.1] text-slate-400 hover:text-slate-200 ios-press"
                 aria-label="Next day"
               >
                 <ChevronRight size={18} />
@@ -84,9 +84,9 @@ function DayPage() {
       </header>
 
       <div className="px-4 pt-4 space-y-3">
-        {isLoading && <p className="text-xs text-white/40 text-center py-8 font-mono">Loading day entries…</p>}
+        {isLoading && <p className="text-xs text-slate-500 text-center py-8 font-mono">Loading day entries…</p>}
         {!isLoading && entries.length === 0 && (
-          <p className="text-xs text-white/40 text-center py-8 font-mono">No entries logged on this day.</p>
+          <p className="text-xs text-slate-500 text-center py-8 font-mono">No entries logged on this day.</p>
         )}
         {entries.map((e) => (
           <EntryListItem key={e.id} entry={e} />

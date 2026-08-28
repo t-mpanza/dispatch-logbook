@@ -15,6 +15,7 @@ import { TagsInput } from "@/components/TagsInput";
 
 import { syncTripsToLoadingSheet } from "@/lib/loading-presets";
 import { fmtDayLabel, fmtTime, uid } from "@/lib/format";
+import { vibrate } from "@/lib/haptics";
 
 export const Route = createFileRoute("/entry/$id")({
   head: () => ({ meta: [{ title: "Entry — Dispatch Diary" }] }),
@@ -35,34 +36,37 @@ function TripDetailsSection({ entry, onUpdate }: { entry: Entry, onUpdate: (reg:
   return (
     <div className="mt-3 pt-3 border-t border-white/[0.08]">
       <button 
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-xs font-semibold text-white/50 hover:text-white w-full transition-colors ios-press py-1"
+        onClick={() => {
+          vibrate("light");
+          setOpen(!open);
+        }}
+        className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-slate-200 w-full transition-colors ios-press py-1"
       >
         <span className="flex-1 text-left uppercase tracking-widest text-[10px] font-bold">Trip Details</span>
-        <span className="font-mono text-xs text-white/80 font-bold">{entry.title || "NLS"}</span>
-        {open ? <ChevronUp size={14} className="text-white/60" /> : <ChevronDown size={14} className="text-white/60" />}
+        <span className="font-mono text-xs text-slate-200 font-bold">{entry.title || "NLS"}</span>
+        {open ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
       </button>
       
       {open && (
         <div className="mt-3 space-y-3 animate-fade-in-scale">
           <div>
-            <label className="text-[10px] uppercase font-bold text-white/50 block mb-1 tracking-wider">Registration (Reg)</label>
+            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1 tracking-wider">Registration (Reg)</label>
             <input 
               value={reg} 
               onChange={e => setReg(e.target.value.toUpperCase())}
               onBlur={() => onUpdate(reg, driver)}
               placeholder="e.g. MN05XNGP"
-              className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-white outline-none focus:border-primary-glow shadow-inner"
+              className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-slate-100 outline-none focus:border-blue-500 shadow-inner"
             />
           </div>
           <div>
-            <label className="text-[10px] uppercase font-bold text-white/50 block mb-1 tracking-wider">Driver Name</label>
+            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1 tracking-wider">Driver Name</label>
             <input 
               value={driver} 
               onChange={e => setDriver(e.target.value)}
               onBlur={() => onUpdate(reg, driver)}
               placeholder="e.g. Neil"
-              className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
+              className="w-full bg-black/30 border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-semibold text-slate-100 outline-none focus:border-blue-500 shadow-inner"
             />
           </div>
         </div>
@@ -119,11 +123,11 @@ function EntryPage() {
     }
   }, [itemsCount]);
 
-  if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  if (isLoading) return <div className="p-6 text-sm text-slate-400 font-mono">Loading…</div>;
   if (!entry) {
     return (
       <div className="p-6">
-        <p className="text-sm text-muted-foreground">Entry not found.</p>
+        <p className="text-sm text-slate-400">Entry not found.</p>
         <button onClick={() => navigate({ to: "/" })} className="mt-3 underline text-primary-glow text-sm">
           Back to today
         </button>
@@ -135,13 +139,6 @@ function EntryPage() {
     if (!entry) return;
     const next = updater({ ...entry });
     await updateEntry(next);
-    qc.invalidateQueries({ queryKey: ["entry", id] });
-    qc.invalidateQueries({ queryKey: ["entries"] });
-    qc.invalidateQueries({ queryKey: ["tags"] });
-  }
-
-  async function handleUpdateEntry(updatedEntry: Entry) {
-    await updateEntry(updatedEntry);
     qc.invalidateQueries({ queryKey: ["entry", id] });
     qc.invalidateQueries({ queryKey: ["entries"] });
     qc.invalidateQueries({ queryKey: ["tags"] });
@@ -170,6 +167,7 @@ function EntryPage() {
 
   async function onDelete() {
     if (!confirm("Delete this entry permanently?")) return;
+    vibrate("error");
     await deleteEntry(entry!.id);
     navigate({ to: "/" });
   }
@@ -198,8 +196,11 @@ function EntryPage() {
       <header className="sticky top-0 z-30 ios-glass border-b border-white/[0.1] pt-[env(safe-area-inset-top)] shadow-md">
         <div className="flex items-center gap-3 px-4 py-3">
           <button
-            onClick={() => navigate({ to: "/" })}
-            className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] ios-press shrink-0 text-white"
+            onClick={() => {
+              vibrate("light");
+              navigate({ to: "/" });
+            }}
+            className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] ios-press shrink-0 text-slate-100"
           >
             <ArrowLeft size={18} />
           </button>
@@ -209,17 +210,20 @@ function EntryPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={saveHeader}
-              className="w-full bg-transparent text-sm font-mono font-bold uppercase tracking-wider outline-none truncate text-white"
+              className="w-full bg-transparent text-sm font-mono font-bold uppercase tracking-wider outline-none truncate text-slate-100"
             />
-            <p className="text-[10px] text-white/50 tabular-nums">
+            <p className="text-[10px] text-slate-400 tabular-nums">
               {fmtDayLabel(entry.createdAt)} · {fmtTime(entry.createdAt)}
             </p>
           </div>
 
           {isCounterSession && (
             <button
-              onClick={() => setDetailsOpen((o) => !o)}
-              className="h-8 w-8 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center text-white/60 hover:text-white ios-press"
+              onClick={() => {
+                vibrate("light");
+                setDetailsOpen((o) => !o);
+              }}
+              className="h-8 w-8 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center text-slate-400 hover:text-slate-200 ios-press"
               aria-label="Toggle details"
             >
               {detailsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -282,13 +286,14 @@ function EntryPage() {
           </div>
         )}
 
-
-
         {/* Add counter (standard entries only) */}
         {!isCounterSession && (
           <button
-            onClick={() => persist((e) => ({ ...e, trips: [], loadingSheetTrips: [] }))}
-            className="w-full rounded-xl bg-surface border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+            onClick={() => {
+              vibrate("light");
+              persist((e) => ({ ...e, trips: [], loadingSheetTrips: [] }));
+            }}
+            className="w-full rounded-2xl ios-glass-card py-3.5 text-xs font-bold text-slate-300 hover:text-white transition-colors text-center ios-press shadow-md"
           >
             + Add tyre counter & loading sheet to this entry
           </button>
@@ -299,7 +304,7 @@ function EntryPage() {
 
         {/* Event log */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-3">
+          <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-3">
             Event Log
           </p>
           <EventLog
