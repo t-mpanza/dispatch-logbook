@@ -6,6 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { entriesByDay } from "@/lib/db";
 import { dayKey, fmtDayLabel, fmtTime } from "@/lib/format";
 import { EntryListItem } from "@/components/EntryListItem";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { Capacitor } from "@capacitor/core";
 import { useSyncState, syncNow } from "@/lib/sync";
 import { vibrate } from "@/lib/haptics";
@@ -111,44 +112,57 @@ function TodayPage() {
 
   return (
     <AppShell>
-      {/* iOS Large Header */}
-      <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-3 flex items-start justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">Today</p>
-          <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-100 font-sans">{fmtDayLabel(today)}</h1>
-          <p className="mt-1 text-xs text-slate-400 font-medium">
-            {entries.length === 0
-              ? "Nothing logged yet. Tap + to capture."
-              : `${entries.length} ${entries.length === 1 ? "trip entry" : "trip entries"}`}
-          </p>
-        </div>
+      <PullToRefresh onRefresh={async () => { await syncNow(qc); }}>
+        {/* iOS Large Header */}
+        <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-3 flex items-start justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">Today</p>
+            <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-100 font-sans">{fmtDayLabel(today)}</h1>
+            <p className="mt-1 text-xs text-slate-400 font-medium">
+              {entries.length === 0
+                ? "Nothing logged yet. Tap + to capture."
+                : `${entries.length} ${entries.length === 1 ? "trip entry" : "trip entries"}`}
+            </p>
+          </div>
 
-        <div className="flex flex-col items-end gap-2">
-          <Link
-            to="/day/$date"
-            params={{ date: yesterdayDateStr }}
-            onClick={() => vibrate("light")}
-            className="h-9 px-3.5 rounded-full ios-glass flex items-center gap-1 text-xs font-bold text-slate-200 hover:text-white ios-press shadow-md"
-            aria-label="Yesterday"
-          >
-            <ChevronLeft size={16} className="text-primary-glow" />
-            <span>Yesterday</span>
-          </Link>
-          {/* Version badge */}
-          <button
-            onClick={() => {
-              vibrate("light");
-              setShowAbout(true);
-              setUpdateStatus(null);
-            }}
-            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]"
-            aria-label="App version info"
-          >
-            <Smartphone size={10} />
-            <span className="font-mono">{APP_VERSION}</span>
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            <Link
+              to="/day/$date"
+              params={{ date: yesterdayDateStr }}
+              onClick={() => vibrate("light")}
+              className="h-9 px-3.5 rounded-full ios-glass flex items-center gap-1 text-xs font-bold text-slate-200 hover:text-white ios-press shadow-md"
+              aria-label="Yesterday"
+            >
+              <ChevronLeft size={16} className="text-primary-glow" />
+              <span>Yesterday</span>
+            </Link>
+            {/* Version badge */}
+            <button
+              onClick={() => {
+                vibrate("light");
+                setShowAbout(true);
+                setUpdateStatus(null);
+              }}
+              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]"
+              aria-label="App version info"
+            >
+              <Smartphone size={10} />
+              <span className="font-mono">{APP_VERSION}</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Entry List with swipe actions */}
+        <div className="px-4 space-y-3 pb-24">
+          {isLoading ? (
+            <p className="text-xs text-slate-500 text-center py-8 font-mono">Loading entries…</p>
+          ) : entries.length === 0 ? (
+            <EmptyState />
+          ) : (
+            entries.map((e) => <EntryListItem key={e.id} entry={e} />)
+          )}
         </div>
-      </header>
+      </PullToRefresh>
 
       {/* ── About / Diagnostics iOS Bottom Sheet ──────────────────── */}
       {showAbout && (
@@ -208,48 +222,39 @@ function TodayPage() {
                 </span>
               </div>
               <div className="flex justify-between py-2 border-b border-white/[0.06]">
-                <span className="text-slate-400">Repository</span>
-                <span className="font-mono text-primary-glow text-xs">t-mpanza/dispatch-logbook</span>
+                <span className="text-slate-400">Unsynced Pending Logs</span>
+                <span className="font-mono font-bold text-blue-400">{syncState.pendingCount}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-5">
+            {/* Actions */}
+            <div className="mt-6 space-y-2.5">
               <button
                 onClick={handleModalSync}
-                disabled={syncingModal || syncState.status === "syncing"}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-white/[0.06] border border-white/[0.12] text-slate-200 py-3 text-xs font-semibold hover:bg-white/[0.12] ios-press disabled:opacity-40 shadow-sm"
+                disabled={syncingModal}
+                className="w-full h-11 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg ios-press disabled:opacity-50"
               >
-                <RefreshCw size={14} className={syncingModal || syncState.status === "syncing" ? "animate-spin text-primary-glow" : ""} />
-                {syncingModal || syncState.status === "syncing" ? "Syncing…" : "Sync Database"}
+                <RefreshCw size={14} className={syncingModal ? "animate-spin" : ""} />
+                {syncingModal ? "Syncing Database…" : "Force Cloud Sync Now"}
               </button>
 
               <button
                 onClick={handleCheckForUpdates}
                 disabled={checkingUpdate}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-primary text-white py-3 text-xs font-bold hover:bg-primary/90 ios-press disabled:opacity-40 shadow-md"
+                className="w-full h-11 rounded-2xl bg-white/[0.06] border border-white/[0.1] hover:bg-white/[0.12] text-slate-200 font-bold text-xs flex items-center justify-center gap-2 ios-press disabled:opacity-50"
               >
-                <Smartphone size={14} className={checkingUpdate ? "animate-spin" : ""} />
-                {checkingUpdate ? "Checking…" : "Check Update"}
+                {checkingUpdate ? "Checking Releases…" : "Check for Updates (OTA)"}
               </button>
-            </div>
 
-            {updateStatus && (
-              <p className="mt-3 text-center text-xs text-slate-300 bg-black/40 py-2.5 rounded-xl border border-white/[0.08] font-mono shadow-inner">{updateStatus}</p>
-            )}
+              {updateStatus && (
+                <p className="text-center text-[11px] text-blue-400 font-mono pt-1">
+                  {updateStatus}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
-
-      {/* Entry List */}
-      <div className="px-4 space-y-3">
-        {isLoading ? (
-          <p className="text-xs text-slate-500 text-center py-8 font-mono">Loading entries…</p>
-        ) : entries.length === 0 ? (
-          <EmptyState />
-        ) : (
-          entries.map((e) => <EntryListItem key={e.id} entry={e} />)
-        )}
-      </div>
 
       {/* iOS Floating Action Button (Precision Cobalt) */}
       <Link
@@ -277,7 +282,7 @@ function EmptyState() {
       <Link
         to="/entry/new"
         onClick={() => vibrate("light")}
-        className="inline-flex mt-4 px-5 py-2.5 rounded-full bg-primary text-white text-xs font-bold ios-press shadow-md"
+        className="inline-flex mt-4 px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold ios-press shadow-md"
       >
         New Trip Entry
       </Link>

@@ -27,6 +27,7 @@ import { generatePDFReport, formatTimeHHmm } from "@/lib/export-pdf";
 import { formatWhatsAppShareText, shareWhatsAppText } from "@/lib/export-whatsapp";
 import { fmtDayLabel, uid } from "@/lib/format";
 import { vibrate } from "@/lib/haptics";
+import { SwipeableItem } from "./SwipeableItem";
 
 export interface LoadingSheetProps {
   entry: Entry;
@@ -391,87 +392,113 @@ export function LoadingSheet({
             const badgeClass = getPresetBadgeClass(trip.presetKey, trip.tripId);
 
             return (
-              <div
+              <SwipeableItem
                 key={trip.id || idx}
-                onClick={() => {
-                  vibrate("light");
-                  handleOpenEditModal(idx);
-                }}
-                className="group relative ios-glass-card p-4 ios-press space-y-2.5 shadow-lg"
+                leftActions={[
+                  {
+                    id: "edit",
+                    label: "Edit",
+                    icon: <Edit3 size={16} />,
+                    color: "bg-blue-600/90 text-white",
+                    onClick: () => handleOpenEditModal(idx),
+                  },
+                ]}
+                rightActions={[
+                  {
+                    id: "delete",
+                    label: "Delete",
+                    icon: <Trash2 size={16} />,
+                    color: "bg-rose-600/90 text-white",
+                    onClick: () => {
+                      if (confirm(`Delete load ${trip.tripId || `TRIP ${idx + 1}`}?`)) {
+                        vibrate("error");
+                        handleDeleteRow(idx);
+                      }
+                    },
+                  },
+                ]}
               >
-                {/* Row Header: Number, Trip ID, Tyres count, Edit Button */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="h-6 w-6 rounded-full bg-white/[0.06] font-mono font-bold text-xs grid place-items-center text-slate-300 shrink-0 border border-white/[0.08]">
-                      {idx + 1}
-                    </span>
-                    <span className={`text-[11px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-lg tracking-wider truncate shrink-0 ${badgeClass}`}>
-                      {trip.tripId || `TRIP ${idx + 1}`}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-2.5 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-mono font-black text-xs tabular-nums shadow-xs">
-                      {trip.quantityLoaded || 0} tyres
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        vibrate("light");
-                        handleOpenEditModal(idx);
-                      }}
-                      className="h-8 px-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-slate-200 hover:bg-white/[0.12] text-xs font-bold flex items-center gap-1.5 active:scale-90 transition-all shadow-xs"
-                    >
-                      <Edit3 size={13} className="text-primary-glow" />
-                      <span>Edit</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Status Badges & Details Row */}
-                <div className="flex items-center gap-2 text-xs flex-wrap">
-                  {/* Reg Badge */}
-                  {hasReg ? (
-                    <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.1] text-slate-200">
-                      <Truck size={12} className="text-primary-glow" />
-                      {trip.reg}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/12 border border-amber-500/25 text-amber-400">
-                      <AlertTriangle size={11} /> No Reg
-                    </span>
-                  )}
-
-                  {/* Driver Badge */}
-                  {hasDriver ? (
-                    <span className="inline-flex items-center gap-1 font-medium text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.1] text-slate-200">
-                      <User size={12} className="text-primary-glow" />
-                      {trip.driverName}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/12 border border-amber-500/25 text-amber-400">
-                      <AlertTriangle size={11} /> No Driver
-                    </span>
-                  )}
-
-                  {/* Time & Duration */}
-                  {hasTiming ? (
-                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-slate-400 ml-auto bg-black/30 px-2.5 py-1 rounded-lg border border-white/[0.08]">
-                      <Clock size={11} className="text-primary-glow" />
-                      {timeRange}
-                      <span className="font-bold text-slate-100 bg-white/[0.12] px-1.5 py-0.5 rounded ml-1">
-                        {durationMins}m
+                <div
+                  onClick={() => {
+                    vibrate("light");
+                    handleOpenEditModal(idx);
+                  }}
+                  className="group relative ios-glass-card p-4 ios-press space-y-2.5 shadow-lg"
+                >
+                  {/* Row Header: Number, Trip ID, Tyres count, Edit Button */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="h-6 w-6 rounded-full bg-white/[0.06] font-mono font-bold text-xs grid place-items-center text-slate-300 shrink-0 border border-white/[0.08]">
+                        {idx + 1}
                       </span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 ml-auto">
-                      <Clock size={11} /> No timestamps
-                    </span>
-                  )}
+                      <span className={`text-[11px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-lg tracking-wider truncate shrink-0 ${badgeClass}`}>
+                        {trip.tripId || `TRIP ${idx + 1}`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="px-2.5 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-mono font-black text-xs tabular-nums shadow-xs">
+                        {trip.quantityLoaded || 0} tyres
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          vibrate("light");
+                          handleOpenEditModal(idx);
+                        }}
+                        className="h-8 px-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-slate-200 hover:bg-white/[0.12] text-xs font-bold flex items-center gap-1.5 active:scale-90 transition-all shadow-xs"
+                      >
+                        <Edit3 size={13} className="text-primary-glow" />
+                        <span>Edit</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Status Badges & Details Row */}
+                  <div className="flex items-center gap-2 text-xs flex-wrap">
+                    {/* Reg Badge */}
+                    {hasReg ? (
+                      <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.1] text-slate-200">
+                        <Truck size={12} className="text-primary-glow" />
+                        {trip.reg}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/12 border border-amber-500/25 text-amber-400">
+                        <AlertTriangle size={11} /> No Reg
+                      </span>
+                    )}
+
+                    {/* Driver Badge */}
+                    {hasDriver ? (
+                      <span className="inline-flex items-center gap-1 font-medium text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.1] text-slate-200">
+                        <User size={12} className="text-primary-glow" />
+                        {trip.driverName}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/12 border border-amber-500/25 text-amber-400">
+                        <AlertTriangle size={11} /> No Driver
+                      </span>
+                    )}
+
+                    {/* Time & Duration */}
+                    {hasTiming ? (
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] text-slate-400 ml-auto bg-black/30 px-2.5 py-1 rounded-lg border border-white/[0.08]">
+                        <Clock size={11} className="text-primary-glow" />
+                        {timeRange}
+                        <span className="font-bold text-slate-100 bg-white/[0.12] px-1.5 py-0.5 rounded ml-1">
+                          {durationMins}m
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 ml-auto">
+                        <Clock size={11} /> No timestamps
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </SwipeableItem>
             );
           })
         )}

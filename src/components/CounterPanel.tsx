@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { Camera, Check, Minus, Plus } from "lucide-react";
 import type { Attachment, Trip } from "@/lib/types";
 import { uid } from "@/lib/format";
@@ -21,6 +21,38 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
   const [slipNumber, setSlipNumber] = useState("");
   const [showCamera, setShowCamera] = useState(false);
   const [processing, setProcessing] = useState(false);
+
+  const repeatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const repeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopRepeat = useCallback(() => {
+    if (repeatTimer.current) {
+      clearTimeout(repeatTimer.current);
+      repeatTimer.current = null;
+    }
+    if (repeatInterval.current) {
+      clearInterval(repeatInterval.current);
+      repeatInterval.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => stopRepeat();
+  }, [stopRepeat]);
+
+  const startRepeat = (action: () => void) => {
+    stopRepeat();
+    vibrate("light");
+    action();
+
+    repeatTimer.current = setTimeout(() => {
+      let speed = 90;
+      repeatInterval.current = setInterval(() => {
+        vibrate("light");
+        action();
+      }, speed);
+    }, 280);
+  };
 
   function logScanned() {
     if (count <= 0) return;
@@ -52,7 +84,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
       onAttachment?.({
         id,
         kind: "image",
-        blob: scaled,
+        blob,
         mime: scaled.type || "image/jpeg",
         name,
         width: dims?.width,
@@ -68,7 +100,7 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
   const canLog = tab === "scanned" ? count > 0 : manualCount > 0;
 
   return (
-    <div className="ios-glass-elevated overflow-hidden shadow-2xl p-1.5 space-y-2.5">
+    <div className="ios-glass-elevated overflow-hidden shadow-2xl p-1.5 space-y-2.5 select-none">
       {/* iOS Segmented Control Tab Row */}
       <div className="p-1 rounded-xl bg-black/40 border border-white/[0.08] flex items-center gap-1">
         {(["scanned", "manual"] as const).map((t) => (
@@ -91,14 +123,18 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
 
       {/* Input Row */}
       <div className="flex items-center gap-2 px-1">
-        {/* Stepper Down */}
+        {/* Stepper Down with Long-Press Auto-Repeat */}
         <button
-          onClick={() => {
-            vibrate("light");
-            tab === "scanned"
-              ? setCount((c) => Math.max(0, c - 1))
-              : setManualCount((c) => Math.max(1, c - 1));
-          }}
+          onPointerDown={() =>
+            startRepeat(() => {
+              tab === "scanned"
+                ? setCount((c) => Math.max(0, c - 1))
+                : setManualCount((c) => Math.max(1, c - 1));
+            })
+          }
+          onPointerUp={stopRepeat}
+          onPointerLeave={stopRepeat}
+          onPointerCancel={stopRepeat}
           className="h-12 w-12 shrink-0 rounded-2xl bg-white/[0.06] border border-white/[0.1] grid place-items-center ios-press-bounce text-slate-300 hover:text-slate-100 shadow-md active:bg-white/[0.12]"
         >
           <Minus size={20} />
@@ -117,27 +153,35 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
           className="h-12 w-16 shrink-0 rounded-2xl bg-black/40 border border-white/[0.1] text-center text-2xl font-black tabular-nums outline-none text-slate-100 focus:border-blue-500 shadow-inner font-mono"
         />
 
-        {/* Stepper Up */}
+        {/* Stepper Up with Long-Press Auto-Repeat */}
         <button
-          onClick={() => {
-            vibrate("light");
-            tab === "scanned" ? setCount((c) => c + 1) : setManualCount((c) => c + 1);
-          }}
+          onPointerDown={() =>
+            startRepeat(() => {
+              tab === "scanned" ? setCount((c) => c + 1) : setManualCount((c) => c + 1);
+            })
+          }
+          onPointerUp={stopRepeat}
+          onPointerLeave={stopRepeat}
+          onPointerCancel={stopRepeat}
           className="h-12 w-12 shrink-0 rounded-2xl bg-white/[0.06] border border-white/[0.1] grid place-items-center ios-press-bounce text-slate-300 hover:text-slate-100 shadow-md active:bg-white/[0.12]"
         >
           <Plus size={20} />
         </button>
 
         {tab === "scanned" ? (
-          /* iOS Quick-add Buttons */
+          /* iOS Quick-add Buttons with Long-Press Auto-Repeat */
           <div className="flex flex-1 gap-1.5 justify-end">
             {QUICK.map((n) => (
               <button
                 key={n}
-                onClick={() => {
-                  vibrate("light");
-                  setCount((c) => c + n);
-                }}
+                onPointerDown={() =>
+                  startRepeat(() => {
+                    setCount((c) => c + n);
+                  })
+                }
+                onPointerUp={stopRepeat}
+                onPointerLeave={stopRepeat}
+                onPointerCancel={stopRepeat}
                 className="h-12 flex-1 rounded-2xl bg-white/[0.06] border border-white/[0.1] text-xs font-black tabular-nums text-slate-200 hover:text-blue-400 ios-press-bounce shadow-md active:bg-white/[0.14] flex items-center justify-center font-mono"
               >
                 +{n}

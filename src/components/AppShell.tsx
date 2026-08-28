@@ -7,6 +7,7 @@ import { rescheduleAll } from "@/lib/reminders";
 import { useSyncState, syncNow } from "@/lib/sync";
 import { vibrate } from "@/lib/haptics";
 import { toast } from "sonner";
+import { ConnectionStatusBanner } from "./ConnectionStatusBanner";
 
 let rescheduled = false;
 
@@ -49,9 +50,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-foreground flex flex-col max-w-md mx-auto relative antialiased">
+    <div className="min-h-screen bg-transparent text-foreground flex flex-col max-w-md mx-auto relative antialiased select-none">
       {/* Hardware-Composited Fixed Background Layer (Zero scroll invalidation) */}
       <div className="ios-ambient-bg" />
+
+      {/* Dynamic Island Style Connection Status Pill */}
+      <ConnectionStatusBanner />
 
       {/* Main scrollable content container */}
       <main className="flex-1 pb-32">{children}</main>
@@ -89,7 +93,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             onClick={handleManualSync}
             disabled={syncState.status === "syncing"}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-2xl ios-press ${
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-2xl ios-press relative ${
               syncState.status === "syncing"
                 ? "text-primary-glow"
                 : syncState.status === "error"
@@ -110,6 +114,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <CloudOff size={14} className="text-slate-500" />
               ) : (
                 <Cloud size={14} className="text-primary-glow" />
+              )}
+
+              {/* Unsynced pending badge */}
+              {syncState.pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-blue-500 text-white font-mono text-[9px] font-bold grid place-items-center shadow-md">
+                  {syncState.pendingCount > 9 ? "9+" : syncState.pendingCount}
+                </span>
               )}
             </div>
             <span className="text-[9px] font-bold uppercase tracking-wider truncate max-w-[48px] scale-90">
