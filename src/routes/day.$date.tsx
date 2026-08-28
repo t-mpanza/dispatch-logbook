@@ -5,6 +5,7 @@ import { parseISO, addDays, subDays, format } from "date-fns";
 import { entriesByDay } from "@/lib/db";
 import { fmtDayLabel } from "@/lib/format";
 import { EntryListItem } from "@/components/EntryListItem";
+import { vibrate } from "@/lib/haptics";
 
 export const Route = createFileRoute("/day/$date")({
   head: () => ({ meta: [{ title: "Day — Dispatch Diary" }] }),
@@ -33,37 +34,46 @@ function DayPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background max-w-md mx-auto pb-10">
-      <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl border-b border-border pt-[env(safe-area-inset-top)]">
+    <div className="min-h-screen bg-transparent max-w-md mx-auto pb-10">
+      <header className="sticky top-0 z-30 ios-glass border-b border-white/[0.1] pt-[env(safe-area-inset-top)] shadow-md">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => navigate({ to: "/archive" })}
-              className="h-9 w-9 rounded-full grid place-items-center hover:bg-muted flex-shrink-0"
+              onClick={() => {
+                vibrate("light");
+                navigate({ to: "/archive" });
+              }}
+              className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] ios-press flex-shrink-0 text-white"
               aria-label="Back to archive"
             >
               <ArrowLeft size={18} />
             </button>
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-widest text-primary-glow font-medium">
-                Day
+              <p className="text-[10px] uppercase tracking-widest text-primary-glow font-bold">
+                Daily Log
               </p>
-              <h1 className="text-base font-semibold truncate">{label}</h1>
+              <h1 className="text-base font-bold truncate text-white">{label}</h1>
             </div>
           </div>
 
           {prevDateStr && nextDateStr && (
-            <div className="flex items-center gap-1 bg-surface-elevated border border-border rounded-xl p-1 flex-shrink-0 ml-2">
+            <div className="flex items-center gap-1 bg-white/[0.06] border border-white/[0.1] rounded-2xl p-1 flex-shrink-0 ml-2 shadow-inner">
               <button
-                onClick={() => navigate({ to: `/day/${prevDateStr}` })}
-                className="h-8 w-8 rounded-lg grid place-items-center hover:bg-surface text-muted-foreground hover:text-foreground active:scale-90 transition-all"
+                onClick={() => {
+                  vibrate("light");
+                  navigate({ to: `/day/${prevDateStr}` });
+                }}
+                className="h-8 w-8 rounded-xl grid place-items-center hover:bg-white/[0.1] text-white/70 hover:text-white ios-press"
                 aria-label="Previous day"
               >
                 <ChevronLeft size={18} />
               </button>
               <button
-                onClick={() => navigate({ to: `/day/${nextDateStr}` })}
-                className="h-8 w-8 rounded-lg grid place-items-center hover:bg-surface text-muted-foreground hover:text-foreground active:scale-90 transition-all"
+                onClick={() => {
+                  vibrate("light");
+                  navigate({ to: `/day/${nextDateStr}` });
+                }}
+                className="h-8 w-8 rounded-xl grid place-items-center hover:bg-white/[0.1] text-white/70 hover:text-white ios-press"
                 aria-label="Next day"
               >
                 <ChevronRight size={18} />
@@ -73,10 +83,10 @@ function DayPage() {
         </div>
       </header>
 
-      <div className="px-5 pt-4 space-y-2.5">
-        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      <div className="px-4 pt-4 space-y-3">
+        {isLoading && <p className="text-xs text-white/40 text-center py-8 font-mono">Loading day entries…</p>}
         {!isLoading && entries.length === 0 && (
-          <p className="text-sm text-muted-foreground">No entries logged on this day.</p>
+          <p className="text-xs text-white/40 text-center py-8 font-mono">No entries logged on this day.</p>
         )}
         {entries.map((e) => (
           <EntryListItem key={e.id} entry={e} />

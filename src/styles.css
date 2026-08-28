@@ -34,46 +34,46 @@
   --color-surface-elevated: var(--surface-elevated);
 }
 
-/* Midnight Indigo — single dark theme */
+/* Midnight Indigo & iOS Glassmorphic Theme */
 :root {
-  --radius: 0.875rem;
+  --radius: 1rem;
 
-  --background: oklch(0.13 0.04 275);
-  --foreground: oklch(0.96 0.01 270);
+  --background: oklch(0.12 0.04 275);
+  --foreground: oklch(0.97 0.008 270);
 
-  --surface: oklch(0.17 0.045 275);
-  --surface-elevated: oklch(0.21 0.05 275);
+  --surface: oklch(0.16 0.045 275);
+  --surface-elevated: oklch(0.20 0.05 275);
 
-  --card: oklch(0.17 0.045 275);
-  --card-foreground: oklch(0.96 0.01 270);
+  --card: oklch(0.16 0.045 275);
+  --card-foreground: oklch(0.97 0.008 270);
 
-  --popover: oklch(0.19 0.05 275);
-  --popover-foreground: oklch(0.96 0.01 270);
+  --popover: oklch(0.18 0.05 275);
+  --popover-foreground: oklch(0.97 0.008 270);
 
-  --primary: oklch(0.62 0.21 275);
-  --primary-foreground: oklch(0.98 0.005 270);
-  --primary-glow: oklch(0.72 0.22 280);
+  --primary: oklch(0.64 0.22 278);
+  --primary-foreground: oklch(0.99 0.002 270);
+  --primary-glow: oklch(0.74 0.23 282);
 
-  --secondary: oklch(0.24 0.05 275);
-  --secondary-foreground: oklch(0.96 0.01 270);
+  --secondary: oklch(0.22 0.05 275);
+  --secondary-foreground: oklch(0.97 0.008 270);
 
-  --muted: oklch(0.22 0.04 275);
-  --muted-foreground: oklch(0.68 0.03 270);
+  --muted: oklch(0.20 0.04 275);
+  --muted-foreground: oklch(0.70 0.025 270);
 
-  --accent: oklch(0.72 0.22 280);
-  --accent-foreground: oklch(0.13 0.04 275);
+  --accent: oklch(0.74 0.23 282);
+  --accent-foreground: oklch(0.12 0.04 275);
 
   --destructive: oklch(0.62 0.22 25);
-  --destructive-foreground: oklch(0.98 0.005 270);
+  --destructive-foreground: oklch(0.99 0.002 270);
 
-  --border: oklch(0.27 0.05 275);
-  --input: oklch(0.24 0.05 275);
-  --ring: oklch(0.62 0.21 275);
+  --border: oklch(0.28 0.05 275);
+  --input: oklch(0.22 0.05 275);
+  --ring: oklch(0.64 0.22 278);
 
-  --gradient-primary: linear-gradient(135deg, var(--primary), var(--primary-glow));
+  --gradient-primary: linear-gradient(135deg, oklch(0.64 0.22 278), oklch(0.74 0.23 282));
   --gradient-surface: linear-gradient(180deg, var(--surface), var(--background));
-  --shadow-glow: 0 10px 40px -10px oklch(0.62 0.21 275 / 0.5);
-  --shadow-elevated: 0 8px 24px -8px oklch(0.05 0.02 275 / 0.6);
+  --shadow-glow: 0 10px 40px -10px oklch(0.64 0.22 278 / 0.45);
+  --shadow-elevated: 0 12px 32px -8px rgba(0, 0, 0, 0.65);
 }
 
 @layer base {
@@ -83,36 +83,132 @@
 
   html,
   body {
-    background-color: var(--color-background);
+    background-color: #080816;
+    background-image: 
+      radial-gradient(circle at 10% 5%, rgba(99, 102, 241, 0.18) 0px, transparent 45%),
+      radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.15) 0px, transparent 45%),
+      radial-gradient(circle at 50% 95%, rgba(59, 130, 246, 0.12) 0px, transparent 50%);
+    background-attachment: fixed;
     color: var(--color-foreground);
     -webkit-tap-highlight-color: transparent;
     font-family:
-      ui-sans-serif,
-      system-ui,
       -apple-system,
-      "Segoe UI",
-      Roboto,
+      BlinkMacSystemFont,
+      "SF Pro Display",
+      "SF Pro Text",
+      "SF Pro",
+      "Helvetica Neue",
+      Helvetica,
+      Arial,
+      system-ui,
       sans-serif;
+    letter-spacing: -0.01em;
   }
 
   body {
     overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* hide scrollbars but keep scroll */
+  /* hide scrollbars but keep momentum scrolling */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
   .no-scrollbar {
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
+}
+
+/* ── Apple iOS Glassmorphism System ───────────────────────────────────── */
+.ios-glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+}
+
+.ios-glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  border-radius: 1.25rem;
+}
+
+.ios-glass-elevated {
+  background: rgba(255, 255, 255, 0.075);
+  backdrop-filter: blur(36px) saturate(200%);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
+  border-radius: 1.5rem;
+}
+
+.ios-glass-dock {
+  background: rgba(18, 18, 36, 0.76);
+  backdrop-filter: blur(32px) saturate(210%);
+  -webkit-backdrop-filter: blur(32px) saturate(210%);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-top: 1px solid rgba(255, 255, 255, 0.26);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.75), inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
+  border-radius: 2rem;
+}
+
+.ios-glass-pill {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 9999px;
+}
+
+.ios-grabber {
+  width: 38px;
+  height: 5px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.28);
+  margin: 0 auto 14px auto;
+}
+
+.ios-home-indicator {
+  width: 136px;
+  height: 4.5px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.35);
+  margin: 6px auto 2px auto;
+}
+
+/* ── iOS Spring Tap States ────────────────────────────────────────────── */
+.ios-press {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ios-press:active {
+  transform: scale(0.96);
+  opacity: 0.85;
+}
+
+.ios-press-bounce {
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ios-press-bounce:active {
+  transform: scale(0.92);
 }
 
 /* ── Modern UI Micro-Animations & Keyframes ───────────────────────────── */
 @keyframes sheetSlideUp {
   from {
     opacity: 0;
-    transform: translateY(24px) scale(0.98);
+    transform: translateY(32px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -143,7 +239,7 @@
 }
 
 .animate-sheet-slide-up {
-  animation: sheetSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: sheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-fade-in-scale {
@@ -154,61 +250,52 @@
   animation: pulseGlow 2.5s ease-in-out infinite;
 }
 
-/* ── Glass Floating Dock Navigation ───────────────────────────────────── */
-.glass-dock {
-  background: oklch(0.14 0.04 275 / 0.88);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-top: 1px solid oklch(0.28 0.05 275 / 0.8);
-  box-shadow: 0 -8px 32px -4px oklch(0.05 0.02 275 / 0.75);
-}
-
-.nav-pill-glow {
-  background: oklch(0.62 0.21 275 / 0.2);
-  border: 1px solid oklch(0.72 0.22 280 / 0.4);
-  box-shadow: 0 0 16px -2px oklch(0.72 0.22 280 / 0.35);
-}
-
-/* ── Route Preset Semantic Color System ────────────────────────────────── */
+/* ── Route Preset Semantic Color Badges (Translucent Liquid Glass) ─────── */
 .badge-preset-nlh {
-  background: oklch(0.25 0.09 155 / 0.35);
-  color: oklch(0.85 0.15 155);
-  border-color: oklch(0.45 0.12 155 / 0.5);
+  background: rgba(16, 185, 129, 0.14);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 }
 
 .badge-preset-stocks {
-  background: oklch(0.25 0.12 285 / 0.35);
-  color: oklch(0.85 0.18 285);
-  border-color: oklch(0.5 0.18 285 / 0.5);
+  background: rgba(139, 92, 246, 0.16);
+  color: #c084fc;
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
 }
 
 .badge-preset-dbn {
-  background: oklch(0.25 0.1 230 / 0.35);
-  color: oklch(0.85 0.14 230);
-  border-color: oklch(0.45 0.14 230 / 0.5);
+  background: rgba(14, 165, 233, 0.14);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 }
 
 .badge-preset-plk {
-  background: oklch(0.25 0.1 75 / 0.35);
-  color: oklch(0.88 0.15 75);
-  border-color: oklch(0.48 0.15 75 / 0.5);
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 }
 
 .badge-preset-bloem {
-  background: oklch(0.25 0.11 25 / 0.35);
-  color: oklch(0.85 0.16 25);
-  border-color: oklch(0.48 0.16 25 / 0.5);
+  background: rgba(244, 63, 94, 0.14);
+  color: #fb7185;
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 }
 
 .badge-preset-tirepoint {
-  background: oklch(0.25 0.09 195 / 0.35);
-  color: oklch(0.85 0.14 195);
-  border-color: oklch(0.45 0.12 195 / 0.5);
+  background: rgba(6, 182, 212, 0.14);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 }
 
 .badge-preset-custom {
-  background: oklch(0.25 0.04 275 / 0.4);
-  color: oklch(0.82 0.05 270);
-  border-color: oklch(0.4 0.05 275 / 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
 }
-

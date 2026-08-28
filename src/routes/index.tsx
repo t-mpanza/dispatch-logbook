@@ -8,6 +8,7 @@ import { dayKey, fmtDayLabel, fmtTime } from "@/lib/format";
 import { EntryListItem } from "@/components/EntryListItem";
 import { Capacitor } from "@capacitor/core";
 import { useSyncState, syncNow } from "@/lib/sync";
+import { vibrate } from "@/lib/haptics";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "Today — Dispatch Diary" },
       { name: "description", content: "Fast-capture operational diary for dispatch." },
-      { name: "theme-color", content: "#0a0a1a" },
+      { name: "theme-color", content: "#080816" },
     ],
     links: [
       { rel: "manifest", href: "/manifest.webmanifest" },
@@ -48,18 +49,22 @@ function TodayPage() {
   const [syncingModal, setSyncingModal] = useState(false);
 
   async function handleModalSync() {
+    vibrate("medium");
     setSyncingModal(true);
     toast.info("Syncing…", { description: "Pushing and pulling all entries" });
     const success = await syncNow(qc);
     setSyncingModal(false);
     if (success) {
+      vibrate("success");
       toast.success("Database Synced", { description: "All records are synchronized with cloud." });
     } else {
+      vibrate("error");
       toast.error("Sync Error", { description: syncState.errorMessage || "Check network connection." });
     }
   }
 
   async function handleCheckForUpdates() {
+    vibrate("light");
     setCheckingUpdate(true);
     setUpdateStatus(null);
     try {
@@ -74,7 +79,6 @@ function TodayPage() {
       if (latestTag === APP_VERSION) {
         setUpdateStatus(`✓ Already on latest (${latestTag})`);
       } else if (Capacitor.isNativePlatform()) {
-        // OTA update via CapacitorUpdater
         const { CapacitorUpdater } = await import("@capgo/capacitor-updater");
         const asset = release.assets?.find((a: any) => a.name === "dist.zip");
         if (asset) {
@@ -107,14 +111,15 @@ function TodayPage() {
 
   return (
     <AppShell>
-      <header className="px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-4 flex items-start justify-between">
+      {/* iOS Large Header */}
+      <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-3 flex items-start justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">Today</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{fmtDayLabel(today)}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">Today</p>
+          <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-white font-sans">{fmtDayLabel(today)}</h1>
+          <p className="mt-1 text-xs text-white/50 font-medium">
             {entries.length === 0
               ? "Nothing logged yet. Tap + to capture."
-              : `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`}
+              : `${entries.length} ${entries.length === 1 ? "trip entry" : "trip entries"}`}
           </p>
         </div>
 
@@ -122,52 +127,66 @@ function TodayPage() {
           <Link
             to="/day/$date"
             params={{ date: yesterdayDateStr }}
-            className="h-9 px-3 rounded-xl bg-surface-elevated border border-border flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-all active:scale-95"
+            onClick={() => vibrate("light")}
+            className="h-9 px-3.5 rounded-full ios-glass flex items-center gap-1 text-xs font-bold text-white/80 hover:text-white ios-press shadow-md"
             aria-label="Yesterday"
           >
-            <ChevronLeft size={16} />
-            <span className="font-semibold">Yesterday</span>
+            <ChevronLeft size={16} className="text-primary-glow" />
+            <span>Yesterday</span>
           </Link>
           {/* Version badge */}
           <button
-            onClick={() => { setShowAbout(true); setUpdateStatus(null); }}
-            className="flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            onClick={() => {
+              vibrate("light");
+              setShowAbout(true);
+              setUpdateStatus(null);
+            }}
+            className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white/80 transition-colors px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]"
             aria-label="App version info"
           >
             <Smartphone size={10} />
-            <span>{APP_VERSION}</span>
+            <span className="font-mono">{APP_VERSION}</span>
           </button>
         </div>
       </header>
 
-      {/* ── About / Version sheet ─────────────────────────────────── */}
+      {/* ── About / Diagnostics iOS Bottom Sheet ──────────────────── */}
       {showAbout && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowAbout(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/65 backdrop-blur-md animate-fade-in"
+          onClick={() => setShowAbout(false)}
+        >
           <div
-            className="w-full max-w-md mx-auto bg-surface border border-border/80 rounded-t-3xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl animate-sheet-slide-up"
+            className="w-full max-w-md mx-auto ios-glass-elevated rounded-t-[2.5rem] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl animate-sheet-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-bold">Dispatch Diary</h2>
+            {/* iOS Grabber */}
+            <div className="ios-grabber" />
+
+            <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
+              <div>
+                <h2 className="text-base font-bold text-white">Dispatch Diary</h2>
+                <p className="text-xs text-white/50">System Info & Cloud Diagnostics</p>
+              </div>
               <button
                 onClick={() => setShowAbout(false)}
-                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
+                className="h-8 w-8 rounded-full bg-white/[0.08] grid place-items-center text-white/60 hover:text-white active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Version</span>
-                <span className="font-mono font-semibold">{APP_VERSION}</span>
+            <div className="space-y-3 text-xs mt-4">
+              <div className="flex justify-between py-2 border-b border-white/[0.06]">
+                <span className="text-white/50">Version</span>
+                <span className="font-mono font-bold text-white">{APP_VERSION}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Platform</span>
-                <span className="font-mono">{Capacitor.isNativePlatform() ? Capacitor.getPlatform() : "web"}</span>
+              <div className="flex justify-between py-2 border-b border-white/[0.06]">
+                <span className="text-white/50">Platform</span>
+                <span className="font-mono text-white/90">{Capacitor.isNativePlatform() ? Capacitor.getPlatform() : "web"}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Database Sync</span>
+              <div className="flex justify-between py-2 border-b border-white/[0.06]">
+                <span className="text-white/50">Database Sync</span>
                 <span className="flex items-center gap-1.5 font-medium text-xs">
                   {syncState.status === "syncing" ? (
                     <>
@@ -175,9 +194,9 @@ function TodayPage() {
                       <span className="text-primary-glow font-bold">Syncing…</span>
                     </>
                   ) : syncState.status === "error" ? (
-                    <span className="text-destructive font-bold">Sync Error</span>
+                    <span className="text-rose-400 font-bold">Sync Error</span>
                   ) : syncState.status === "offline" ? (
-                    <span className="text-muted-foreground">Offline</span>
+                    <span className="text-white/40">Offline</span>
                   ) : (
                     <>
                       <Cloud size={12} className="text-primary-glow" />
@@ -188,8 +207,8 @@ function TodayPage() {
                   )}
                 </span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Repository</span>
+              <div className="flex justify-between py-2 border-b border-white/[0.06]">
+                <span className="text-white/50">Repository</span>
                 <span className="font-mono text-primary-glow text-xs">t-mpanza/dispatch-logbook</span>
               </div>
             </div>
@@ -198,7 +217,7 @@ function TodayPage() {
               <button
                 onClick={handleModalSync}
                 disabled={syncingModal || syncState.status === "syncing"}
-                className="flex items-center justify-center gap-2 rounded-xl bg-surface-elevated border border-border text-foreground py-3 text-xs font-semibold hover:border-primary/50 active:scale-95 transition-all disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-white/[0.06] border border-white/[0.12] text-white py-3 text-xs font-semibold hover:bg-white/[0.12] ios-press disabled:opacity-40 shadow-sm"
               >
                 <RefreshCw size={14} className={syncingModal || syncState.status === "syncing" ? "animate-spin text-primary-glow" : ""} />
                 {syncingModal || syncState.status === "syncing" ? "Syncing…" : "Sync Database"}
@@ -207,7 +226,7 @@ function TodayPage() {
               <button
                 onClick={handleCheckForUpdates}
                 disabled={checkingUpdate}
-                className="flex items-center justify-center gap-2 rounded-xl bg-primary/15 border border-primary/30 text-primary-glow py-3 text-xs font-semibold hover:bg-primary/25 active:scale-95 transition-all disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-primary text-white py-3 text-xs font-bold hover:bg-primary/90 ios-press disabled:opacity-40 shadow-md"
               >
                 <Smartphone size={14} className={checkingUpdate ? "animate-spin" : ""} />
                 {checkingUpdate ? "Checking…" : "Check Update"}
@@ -215,15 +234,16 @@ function TodayPage() {
             </div>
 
             {updateStatus && (
-              <p className="mt-3 text-center text-xs text-muted-foreground bg-background/50 py-2 rounded-lg border border-border/50 font-mono">{updateStatus}</p>
+              <p className="mt-3 text-center text-xs text-white/70 bg-black/40 py-2.5 rounded-xl border border-white/[0.08] font-mono shadow-inner">{updateStatus}</p>
             )}
           </div>
         </div>
       )}
 
-      <div className="px-5 space-y-2.5">
+      {/* Entry List */}
+      <div className="px-4 space-y-3">
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-xs text-white/40 text-center py-8 font-mono">Loading entries…</p>
         ) : entries.length === 0 ? (
           <EmptyState />
         ) : (
@@ -231,9 +251,11 @@ function TodayPage() {
         )}
       </div>
 
+      {/* iOS Floating Action Button (Glass Glow) */}
       <Link
         to="/entry/new"
-        className="fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground grid place-items-center shadow-[var(--shadow-glow)] active:scale-90 transition-transform cursor-pointer hover:scale-105"
+        onClick={() => vibrate("medium")}
+        className="fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full bg-[image:var(--gradient-primary)] text-white grid place-items-center shadow-[0_8px_30px_rgba(139,92,246,0.55)] border-t border-white/30 ios-press-bounce cursor-pointer"
         aria-label="New entry"
       >
         <Plus size={26} />
@@ -244,19 +266,20 @@ function TodayPage() {
 
 function EmptyState() {
   return (
-    <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center">
-      <div className="mx-auto h-14 w-14 rounded-full bg-[image:var(--gradient-primary)] grid place-items-center shadow-[var(--shadow-glow)]">
-        <Plus size={22} className="text-primary-foreground" />
+    <div className="mt-6 ios-glass-card p-8 text-center border-dashed">
+      <div className="mx-auto h-14 w-14 rounded-full bg-primary/20 border border-primary-glow/40 grid place-items-center shadow-lg text-primary-glow">
+        <Plus size={24} />
       </div>
-      <h2 className="mt-4 font-semibold">Start logging</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Voice notes, photos, videos, files — all stored on this device.
+      <h2 className="mt-4 font-bold text-white text-base">Start logging</h2>
+      <p className="mt-1 text-xs text-white/50 max-w-xs mx-auto">
+        Voice notes, photos, videos, and loading sheets — stored securely on this device.
       </p>
       <Link
         to="/entry/new"
-        className="inline-flex mt-4 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium"
+        onClick={() => vibrate("light")}
+        className="inline-flex mt-4 px-5 py-2.5 rounded-full bg-primary text-white text-xs font-bold ios-press shadow-md"
       >
-        New entry
+        New Trip Entry
       </Link>
     </div>
   );

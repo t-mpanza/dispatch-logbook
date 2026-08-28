@@ -68,9 +68,9 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
   const canLog = tab === "scanned" ? count > 0 : manualCount > 0;
 
   return (
-    <div className="rounded-2xl bg-surface border border-border/80 overflow-hidden shadow-xs">
-      {/* Tab row */}
-      <div className="flex border-b border-border/80 bg-background/50">
+    <div className="ios-glass-elevated overflow-hidden shadow-2xl p-1.5 space-y-2.5">
+      {/* iOS Segmented Control Tab Row */}
+      <div className="p-1 rounded-xl bg-black/30 border border-white/[0.08] flex items-center gap-1">
         {(["scanned", "manual"] as const).map((t) => (
           <button
             key={t}
@@ -78,10 +78,10 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
               vibrate("light");
               setTab(t);
             }}
-            className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
+            className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ios-press ${
               tab === t
-                ? "text-foreground bg-surface font-black border-b-2 border-primary-glow shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-white/[0.15] text-white shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/20 font-black"
+                : "text-white/50 hover:text-white"
             }`}
           >
             {t === "scanned" ? "Scanned" : "Manual (No-NFC)"}
@@ -89,9 +89,9 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
         ))}
       </div>
 
-      {/* Input row */}
-      <div className="flex items-center gap-2 p-3">
-        {/* Stepper */}
+      {/* Input Row */}
+      <div className="flex items-center gap-2 px-1">
+        {/* Stepper Down */}
         <button
           onClick={() => {
             vibrate("light");
@@ -99,11 +99,12 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
               ? setCount((c) => Math.max(0, c - 1))
               : setManualCount((c) => Math.max(1, c - 1));
           }}
-          className="h-11 w-11 shrink-0 rounded-xl border border-border/80 bg-surface-elevated grid place-items-center active:scale-90 transition-transform text-muted-foreground hover:text-foreground shadow-xs"
+          className="h-12 w-12 shrink-0 rounded-2xl bg-white/[0.06] border border-white/[0.12] grid place-items-center ios-press-bounce text-white/80 hover:text-white shadow-md active:bg-white/[0.12]"
         >
-          <Minus size={18} />
+          <Minus size={20} />
         </button>
 
+        {/* Numeric Display */}
         <input
           type="number"
           inputMode="numeric"
@@ -113,21 +114,22 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
             tab === "scanned" ? setCount(n) : setManualCount(n);
           }}
           placeholder={tab === "scanned" ? "0" : "1"}
-          className="h-11 w-14 shrink-0 rounded-xl border border-border/80 bg-surface-elevated text-center text-xl font-black tabular-nums outline-none focus:border-primary-glow shadow-inner"
+          className="h-12 w-16 shrink-0 rounded-2xl bg-black/40 border border-white/[0.14] text-center text-2xl font-black tabular-nums outline-none text-white focus:border-primary-glow shadow-inner font-mono"
         />
 
+        {/* Stepper Up */}
         <button
           onClick={() => {
             vibrate("light");
             tab === "scanned" ? setCount((c) => c + 1) : setManualCount((c) => c + 1);
           }}
-          className="h-11 w-11 shrink-0 rounded-xl border border-border/80 bg-surface-elevated grid place-items-center active:scale-90 transition-transform text-muted-foreground hover:text-foreground shadow-xs"
+          className="h-12 w-12 shrink-0 rounded-2xl bg-white/[0.06] border border-white/[0.12] grid place-items-center ios-press-bounce text-white/80 hover:text-white shadow-md active:bg-white/[0.12]"
         >
-          <Plus size={18} />
+          <Plus size={20} />
         </button>
 
         {tab === "scanned" ? (
-          /* Quick-add buttons */
+          /* iOS Quick-add Buttons */
           <div className="flex flex-1 gap-1.5 justify-end">
             {QUICK.map((n) => (
               <button
@@ -136,20 +138,20 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
                   vibrate("light");
                   setCount((c) => c + n);
                 }}
-                className="h-11 flex-1 rounded-xl border border-border/80 bg-surface-elevated hover:border-primary/50 text-xs font-black tabular-nums active:scale-90 transition-all shadow-xs hover:text-primary-glow"
+                className="h-12 flex-1 rounded-2xl bg-white/[0.06] border border-white/[0.12] text-xs font-black tabular-nums text-white hover:text-primary-glow ios-press-bounce shadow-md active:bg-white/[0.14] flex items-center justify-center font-mono"
               >
                 +{n}
               </button>
             ))}
           </div>
         ) : (
-          /* Slip input */
+          /* Manual Slip Input */
           <div className="flex flex-1 items-center gap-1.5">
             <input
               value={slipNumber}
               onChange={(e) => setSlipNumber(e.target.value)}
               placeholder="Slip #"
-              className="h-11 flex-1 rounded-xl border border-border/80 bg-surface-elevated px-3 text-sm font-mono outline-none focus:border-orange-500 placeholder:text-muted-foreground/40"
+              className="h-12 flex-1 rounded-2xl bg-black/40 border border-white/[0.12] px-3.5 text-sm font-mono outline-none text-white focus:border-orange-500 placeholder:text-white/30"
             />
             {onAttachment && (
               <button
@@ -158,27 +160,27 @@ export function CounterPanel({ trips, onChange, onAttachment }: Props) {
                   setShowCamera(true);
                 }}
                 disabled={processing}
-                className="h-11 w-11 shrink-0 rounded-xl border border-dashed border-orange-500/50 text-orange-400 grid place-items-center hover:bg-orange-500/10 active:scale-90 transition-all disabled:opacity-40 shadow-xs"
+                className="h-12 w-12 shrink-0 rounded-2xl border border-dashed border-orange-500/50 bg-orange-500/10 text-orange-400 grid place-items-center ios-press-bounce disabled:opacity-40 shadow-md"
               >
-                <Camera size={18} />
+                <Camera size={20} />
               </button>
             )}
           </div>
         )}
       </div>
 
-      {/* Log button */}
-      <div className="px-3 pb-3">
+      {/* Log Action Button */}
+      <div className="px-1 pb-1">
         <button
           onClick={tab === "scanned" ? logScanned : () => logManual()}
           disabled={!canLog || processing}
-          className={`w-full h-11 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-30 cursor-pointer ${
+          className={`w-full h-12 rounded-2xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 ios-press disabled:opacity-30 cursor-pointer shadow-xl ${
             tab === "scanned"
-              ? "bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[var(--shadow-glow)]"
-              : "bg-orange-500 text-white shadow-lg shadow-orange-500/25"
+              ? "bg-[image:var(--gradient-primary)] text-white shadow-[0_8px_25px_rgba(139,92,246,0.45)] border-t border-white/25"
+              : "bg-orange-500 text-white shadow-[0_8px_25px_rgba(249,115,22,0.45)] border-t border-white/25"
           }`}
         >
-          <Check size={16} />
+          <Check size={18} />
           {processing
             ? "Processing…"
             : tab === "scanned"

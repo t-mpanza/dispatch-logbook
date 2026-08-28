@@ -253,97 +253,106 @@ export function LoadingSheet({
   return (
     <div className="space-y-4">
       {/* ── KPI / SUMMARY STATS BANNER ───────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4 bg-surface-elevated border border-border/80 rounded-2xl p-3.5 sm:p-4 shadow-sm">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 ios-glass-elevated p-4 shadow-xl">
         <div className="flex flex-col">
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/50 flex items-center gap-1.5">
             <Truck size={13} className="text-primary-glow" /> Trucks
           </span>
-          <span className="mt-1 text-lg sm:text-2xl font-black font-mono text-foreground">
+          <span className="mt-1 text-xl sm:text-2xl font-black font-mono text-white">
             {rawTrips.length}
           </span>
         </div>
 
-        <div className="flex flex-col border-x border-border/60 px-2 sm:px-4">
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+        <div className="flex flex-col border-x border-white/[0.08] px-3 sm:px-4">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/50 flex items-center gap-1.5">
             <Clock size={13} className="text-primary-glow" /> Total Time
           </span>
-          <span className="mt-1 text-sm sm:text-lg font-bold font-mono text-foreground truncate">
+          <span className="mt-1 text-sm sm:text-lg font-bold font-mono text-white/90 truncate">
             {timeFormatted}
           </span>
         </div>
 
         <div className="flex flex-col text-right sm:text-left">
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-end sm:justify-start gap-1">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/50 flex items-center justify-end sm:justify-start gap-1.5">
             <Layers size={13} className="text-primary-glow" /> Tyres
           </span>
-          <span className="mt-1 text-lg sm:text-2xl font-black font-mono text-primary-glow">
+          <span className="mt-1 text-xl sm:text-2xl font-black font-mono text-primary-glow">
             {totals.totalTyresLoaded}
           </span>
         </div>
       </div>
 
       {/* ── HEADER & TOOLBAR ─────────────────────────────────────────────── */}
-      <div className="bg-surface border border-border rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+      <div className="ios-glass-card p-4 sm:p-5 shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow shrink-0">
+            <div className="h-10 w-10 rounded-2xl bg-primary/20 border border-primary-glow/30 grid place-items-center text-primary-glow shrink-0 shadow-md">
               <Truck size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold tracking-tight text-foreground">
+                <h2 className="text-base font-bold tracking-tight text-white">
                   Truck Loading Log
                 </h2>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.1] text-white/70">
                   Compliance
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-white/50 mt-0.5">
                 {fmtDayLabel(entry.createdAt)} · <span className="font-mono">{entry.dayKey}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-background border border-border rounded-xl px-3 py-2 shadow-xs">
+          <div className="flex items-center gap-2 bg-black/30 border border-white/[0.1] rounded-2xl px-3.5 py-2 shadow-inner">
             <User size={15} className="text-primary-glow shrink-0" />
-            <span className="text-xs font-medium text-muted-foreground shrink-0">Despatcher:</span>
+            <span className="text-xs font-medium text-white/50 shrink-0">Despatcher:</span>
             <input
               type="text"
               value={despatcherName}
               onChange={(e) => handleDespatcherChange(e.target.value)}
               placeholder="Theolus"
-              className="bg-transparent text-xs font-bold outline-none w-28 text-foreground"
+              className="bg-transparent text-xs font-bold outline-none w-28 text-white focus:text-primary-glow"
             />
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border/60">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/[0.08]">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowReportModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-surface-elevated border border-border text-foreground hover:border-primary/50 active:scale-95 transition-all shadow-xs"
+              onClick={() => {
+                vibrate("light");
+                setShowReportModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/[0.06] border border-white/[0.12] text-white hover:bg-white/[0.12] ios-press shadow-sm"
             >
               <Printer size={15} className="text-primary-glow" />
               <span>Preview & Print PDF</span>
             </button>
             <button
-              onClick={handleShareWhatsApp}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600/15 border border-emerald-600/30 text-emerald-500 hover:bg-emerald-600/25 active:scale-95 transition-all shadow-xs"
+              onClick={() => {
+                vibrate("light");
+                handleShareWhatsApp();
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 ios-press shadow-sm"
             >
               <Share2 size={15} />
               <span>Share WhatsApp</span>
             </button>
             {shareFeedback && (
-              <span className="text-xs text-emerald-500 font-medium flex items-center gap-1 animate-fade-in">
+              <span className="text-xs text-emerald-400 font-medium flex items-center gap-1 animate-fade-in">
                 <Check size={13} /> {shareFeedback}
               </span>
             )}
           </div>
 
           <button
-            onClick={handleOpenAddModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-xs"
+            onClick={() => {
+              vibrate("light");
+              handleOpenAddModal();
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary/90 ios-press shadow-md"
           >
             <Plus size={15} />
             <span>+ Add Truck Load</span>
@@ -388,21 +397,21 @@ export function LoadingSheet({
                   vibrate("light");
                   handleOpenEditModal(idx);
                 }}
-                className="group relative bg-surface border border-border/80 hover:border-primary/50 rounded-2xl p-4 transition-all shadow-xs cursor-pointer active:scale-[0.98] space-y-2.5 hover:shadow-md"
+                className="group relative ios-glass-card p-4 ios-press space-y-2.5 shadow-lg"
               >
                 {/* Row Header: Number, Trip ID, Tyres count, Edit Button */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="h-6 w-6 rounded-full bg-muted/80 font-mono font-bold text-xs grid place-items-center text-muted-foreground shrink-0">
+                    <span className="h-6 w-6 rounded-full bg-white/[0.08] font-mono font-bold text-xs grid place-items-center text-white/70 shrink-0 border border-white/[0.1]">
                       {idx + 1}
                     </span>
-                    <span className={`text-[11px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-lg border tracking-wider truncate shrink-0 ${badgeClass}`}>
+                    <span className={`text-[11px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-lg tracking-wider truncate shrink-0 ${badgeClass}`}>
                       {trip.tripId || `TRIP ${idx + 1}`}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-2.5 py-1 rounded-lg bg-primary/15 border border-primary/30 text-primary-glow font-mono font-black text-xs tabular-nums">
+                    <span className="px-2.5 py-1 rounded-xl bg-primary/20 border border-primary-glow/30 text-primary-glow font-mono font-black text-xs tabular-nums shadow-xs">
                       {trip.quantityLoaded || 0} tyres
                     </span>
 
@@ -413,7 +422,7 @@ export function LoadingSheet({
                         vibrate("light");
                         handleOpenEditModal(idx);
                       }}
-                      className="h-8 px-2.5 rounded-xl bg-surface-elevated border border-border/80 text-foreground hover:border-primary/50 text-xs font-bold flex items-center gap-1 active:scale-90 transition-all"
+                      className="h-8 px-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-white hover:bg-white/[0.14] text-xs font-bold flex items-center gap-1.5 active:scale-90 transition-all shadow-xs"
                     >
                       <Edit3 size={13} className="text-primary-glow" />
                       <span>Edit</span>
@@ -425,39 +434,39 @@ export function LoadingSheet({
                 <div className="flex items-center gap-2 text-xs flex-wrap">
                   {/* Reg Badge */}
                   {hasReg ? (
-                    <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-surface-elevated border border-border/80 text-foreground">
+                    <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white/90">
                       <Truck size={12} className="text-primary-glow" />
                       {trip.reg}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400">
                       <AlertTriangle size={11} /> No Reg
                     </span>
                   )}
 
                   {/* Driver Badge */}
                   {hasDriver ? (
-                    <span className="inline-flex items-center gap-1 font-medium text-xs px-2.5 py-1 rounded-lg bg-surface-elevated border border-border/80 text-foreground">
+                    <span className="inline-flex items-center gap-1 font-medium text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white/90">
                       <User size={12} className="text-primary-glow" />
                       {trip.driverName}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400">
                       <AlertTriangle size={11} /> No Driver
                     </span>
                   )}
 
                   {/* Time & Duration */}
                   {hasTiming ? (
-                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground ml-auto bg-background/50 px-2 py-0.5 rounded-lg border border-border/50">
+                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-white/60 ml-auto bg-black/30 px-2.5 py-1 rounded-lg border border-white/[0.08]">
                       <Clock size={11} className="text-primary-glow" />
                       {timeRange}
-                      <span className="font-bold text-foreground bg-muted px-1.5 py-0.5 rounded ml-1">
+                      <span className="font-bold text-white bg-white/[0.12] px-1.5 py-0.5 rounded ml-1">
                         {durationMins}m
                       </span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60 ml-auto">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-white/40 ml-auto">
                       <Clock size={11} /> No timestamps
                     </span>
                   )}
@@ -468,30 +477,33 @@ export function LoadingSheet({
         )}
       </div>
 
-      {/* ── EDIT TRUCK LOAD MODAL ────────────────────────────────────────── */}
+      {/* ── EDIT TRUCK LOAD MODAL (iOS Bottom Sheet) ────────────────────── */}
       {editingTripIndex !== null && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/85 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 backdrop-blur-md animate-fade-in"
           onClick={() => setEditingTripIndex(null)}
         >
           <div
-            className="w-full max-w-md bg-surface border border-border/80 rounded-3xl p-5 sm:p-6 shadow-2xl animate-sheet-slide-up"
+            className="w-full max-w-md ios-glass-elevated rounded-t-[2.5rem] sm:rounded-3xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl animate-sheet-slide-up max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3.5 border-b border-border/80">
+            {/* iOS Grabber handle */}
+            <div className="ios-grabber" />
+
+            <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow">
+                <div className="h-9 w-9 rounded-2xl bg-primary/20 border border-primary-glow/30 grid place-items-center text-primary-glow shadow-md">
                   <Edit3 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Edit Truck Load</h3>
-                  <p className="text-xs text-muted-foreground">Modify details, quantity and timing</p>
+                  <h3 className="text-base font-bold text-white">Edit Truck Load</h3>
+                  <p className="text-xs text-white/50">Modify details, quantity and timing</p>
                 </div>
               </div>
 
               <button
                 onClick={() => setEditingTripIndex(null)}
-                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
+                className="h-8 w-8 rounded-full bg-white/[0.08] grid place-items-center text-white/60 hover:text-white active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
@@ -500,7 +512,7 @@ export function LoadingSheet({
             <form onSubmit={handleSaveEditModal} className="mt-4 space-y-3.5 text-xs">
               {/* Preset Selector */}
               <div>
-                <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                   Preset / Destination
                 </label>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -509,10 +521,10 @@ export function LoadingSheet({
                       key={p.key}
                       type="button"
                       onClick={() => handleEditPresetChange(p.key)}
-                      className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center truncate ${
+                      className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center truncate ios-press ${
                         editPreset === p.key
-                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                          : "bg-surface-elevated border-border text-muted-foreground hover:text-foreground"
+                          ? "bg-primary text-white border-primary shadow-md font-black"
+                          : "bg-white/[0.05] border-white/[0.1] text-white/60 hover:text-white"
                       }`}
                     >
                       {p.label.replace(" [i]", "")}
@@ -524,7 +536,7 @@ export function LoadingSheet({
               {/* Trip ID & Reg */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                     Trip ID
                   </label>
                   <input
@@ -533,12 +545,12 @@ export function LoadingSheet({
                     onChange={(e) => setEditTripId(e.target.value)}
                     placeholder="e.g. STOCKS 1"
                     required
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                     Reg Plate
                   </label>
                   <input
@@ -546,7 +558,7 @@ export function LoadingSheet({
                     value={editReg}
                     onChange={(e) => setEditReg(e.target.value.toUpperCase())}
                     placeholder="e.g. MN05XNGP"
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
               </div>
@@ -554,7 +566,7 @@ export function LoadingSheet({
               {/* Driver & Quantity */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                     Driver Name
                   </label>
                   <input
@@ -562,19 +574,19 @@ export function LoadingSheet({
                     value={editDriver}
                     onChange={(e) => setEditDriver(e.target.value)}
                     placeholder="e.g. Neil"
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                     Tyres Loaded
                   </label>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setEditQty(Math.max(0, editQty - 1))}
-                      className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
+                      className="h-8 w-8 rounded-xl bg-white/[0.08] border border-white/[0.14] text-white font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
                     >
                       -
                     </button>
@@ -583,12 +595,12 @@ export function LoadingSheet({
                       min="0"
                       value={editQty}
                       onChange={(e) => setEditQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow"
+                      className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow shadow-inner"
                     />
                     <button
                       type="button"
                       onClick={() => setEditQty(editQty + 1)}
-                      className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
+                      className="h-8 w-8 rounded-xl bg-white/[0.08] border border-white/[0.14] text-white font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
                     >
                       +
                     </button>
@@ -599,15 +611,15 @@ export function LoadingSheet({
               {/* Timings */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">
                       Start Time
                     </label>
                     {editStartTimeStr && (
                       <button
                         type="button"
                         onClick={() => setEditStartTimeStr("")}
-                        className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                        className="text-[10px] text-white/40 hover:text-rose-400 transition-colors"
                       >
                         Clear
                       </button>
@@ -617,20 +629,20 @@ export function LoadingSheet({
                     type="time"
                     value={editStartTimeStr}
                     onChange={(e) => setEditStartTimeStr(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">
                       Finish Time
                     </label>
                     {editFinishTimeStr && (
                       <button
                         type="button"
                         onClick={() => setEditFinishTimeStr("")}
-                        className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                        className="text-[10px] text-white/40 hover:text-rose-400 transition-colors"
                       >
                         Clear
                       </button>
@@ -640,17 +652,17 @@ export function LoadingSheet({
                     type="time"
                     value={editFinishTimeStr}
                     onChange={(e) => setEditFinishTimeStr(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
               </div>
 
               {/* Modal Actions */}
-              <div className="flex items-center justify-between gap-2 pt-3 border-t border-border mt-4">
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/[0.08] mt-4">
                 <button
                   type="button"
                   onClick={() => handleDeleteRow(editingTripIndex)}
-                  className="px-3 py-2.5 rounded-xl text-destructive hover:bg-destructive/10 text-xs font-bold flex items-center gap-1.5 transition-all"
+                  className="px-3 py-2.5 rounded-xl text-rose-400 hover:bg-rose-500/10 text-xs font-bold flex items-center gap-1.5 ios-press"
                 >
                   <Trash2 size={14} /> Delete
                 </button>
@@ -659,13 +671,13 @@ export function LoadingSheet({
                   <button
                     type="button"
                     onClick={() => setEditingTripIndex(null)}
-                    className="px-4 py-2.5 rounded-xl border border-border text-xs font-semibold hover:bg-muted active:scale-95 transition-all"
+                    className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-xs font-semibold text-white/80 hover:bg-white/[0.12] ios-press"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 active:scale-95 transition-all shadow-sm"
+                    className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary/90 ios-press shadow-md"
                   >
                     Save Changes
                   </button>
@@ -676,30 +688,33 @@ export function LoadingSheet({
         </div>
       )}
 
-      {/* ── ADD TRUCK LOAD MODAL ─────────────────────────────────────────── */}
+      {/* ── ADD TRUCK LOAD MODAL (iOS Bottom Sheet) ────────────────────── */}
       {showAddModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/85 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 backdrop-blur-md animate-fade-in"
           onClick={() => setShowAddModal(false)}
         >
           <div
-            className="w-full max-w-md bg-surface border border-border/80 rounded-3xl p-5 sm:p-6 shadow-2xl animate-sheet-slide-up"
+            className="w-full max-w-md ios-glass-elevated rounded-t-[2.5rem] sm:rounded-3xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl animate-sheet-slide-up max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3.5 border-b border-border/80">
+            {/* iOS Grabber handle */}
+            <div className="ios-grabber" />
+
+            <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow">
+                <div className="h-9 w-9 rounded-2xl bg-primary/20 border border-primary-glow/30 grid place-items-center text-primary-glow shadow-md">
                   <Truck size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Add Truck Load</h3>
-                  <p className="text-xs text-muted-foreground">Creates a trip on the sheet and daily log</p>
+                  <h3 className="text-base font-bold text-white">Add Truck Load</h3>
+                  <p className="text-xs text-white/50">Creates a trip on the sheet and daily log</p>
                 </div>
               </div>
 
               <button
                 onClick={() => setShowAddModal(false)}
-                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-90 transition-all"
+                className="h-8 w-8 rounded-full bg-white/[0.08] grid place-items-center text-white/60 hover:text-white active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
@@ -708,7 +723,7 @@ export function LoadingSheet({
             <form onSubmit={handleSubmitAddTruck} className="mt-4 space-y-3.5 text-xs">
               {/* Preset Selector */}
               <div>
-                <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                   Preset / Destination
                 </label>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -717,10 +732,10 @@ export function LoadingSheet({
                       key={p.key}
                       type="button"
                       onClick={() => handleAddPresetChange(p.key)}
-                      className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center truncate ${
+                      className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center truncate ios-press ${
                         addPreset === p.key
-                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                          : "bg-surface-elevated border-border text-muted-foreground hover:text-foreground"
+                          ? "bg-primary text-white border-primary shadow-md font-black"
+                          : "bg-white/[0.05] border-white/[0.1] text-white/60 hover:text-white"
                       }`}
                     >
                       {p.label.replace(" [i]", "")}
@@ -732,7 +747,7 @@ export function LoadingSheet({
               {/* Trip ID & Reg */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                     Trip ID
                   </label>
                   <input
@@ -741,12 +756,12 @@ export function LoadingSheet({
                     onChange={(e) => setAddTripId(e.target.value)}
                     placeholder="e.g. STOCKS 1"
                     required
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                     Reg Plate
                   </label>
                   <input
@@ -754,7 +769,7 @@ export function LoadingSheet({
                     value={addReg}
                     onChange={(e) => setAddReg(e.target.value.toUpperCase())}
                     placeholder="e.g. MN05XNGP"
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
               </div>
@@ -762,7 +777,7 @@ export function LoadingSheet({
               {/* Driver & Quantity */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                     Driver Name
                   </label>
                   <input
@@ -770,19 +785,19 @@ export function LoadingSheet({
                     value={addDriver}
                     onChange={(e) => setAddDriver(e.target.value)}
                     placeholder="e.g. Neil"
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  <label className="text-[10px] uppercase font-bold text-white/50 block mb-1.5 tracking-wider">
                     Tyres Loaded
                   </label>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setAddQty(Math.max(0, addQty - 1))}
-                      className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
+                      className="h-8 w-8 rounded-xl bg-white/[0.08] border border-white/[0.14] text-white font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
                     >
                       -
                     </button>
@@ -791,12 +806,12 @@ export function LoadingSheet({
                       min="0"
                       value={addQty}
                       onChange={(e) => setAddQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow"
+                      className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-2 py-1.5 text-sm font-mono font-black text-center text-primary-glow outline-none focus:border-primary-glow shadow-inner"
                     />
                     <button
                       type="button"
                       onClick={() => setAddQty(addQty + 1)}
-                      className="h-8 w-8 rounded-lg bg-surface-elevated border border-border text-foreground font-black text-sm flex items-center justify-center shrink-0 active:scale-95"
+                      className="h-8 w-8 rounded-xl bg-white/[0.08] border border-white/[0.14] text-white font-black text-sm flex items-center justify-center shrink-0 active:scale-90 shadow-sm"
                     >
                       +
                     </button>
@@ -807,15 +822,15 @@ export function LoadingSheet({
               {/* Timings (Optional) */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">
                       Start Time
                     </label>
                     {addStartTimeStr && (
                       <button
                         type="button"
                         onClick={() => setAddStartTimeStr("")}
-                        className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                        className="text-[10px] text-white/40 hover:text-rose-400 transition-colors"
                       >
                         Clear
                       </button>
@@ -825,20 +840,20 @@ export function LoadingSheet({
                     type="time"
                     value={addStartTimeStr}
                     onChange={(e) => setAddStartTimeStr(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] uppercase font-bold text-white/50 tracking-wider">
                       Finish Time
                     </label>
                     {addFinishTimeStr && (
                       <button
                         type="button"
                         onClick={() => setAddFinishTimeStr("")}
-                        className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                        className="text-[10px] text-white/40 hover:text-rose-400 transition-colors"
                       >
                         Clear
                       </button>
@@ -848,23 +863,23 @@ export function LoadingSheet({
                     type="time"
                     value={addFinishTimeStr}
                     onChange={(e) => setAddFinishTimeStr(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-primary-glow"
+                    className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-primary-glow shadow-inner"
                   />
                 </div>
               </div>
 
               {/* Modal Submit & Cancel */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border mt-4">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/[0.08] mt-4">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-border text-xs font-semibold hover:bg-muted active:scale-95 transition-all"
+                  className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-xs font-semibold text-white/80 hover:bg-white/[0.12] ios-press"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
+                  className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary/90 ios-press shadow-md flex items-center gap-1.5"
                 >
                   <Plus size={14} /> Add Truck Load
                 </button>
@@ -874,25 +889,28 @@ export function LoadingSheet({
         </div>
       )}
 
-      {/* ── REPORT PREVIEW MODAL ─────────────────────────────────────────── */}
+      {/* ── REPORT PREVIEW MODAL (iOS Glass Bottom Sheet) ────────────── */}
       {showReportModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/85 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 backdrop-blur-md animate-fade-in"
           onClick={() => setShowReportModal(false)}
         >
           <div
-            className="w-full max-w-2xl bg-surface border border-border/80 rounded-3xl p-5 sm:p-6 max-h-[90vh] flex flex-col shadow-2xl animate-sheet-slide-up"
+            className="w-full max-w-2xl ios-glass-elevated rounded-t-[2.5rem] sm:rounded-3xl p-5 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[92vh] flex flex-col shadow-2xl animate-sheet-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* iOS Grabber handle */}
+            <div className="ios-grabber" />
+
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-border">
+            <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary-glow">
+                <div className="h-9 w-9 rounded-2xl bg-primary/20 border border-primary-glow/30 grid place-items-center text-primary-glow shadow-md">
                   <FileText size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Despatch Loading Report</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <h3 className="text-base font-bold text-white">Despatch Loading Report</h3>
+                  <p className="text-xs text-white/50">
                     {entry.dayKey} · Despatcher: {despatcherName}
                   </p>
                 </div>
@@ -900,14 +918,14 @@ export function LoadingSheet({
 
               <button
                 onClick={() => setShowReportModal(false)}
-                className="h-8 w-8 rounded-full bg-muted grid place-items-center text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+                className="h-8 w-8 rounded-full bg-white/[0.08] grid place-items-center text-white/60 hover:text-white active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
             </div>
 
             {/* Scrollable Document Preview Sheet */}
-            <div className="flex-1 overflow-y-auto my-4 p-4 bg-white text-black rounded-2xl shadow-inner font-sans text-xs">
+            <div className="flex-1 overflow-y-auto my-3.5 p-4 bg-white text-black rounded-2xl shadow-inner font-sans text-xs">
               <div className="border-b-2 border-black pb-3 mb-3 flex items-start justify-between">
                 <div>
                   <h1 className="text-lg font-black tracking-wide uppercase">
@@ -958,9 +976,11 @@ export function LoadingSheet({
                           {t.finishTime ? formatTimeHHmm(t.finishTime) : "-"}
                         </td>
                         <td className="border border-black p-1.5 text-right font-mono">
-                          {t.startTime && t.finishTime
-                            ? `${t.durationMinutes ?? calculateDurationMinutes(t.startTime, t.finishTime)}m`
-                            : "-"}
+                          {t.durationMinutes !== undefined
+                            ? `${t.durationMinutes}m`
+                            : calculateDurationMinutes(t.startTime, t.finishTime) !== undefined
+                              ? `${calculateDurationMinutes(t.startTime, t.finishTime)}m`
+                              : "-"}
                         </td>
                         <td className="border border-black p-1.5 text-right font-black font-mono">
                           {t.quantityLoaded}
@@ -981,23 +1001,29 @@ export function LoadingSheet({
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
               <button
                 onClick={() => setShowReportModal(false)}
-                className="px-4 py-2.5 rounded-xl border border-border text-xs font-semibold hover:bg-muted active:scale-95 transition-all"
+                className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.12] text-xs font-semibold text-white/80 hover:bg-white/[0.12] ios-press"
               >
                 Close
               </button>
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleShareWhatsApp}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600/15 border border-emerald-600/30 text-emerald-500 hover:bg-emerald-600/25 active:scale-95 transition-all"
+                  onClick={() => {
+                    vibrate("light");
+                    handleShareWhatsApp();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 ios-press shadow-sm"
                 >
                   <Share2 size={15} />
                   <span>Share WhatsApp</span>
                 </button>
 
                 <button
-                  onClick={handlePrintPDF}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-sm"
+                  onClick={() => {
+                    vibrate("light");
+                    handlePrintPDF();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary/90 ios-press shadow-md"
                 >
                   <Printer size={15} />
                   <span>Print / Save PDF</span>

@@ -33,36 +33,36 @@ function TripDetailsSection({ entry, onUpdate }: { entry: Entry, onUpdate: (reg:
   }, [sheetTrip?.reg, sheetTrip?.driverName]);
 
   return (
-    <div className="mt-4 pt-4 border-t border-border">
+    <div className="mt-3 pt-3 border-t border-white/[0.08]">
       <button 
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground w-full transition-colors"
+        className="flex items-center gap-2 text-xs font-semibold text-white/50 hover:text-white w-full transition-colors ios-press py-1"
       >
-        <span className="flex-1 text-left uppercase tracking-widest text-[10px]">Trip Details</span>
-        <span className="font-mono text-xs">{entry.title || "NLS"}</span>
-        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        <span className="flex-1 text-left uppercase tracking-widest text-[10px] font-bold">Trip Details</span>
+        <span className="font-mono text-xs text-white/80 font-bold">{entry.title || "NLS"}</span>
+        {open ? <ChevronUp size={14} className="text-white/60" /> : <ChevronDown size={14} className="text-white/60" />}
       </button>
       
       {open && (
-        <div className="mt-3 space-y-3">
+        <div className="mt-3 space-y-3 animate-fade-in-scale">
           <div>
-            <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">Registration (Reg)</label>
+            <label className="text-[10px] uppercase font-bold text-white/50 block mb-1 tracking-wider">Registration (Reg)</label>
             <input 
               value={reg} 
               onChange={e => setReg(e.target.value.toUpperCase())}
               onBlur={() => onUpdate(reg, driver)}
               placeholder="e.g. MN05XNGP"
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-glow"
+              className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-white outline-none focus:border-primary-glow shadow-inner"
             />
           </div>
           <div>
-            <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">Driver Name</label>
+            <label className="text-[10px] uppercase font-bold text-white/50 block mb-1 tracking-wider">Driver Name</label>
             <input 
               value={driver} 
               onChange={e => setDriver(e.target.value)}
               onBlur={() => onUpdate(reg, driver)}
               placeholder="e.g. Neil"
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-glow"
+              className="w-full bg-black/30 border border-white/[0.12] rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-primary-glow shadow-inner"
             />
           </div>
         </div>
@@ -193,13 +193,13 @@ function EntryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background max-w-4xl mx-auto pb-28">
+    <div className="min-h-screen bg-transparent max-w-4xl mx-auto pb-28">
       {/* ── Header ─────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-border pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-30 ios-glass border-b border-white/[0.1] pt-[env(safe-area-inset-top)] shadow-md">
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => navigate({ to: "/" })}
-            className="h-9 w-9 rounded-full grid place-items-center hover:bg-muted active:scale-95 shrink-0"
+            className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] ios-press shrink-0 text-white"
           >
             <ArrowLeft size={18} />
           </button>
@@ -209,9 +209,9 @@ function EntryPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={saveHeader}
-              className="w-full bg-transparent text-sm font-mono uppercase tracking-wider outline-none truncate"
+              className="w-full bg-transparent text-sm font-mono font-bold uppercase tracking-wider outline-none truncate text-white"
             />
-            <p className="text-[10px] text-muted-foreground tabular-nums">
+            <p className="text-[10px] text-white/50 tabular-nums">
               {fmtDayLabel(entry.createdAt)} · {fmtTime(entry.createdAt)}
             </p>
           </div>
@@ -219,7 +219,7 @@ function EntryPage() {
           {isCounterSession && (
             <button
               onClick={() => setDetailsOpen((o) => !o)}
-              className="h-8 w-8 rounded-full grid place-items-center text-muted-foreground hover:bg-muted active:scale-95"
+              className="h-8 w-8 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center text-white/60 hover:text-white ios-press"
               aria-label="Toggle details"
             >
               {detailsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -228,7 +228,7 @@ function EntryPage() {
 
           <button
             onClick={onDelete}
-            className="h-9 w-9 rounded-full grid place-items-center hover:bg-destructive/20 text-muted-foreground hover:text-destructive active:scale-95 shrink-0"
+            className="h-9 w-9 rounded-full bg-rose-500/10 border border-rose-500/20 grid place-items-center text-rose-400 hover:bg-rose-500/20 ios-press shrink-0"
             aria-label="Delete entry"
           >
             <Trash2 size={16} />
@@ -254,7 +254,7 @@ function EntryPage() {
       <div className="px-4 pt-4 space-y-4">
         {/* Counter Progress & Scanned Tyre Counter Zone */}
         {isCounterSession && (
-          <div className="bg-surface border border-border rounded-2xl p-3 sm:p-4 space-y-3 shadow-xs">
+          <div className="ios-glass-card p-3 sm:p-4 space-y-3 shadow-xl">
             <CounterProgress
               total={grandTotal}
               tripCount={trips.length}

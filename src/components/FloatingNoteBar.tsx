@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { CaptureBar } from "./CaptureBar";
 import type { Attachment } from "@/lib/types";
+import { vibrate } from "@/lib/haptics";
 
 interface Props {
   onAdd: (text: string) => void;
@@ -17,6 +18,7 @@ export function FloatingNoteBar({ onAdd, onAttachment, onStartVoice }: Props) {
   function submit() {
     const t = text.trim();
     if (!t) return;
+    vibrate("success");
     onAdd(t);
     setText("");
     setExpanded(false);
@@ -37,8 +39,8 @@ export function FloatingNoteBar({ onAdd, onAttachment, onStartVoice }: Props) {
   return (
     <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <div
-        className={`flex items-end gap-2 rounded-2xl border bg-surface/95 backdrop-blur-xl shadow-xl transition-all duration-200 ${
-          expanded ? "border-primary/40 px-3 py-3" : "border-border px-3 py-2"
+        className={`flex items-end gap-2 rounded-3xl ios-glass-dock shadow-2xl transition-all duration-200 ${
+          expanded ? "border-primary/50 px-3 py-3" : "px-3 py-2"
         }`}
       >
         <CaptureBar onAttachment={onAttachment} onStartVoice={onStartVoice} />
@@ -54,15 +56,15 @@ export function FloatingNoteBar({ onAdd, onAttachment, onStartVoice }: Props) {
           }}
           onKeyDown={handleKey}
           placeholder="Message or log…"
-          className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 leading-snug py-1.5"
+          className="flex-1 resize-none bg-transparent text-sm text-white outline-none placeholder:text-white/30 leading-snug py-1.5 font-sans"
         />
         <button
           onClick={submit}
           disabled={!text.trim()}
-          className="shrink-0 h-9 w-9 rounded-full bg-primary text-primary-foreground grid place-items-center disabled:opacity-30 active:scale-90 transition-all"
+          className="shrink-0 h-9 w-9 rounded-full bg-primary text-white grid place-items-center disabled:opacity-30 ios-press shadow-md"
           aria-label="Add note"
         >
-          <Send size={16} />
+          <Send size={15} />
         </button>
       </div>
     </div>

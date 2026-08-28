@@ -6,6 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { allEntries } from "@/lib/db";
 import type { Entry } from "@/lib/types";
 import { fmtMonth, fmtShortDay, weekNumber, weekRangeLabel } from "@/lib/format";
+import { vibrate } from "@/lib/haptics";
 import { parseISO } from "date-fns";
 
 export const Route = createFileRoute("/archive")({
@@ -100,35 +101,35 @@ function ArchivePage() {
 
   return (
     <AppShell>
-      <header className="px-5 pt-8 pb-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">Archive</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">All your records</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {entries.length} {entries.length === 1 ? "entry" : "entries"} on this device
+      <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-3">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">Archive</p>
+        <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-white font-sans">All Records</h1>
+        <p className="mt-1 text-xs text-white/50 font-medium">
+          {entries.length} {entries.length === 1 ? "entry" : "entries"} stored on this device
         </p>
       </header>
 
-      <div className="px-5 space-y-5">
-        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      <div className="px-4 space-y-5">
+        {isLoading && <p className="text-xs text-white/40 text-center py-8 font-mono">Loading archive…</p>}
         {!isLoading && grouped.length === 0 && (
-          <p className="text-sm text-muted-foreground">No entries archived yet.</p>
+          <p className="text-xs text-white/40 text-center py-8 font-mono">No entries archived yet.</p>
         )}
         {grouped.map((y) => (
           <section key={y.year}>
-            <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">
+            <h2 className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-2 px-1">
               {y.year}
             </h2>
             <div className="space-y-3">
               {y.months.map((m) => (
                 <details
                   key={m.monthKey}
-                  className="group rounded-xl bg-surface border border-border overflow-hidden"
+                  className="group rounded-2xl ios-glass-card overflow-hidden shadow-lg"
                   open={m === y.months[0]}
                 >
-                  <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer list-none">
-                    <Folder size={16} className="text-primary-glow" />
-                    <span className="font-medium flex-1">{m.monthLabel}</span>
-                    <span className="text-xs text-muted-foreground">
+                  <summary className="flex items-center gap-3 px-4 py-3.5 cursor-pointer list-none ios-press">
+                    <Folder size={17} className="text-primary-glow" />
+                    <span className="font-bold text-sm text-white flex-1">{m.monthLabel}</span>
+                    <span className="text-xs font-mono font-bold text-white/50 bg-white/[0.08] px-2 py-0.5 rounded-md">
                       {m.weeks.reduce(
                         (n, w) => n + w.days.reduce((nn, d) => nn + d.entries.length, 0),
                         0,
@@ -136,30 +137,31 @@ function ArchivePage() {
                     </span>
                     <ChevronRight
                       size={16}
-                      className="text-muted-foreground transition-transform group-open:rotate-90"
+                      className="text-white/40 transition-transform group-open:rotate-90"
                     />
                   </summary>
-                  <div className="border-t border-border divide-y divide-border">
+                  <div className="border-t border-white/[0.08] divide-y divide-white/[0.06]">
                     {m.weeks.map((w) => (
                       <details key={w.weekNum} className="group/w">
-                        <summary className="flex items-center gap-3 px-5 py-2.5 cursor-pointer list-none bg-background/30">
-                          <span className="text-sm flex-1">{w.weekLabel}</span>
+                        <summary className="flex items-center gap-3 px-5 py-2.5 cursor-pointer list-none bg-black/20 text-xs font-semibold text-white/80">
+                          <span className="flex-1">{w.weekLabel}</span>
                           <ChevronRight
                             size={14}
-                            className="text-muted-foreground transition-transform group-open/w:rotate-90"
+                            className="text-white/40 transition-transform group-open/w:rotate-90"
                           />
                         </summary>
-                        <ul className="bg-background/60">
+                        <ul className="bg-black/30 divide-y divide-white/[0.04]">
                           {w.days.map((d) => (
                             <li key={d.dayKey}>
                               <Link
                                 to="/day/$date"
                                 params={{ date: d.dayKey }}
-                                className="flex items-center justify-between px-6 py-2.5 text-sm hover:bg-muted/40"
+                                onClick={() => vibrate("light")}
+                                className="flex items-center justify-between px-6 py-2.5 text-xs text-white/90 hover:bg-white/[0.06] ios-press"
                               >
-                                <span>{d.dayLabel}</span>
-                                <span className="text-xs text-muted-foreground tabular-nums">
-                                  {d.entries.length}
+                                <span className="font-medium">{d.dayLabel}</span>
+                                <span className="font-mono font-bold text-[11px] text-white/50 tabular-nums">
+                                  {d.entries.length} {d.entries.length === 1 ? "entry" : "entries"}
                                 </span>
                               </Link>
                             </li>

@@ -5,9 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import { createEntry, allTags } from "@/lib/db";
 import { QUICK_TEMPLATES } from "@/lib/templates";
 import { TagsInput } from "@/components/TagsInput";
+import { vibrate } from "@/lib/haptics";
 
 export const Route = createFileRoute("/entry/new")({
-  head: () => ({ meta: [{ title: "New entry — Dispatch Diary" }] }),
+  head: () => ({ meta: [{ title: "New Entry — Dispatch Diary" }] }),
   component: NewEntryPage,
 });
 
@@ -17,76 +18,80 @@ function NewEntryPage() {
   const [tags, setTags] = useState<string[]>([]);
   const { data: suggestions = [] } = useQuery({ queryKey: ["tags"], queryFn: allTags });
   const [saving, setSaving] = useState(false);
-
   const [withCounter, setWithCounter] = useState(false);
 
   async function create() {
+    vibrate("success");
     setSaving(true);
     const e = await createEntry({ title, tags, withCounter });
     navigate({ to: "/entry/$id", params: { id: e.id } });
   }
 
   function applyTemplate(t: (typeof QUICK_TEMPLATES)[number]) {
+    vibrate("light");
     setTitle(t.title);
     setTags(Array.from(new Set([...tags, ...t.tags])));
     if (t.withCounter) setWithCounter(true);
   }
 
   return (
-    <div className="min-h-screen bg-background max-w-md mx-auto">
-      <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl border-b border-border pt-[env(safe-area-inset-top)]">
+    <div className="min-h-screen bg-transparent max-w-md mx-auto pb-12">
+      <header className="sticky top-0 z-30 ios-glass border-b border-white/[0.1] pt-[env(safe-area-inset-top)] shadow-md">
         <div className="flex items-center justify-between px-4 py-3">
           <button
-            onClick={() => navigate({ to: "/" })}
-            className="h-9 w-9 rounded-full grid place-items-center hover:bg-muted"
+            onClick={() => {
+              vibrate("light");
+              navigate({ to: "/" });
+            }}
+            className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] ios-press text-white"
             aria-label="Back"
           >
             <ArrowLeft size={18} />
           </button>
-          <span className="text-sm font-medium">New entry</span>
+          <span className="text-sm font-bold text-white">New Entry</span>
           <button
             onClick={create}
             disabled={saving}
-            className="px-4 h-9 rounded-full bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
+            className="px-5 h-9 rounded-full bg-primary text-white text-xs font-bold ios-press shadow-md disabled:opacity-40"
           >
-            Create
+            {saving ? "Creating…" : "Create"}
           </button>
         </div>
       </header>
 
       <div className="p-5 space-y-6">
         <div>
-          <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
-            Header / title
+          <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold block">
+            Trip Header / Destination Title
           </label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="HT76CBGP, INV00234, Bay 4…"
+            placeholder="e.g. STOCKS 1, NLH, Bay 4…"
             autoFocus
-            className="mt-2 w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 text-xl font-mono uppercase tracking-wider placeholder:text-muted-foreground/60 placeholder:normal-case placeholder:tracking-normal placeholder:font-sans"
+            className="mt-2 w-full bg-transparent border-b border-white/[0.2] focus:border-primary-glow outline-none py-2 text-2xl font-mono uppercase font-bold tracking-wider text-white placeholder:text-white/30 placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:text-base"
           />
         </div>
 
         <div>
-          <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+          <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold block">
             Tags
           </label>
-          <div className="mt-2 rounded-xl bg-surface border border-border p-3">
+          <div className="mt-2 rounded-2xl ios-glass p-3 shadow-md">
             <TagsInput value={tags} onChange={setTags} suggestions={suggestions} />
           </div>
         </div>
 
         <div>
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
-            <Sparkles size={12} /> Quick templates
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-primary-glow font-bold">
+            <Sparkles size={12} /> Quick Templates
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {QUICK_TEMPLATES.map((t) => (
               <button
                 key={t.label}
                 onClick={() => applyTemplate(t)}
-                className="px-3 py-1.5 rounded-full text-xs bg-surface-elevated border border-border hover:border-primary/50"
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold ios-glass text-white/90 hover:bg-white/[0.12] ios-press shadow-xs"
               >
                 {t.label}
               </button>
@@ -94,24 +99,26 @@ function NewEntryPage() {
           </div>
         </div>
 
-        <label className="flex items-center gap-3 rounded-xl bg-surface border border-border p-3 cursor-pointer select-none">
+        <label className="flex items-center gap-3.5 rounded-2xl ios-glass p-3.5 cursor-pointer select-none shadow-md ios-press">
           <input
             type="checkbox"
             checked={withCounter}
-            onChange={(e) => setWithCounter(e.target.checked)}
-            className="h-4 w-4 accent-[color:var(--primary)]"
+            onChange={(e) => {
+              vibrate("light");
+              setWithCounter(e.target.checked);
+            }}
+            className="h-5 w-5 rounded-lg accent-violet-500 cursor-pointer"
           />
           <div className="flex-1">
-            <p className="text-sm font-medium">Trip counter</p>
-            <p className="text-[11px] text-muted-foreground">
-              Add a running total for tyre / trip counting on this entry.
+            <p className="text-xs font-bold text-white">Enable Tyre Counter</p>
+            <p className="text-[11px] text-white/50 mt-0.5">
+              Adds a running tally for tyre counting and loading sheet logging.
             </p>
           </div>
         </label>
 
-        <p className="text-xs text-muted-foreground pt-4">
-          Tap <span className="text-foreground font-medium">Create</span> — you'll be taken straight
-          to the entry to add voice notes, photos and files.
+        <p className="text-xs text-white/40 pt-2 text-center font-medium">
+          Tap <span className="text-white font-bold">Create</span> to log trips, record voice memos, or take photos.
         </p>
       </div>
     </div>

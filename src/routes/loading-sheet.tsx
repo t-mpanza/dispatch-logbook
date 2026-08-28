@@ -9,6 +9,7 @@ import { dayKey, uid } from "@/lib/format";
 import { syncTripsToLoadingSheet, calculateDurationMinutes } from "@/lib/loading-presets";
 import type { Entry, LoadingSheetTrip } from "@/lib/types";
 import { parseISO, addDays, format } from "date-fns";
+import { vibrate } from "@/lib/haptics";
 
 export const Route = createFileRoute("/loading-sheet")({
   head: () => ({ meta: [{ title: "Loading Sheet — Dispatch Diary" }] }),
@@ -133,21 +134,24 @@ function LoadingSheetPage() {
   return (
     <AppShell>
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <header className="px-5 pt-8 pb-4">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">
-          <FileText size={15} />
+      <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-3">
+        <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">
+          <FileText size={14} />
           <span>Daily Compliance</span>
         </div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">Despatch Loading Sheet</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-white font-sans">Despatch Loading Sheet</h1>
+        <p className="mt-1 text-xs text-white/50 font-medium">
           View, edit, and export all truck loads for any date.
         </p>
 
-        {/* ── DATE SELECTION BAR ────────────────────────────────────────── */}
-        <div className="mt-4 flex items-center justify-between bg-surface border border-border rounded-xl p-2 shadow-xs">
+        {/* ── iOS Glass Date Selection Bar ───────────────────────────────── */}
+        <div className="mt-3.5 flex items-center justify-between ios-glass p-2 rounded-2xl shadow-lg">
           <button
-            onClick={() => handleDateChange(-1)}
-            className="h-8 w-8 rounded-lg grid place-items-center hover:bg-muted active:scale-95 text-foreground transition-colors"
+            onClick={() => {
+              vibrate("light");
+              handleDateChange(-1);
+            }}
+            className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] active:scale-90 text-white transition-all"
             title="Previous Day"
           >
             <ChevronLeft size={18} />
@@ -159,18 +163,21 @@ function LoadingSheetPage() {
               type="date"
               value={selectedDate}
               onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-              className="bg-transparent text-sm font-semibold font-mono outline-none text-foreground cursor-pointer"
+              className="bg-transparent text-xs font-bold font-mono outline-none text-white cursor-pointer"
             />
             {selectedDate === dayKey(Date.now()) && (
-              <span className="text-[10px] uppercase font-bold bg-primary/20 text-primary-glow px-2 py-0.5 rounded-full">
+              <span className="text-[10px] uppercase font-bold bg-primary/20 border border-primary-glow/30 text-primary-glow px-2 py-0.5 rounded-full">
                 Today
               </span>
             )}
           </div>
 
           <button
-            onClick={() => handleDateChange(1)}
-            className="h-8 w-8 rounded-lg grid place-items-center hover:bg-muted active:scale-95 text-foreground transition-colors"
+            onClick={() => {
+              vibrate("light");
+              handleDateChange(1);
+            }}
+            className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] active:scale-90 text-white transition-all"
             title="Next Day"
           >
             <ChevronRight size={18} />
