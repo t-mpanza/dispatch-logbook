@@ -155,31 +155,38 @@ class UpdateService {
     return false;
   }
 
-  /// Helper to compare semver versions (e.g. 'v2.1.1-rc1' vs 'v2.1.0-rc1')
+  /// Helper to compare semver versions (e.g. 'v2.1.0-rc2' vs 'v2.1.0-rc1')
   static bool isNewerVersion(String current, String latest) {
-    if (latest.isEmpty) return false;
-    final cleanCurrent = current.replaceAll(RegExp(r'[^0-9.]'), '');
-    final cleanLatest = latest.replaceAll(RegExp(r'[^0-9.]'), '');
+    if (latest.isEmpty || current == latest) return false;
 
-    if (cleanCurrent == cleanLatest) return false;
-
-    final currParts = cleanCurrent.split('.').map((p) => int.tryParse(p) ?? 0).toList();
-    final latestParts = cleanLatest.split('.').map((p) => int.tryParse(p) ?? 0).toList();
-
-    final maxLen = currParts.length > latestParts.length ? currParts.length : latestParts.length;
-
-    while (currParts.length < maxLen) {
-      currParts.add(0);
-    }
-    while (latestParts.length < maxLen) {
-      latestParts.add(0);
+    int extractRc(String str) {
+      final match = RegExp(r'rc[-_.]?(\d+)', caseSensitive: false).firstMatch(str);
+      return match != null ? (int.tryParse(match.group(1)!) ?? 0) : 999999;
     }
 
-    for (var i = 0; i < maxLen; i++) {
-      if (latestParts[i] > currParts[i]) return true;
-      if (latestParts[i] < currParts[i]) return false;
+    String cleanMainSemver(String str) {
+      final match = RegExp(r'(\d+)\.(\d+)\.?(\d*)').firstMatch(str);
+      return match != null ? match.group(0)! : '0.0.0';
     }
 
-    return false;
+    final currMain = cleanMainSemver(current).split('.').map((p) => int.tryParse(p) ?? 0).toList();
+    final latestMain = cleanMainSemver(latest).split('.').map((p) => int.tryParse(p) ?? 0).toList();
+
+    while (currMain.length < 3) {
+      currMain.add(0);
+    }
+    while (latestMain.length < 3) {
+      latestMain.add(0);
+    }
+
+    for (var i = 0; i < 3; i++) {
+      if (latestMain[i] > currMain[i]) return true;
+      if (latestMain[i] < currMain[i]) return false;
+    }
+
+    // Main semver is identical, compare RC candidate numbers
+    final currRc = extractRc(current);
+    final latestRc = extractRc(latest);
+    return latestRc > currRc;
   }
 }
