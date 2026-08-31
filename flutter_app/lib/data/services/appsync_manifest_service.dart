@@ -392,8 +392,46 @@ class AppSyncManifestService {
     }
 
     const query = r'''
-    query MyQuery($ibt: String) {
-      getDeliveryInfo(getDeliveryInfo: {ibt: $ibt}) {
+    query MyQuery($inv: String, $ibt: String, $dibt: String, $amsInv: String) {
+      getDeliveryInfo(getDeliveryInfo: {amsInv: $amsInv, dibt: $dibt, ibt: $ibt, inv: $inv}) {
+        inv {
+          customerCode 
+          customerName
+          total
+          slips {
+            dump
+            loaded
+            location_code
+            make
+            name
+            pattern     
+            previous_reg
+            scan_time
+            size
+            slip_number
+            serial
+            uid
+          }
+        }
+        dibt {
+          customerCode
+          customerName
+          total
+          slips {
+            dump
+            loaded
+            location_code
+            make
+            name
+            pattern
+            previous_reg
+            scan_time
+            size
+            slip_number 
+            serial
+            uid
+          }
+        }
         ibt {
           description
           rcs_code
@@ -415,7 +453,12 @@ class AppSyncManifestService {
         },
         body: jsonEncode({
           'query': query,
-          'variables': {'ibt': docNo},
+          'variables': {
+            'ibt': docNo,
+            'inv': null,
+            'dibt': null,
+            'amsInv': null,
+          },
         }),
       );
 
