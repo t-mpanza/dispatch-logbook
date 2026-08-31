@@ -226,6 +226,8 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
     final isOver = target > 0 && _quantityLoaded > target;
     final isDone = target > 0 && _quantityLoaded == target;
 
+    final isLight = AppColors.isLight(context);
+
     return Container(
       padding: EdgeInsets.only(
         left: 20,
@@ -233,9 +235,9 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.backgroundSecondary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: isLight ? Colors.white : AppColors.backgroundSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -248,7 +250,7 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: isLight ? const Color(0xFFCBD5E1) : Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -261,15 +263,15 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
               children: [
                 Text(
                   isEdit ? 'Edit Truck Load' : 'Add Truck Load',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.textPrimary,
+                    color: AppColors.dynamicTextPrimary(context),
                     letterSpacing: -0.3,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                  icon: Icon(Icons.close_rounded, color: AppColors.dynamicTextMuted(context)),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -638,33 +640,35 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
     TextCapitalization textCapitalization = TextCapitalization.none,
     bool isMonospace = false,
   }) {
+    final isLight = AppColors.isLight(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 1.0),
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context), letterSpacing: 1.0),
         ),
         const SizedBox(height: 4),
         Container(
           height: 44,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: isLight ? const Color(0xFFF8FAFC) : Colors.black.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.glassBorder),
+            border: Border.all(color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder),
           ),
           child: TextField(
             controller: controller,
             textCapitalization: textCapitalization,
             style: TextStyle(
               fontSize: 13,
-              color: AppColors.textPrimary,
+              color: AppColors.dynamicTextPrimary(context),
               fontFamily: isMonospace ? 'monospace' : null,
               fontWeight: isMonospace ? FontWeight.bold : FontWeight.w500,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+              hintStyle: TextStyle(color: AppColors.dynamicTextMuted(context), fontSize: 11),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               border: InputBorder.none,
             ),

@@ -251,10 +251,10 @@ class _TodayScreenState extends State<TodayScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   AppFormatters.formatDayLabel(now.millisecondsSinceEpoch),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 26,
                                     fontWeight: FontWeight.w900,
-                                    color: AppColors.textPrimary,
+                                    color: AppColors.dynamicTextPrimary(context),
                                     letterSpacing: -0.5,
                                   ),
                                 ),
@@ -263,7 +263,7 @@ class _TodayScreenState extends State<TodayScreen> {
                                   entries.isEmpty
                                       ? 'Nothing logged yet. Tap + to capture.'
                                       : '${entries.length} ${entries.length == 1 ? "trip entry" : "trip entries"}',
-                                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                  style: TextStyle(fontSize: 12, color: AppColors.dynamicTextSecondary(context)),
                                 ),
                               ],
                             ),
@@ -287,7 +287,7 @@ class _TodayScreenState extends State<TodayScreen> {
                                               color: isSun ? Colors.amber.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.08),
                                               borderRadius: BorderRadius.circular(14),
                                               border: Border.all(
-                                                color: isSun ? Colors.amber : AppColors.glassBorderLight,
+                                                color: isSun ? Colors.amber : (AppColors.isLight(context) ? const Color(0xFFCBD5E1) : AppColors.glassBorderLight),
                                               ),
                                             ),
                                             child: Row(
@@ -296,7 +296,7 @@ class _TodayScreenState extends State<TodayScreen> {
                                                 Icon(
                                                   isSun ? Icons.wb_sunny_rounded : Icons.nightlight_round,
                                                   size: 14,
-                                                  color: isSun ? Colors.amber : AppColors.primaryGlow,
+                                                  color: isSun ? Colors.amber : (AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow),
                                                 ),
                                                 const SizedBox(width: 4),
                                                 Text(
@@ -304,7 +304,7 @@ class _TodayScreenState extends State<TodayScreen> {
                                                   style: TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.bold,
-                                                    color: isSun ? Colors.amber.shade800 : AppColors.textPrimary,
+                                                    color: isSun ? Colors.amber.shade800 : AppColors.dynamicTextPrimary(context),
                                                   ),
                                                 ),
                                               ],
@@ -324,13 +324,13 @@ class _TodayScreenState extends State<TodayScreen> {
                                       },
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                        decoration: GlassDecorations.glassCard(borderRadius: 14),
-                                        child: const Row(
+                                        decoration: GlassDecorations.glassCard(context: context, borderRadius: 14),
+                                        child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.chevron_left_rounded, size: 14, color: AppColors.primaryGlow),
-                                            SizedBox(width: 2),
-                                            Text('Yesterday', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                            Icon(Icons.chevron_left_rounded, size: 14, color: AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow),
+                                            const SizedBox(width: 2),
+                                            Text('Yesterday', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context))),
                                           ],
                                         ),
                                       ),
@@ -343,7 +343,7 @@ class _TodayScreenState extends State<TodayScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.05),
+                                      color: AppColors.isLight(context) ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Row(
@@ -351,12 +351,12 @@ class _TodayScreenState extends State<TodayScreen> {
                                         Icon(
                                           _isCheckingUpdate ? Icons.hourglass_top_rounded : Icons.system_update_rounded,
                                           size: 10,
-                                          color: AppColors.primaryGlow,
+                                          color: AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow,
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
                                           _currentVersion,
-                                          style: const TextStyle(fontSize: 9, color: AppColors.textMuted, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                                          style: TextStyle(fontSize: 9, color: AppColors.dynamicTextMuted(context), fontFamily: 'monospace', fontWeight: FontWeight.bold),
                                         ),
                                       ],
                                     ),
@@ -371,9 +371,9 @@ class _TodayScreenState extends State<TodayScreen> {
 
                     // Entries List
                     if (isLoading)
-                      const SliverFillRemaining(
+                      SliverFillRemaining(
                         child: Center(
-                          child: CircularProgressIndicator(color: AppColors.primaryGlow),
+                          child: CircularProgressIndicator(color: AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow),
                         ),
                       )
                     else if (entries.isEmpty)
@@ -384,7 +384,7 @@ class _TodayScreenState extends State<TodayScreen> {
                           child: Center(
                             child: Container(
                               padding: const EdgeInsets.all(32),
-                              decoration: GlassDecorations.glassCard(borderRadius: 24),
+                              decoration: GlassDecorations.glassCard(context: context, borderRadius: 24),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -394,18 +394,18 @@ class _TodayScreenState extends State<TodayScreen> {
                                       color: AppColors.primary.withValues(alpha: 0.1),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.note_add_rounded, size: 36, color: AppColors.primaryGlow),
+                                    child: Icon(Icons.note_add_rounded, size: 36, color: AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow),
                                   ),
                                   const SizedBox(height: 16),
-                                  const Text(
+                                  Text(
                                     'No Trip Entries Today',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.dynamicTextPrimary(context)),
                                   ),
                                   const SizedBox(height: 6),
-                                  const Text(
+                                  Text(
                                     'Tap the floating + button to capture trip loads, tyre counts, or notes.',
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                    style: TextStyle(fontSize: 12, color: AppColors.dynamicTextMuted(context)),
                                   ),
                                   const SizedBox(height: 20),
                                   ElevatedButton.icon(

@@ -21,21 +21,28 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = AppColors.isLight(context);
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.dynamicBackground(context),
       body: Stack(
         children: [
           // Background ambient gradient
           Positioned.fill(
             child: Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  center: Alignment(0.0, -0.6),
+                  center: const Alignment(0.0, -0.6),
                   radius: 1.2,
-                  colors: [
-                    Color(0x1A2563EB), // 10% cobalt glow
-                    Color(0xFF0B0C12),
-                  ],
+                  colors: isLight
+                      ? const [
+                          Color(0xFFE2E8F0), // light slate glow
+                          Color(0xFFF1F5F9), // slate 100
+                        ]
+                      : const [
+                          Color(0x1A2563EB), // 10% cobalt glow
+                          Color(0xFF0B0C12),
+                        ],
                 ),
               ),
             ),
@@ -52,7 +59,7 @@ class AppShell extends StatelessWidget {
             ),
           ),
 
-          // Floating Titanium Obsidian Dock Navigation
+          // Floating Dock Navigation
           Positioned(
             left: 16,
             right: 16,
@@ -61,35 +68,40 @@ class AppShell extends StatelessWidget {
               top: false,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                decoration: GlassDecorations.glassDock(),
+                decoration: GlassDecorations.glassDock(context: context),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _buildNavItem(
+                      context: context,
                       index: 0,
                       label: 'Today',
                       icon: Icons.home_rounded,
                       isActive: currentIndex == 0,
                     ),
                     _buildNavItem(
+                      context: context,
                       index: 1,
                       label: 'Sheet',
                       icon: Icons.description_rounded,
                       isActive: currentIndex == 1,
                     ),
                     _buildNavItem(
+                      context: context,
                       index: 2,
                       label: 'Counter',
                       icon: Icons.local_shipping_rounded,
                       isActive: currentIndex == 2,
                     ),
                     _buildNavItem(
+                      context: context,
                       index: 3,
                       label: 'Search',
                       icon: Icons.search_rounded,
                       isActive: currentIndex == 3,
                     ),
                     _buildNavItem(
+                      context: context,
                       index: 4,
                       label: 'Archive',
                       icon: Icons.folder_rounded,
@@ -107,11 +119,14 @@ class AppShell extends StatelessWidget {
   }
 
   Widget _buildNavItem({
+    required BuildContext context,
     required int index,
     required String label,
     required IconData icon,
     required bool isActive,
   }) {
+    final isLight = AppColors.isLight(context);
+
     return GestureDetector(
       onTap: () {
         AppHaptics.light();
@@ -123,12 +138,12 @@ class AppShell extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: isActive
-              ? AppColors.primary.withValues(alpha: 0.18)
+              ? AppColors.primary.withValues(alpha: isLight ? 0.15 : 0.18)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isActive
-                ? AppColors.primaryGlow.withValues(alpha: 0.4)
+                ? (isLight ? AppColors.primary : AppColors.primaryGlow.withValues(alpha: 0.4))
                 : Colors.transparent,
             width: 1,
           ),
@@ -139,7 +154,9 @@ class AppShell extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color: isActive ? AppColors.primaryGlow : AppColors.textSecondary,
+              color: isActive
+                  ? (isLight ? AppColors.primary : AppColors.primaryGlow)
+                  : AppColors.dynamicTextMuted(context),
             ),
             const SizedBox(height: 2),
             Text(
@@ -147,7 +164,9 @@ class AppShell extends StatelessWidget {
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
-                color: isActive ? AppColors.textPrimary : AppColors.textMuted,
+                color: isActive
+                    ? AppColors.dynamicTextPrimary(context)
+                    : AppColors.dynamicTextMuted(context),
                 letterSpacing: 0.5,
               ),
             ),
@@ -158,16 +177,18 @@ class AppShell extends StatelessWidget {
   }
 
   Widget _buildSyncButton(BuildContext context) {
+    final isLight = AppColors.isLight(context);
+
     return Consumer<EntryRepository>(
       builder: (context, repo, _) {
         final state = repo.syncState;
         IconData iconData = Icons.cloud_done_rounded;
-        Color iconColor = AppColors.primaryGlow;
+        Color iconColor = isLight ? AppColors.primary : AppColors.primaryGlow;
         String statusText = 'Live';
 
         if (state.status == SyncStatus.syncing) {
           iconData = Icons.sync_rounded;
-          iconColor = AppColors.primaryGlow;
+          iconColor = isLight ? AppColors.primary : AppColors.primaryGlow;
           statusText = 'Sync';
         } else if (state.status == SyncStatus.error) {
           iconData = Icons.error_outline_rounded;
@@ -175,7 +196,7 @@ class AppShell extends StatelessWidget {
           statusText = 'Retry';
         } else if (state.status == SyncStatus.offline) {
           iconData = Icons.cloud_off_rounded;
-          iconColor = AppColors.textMuted;
+          iconColor = AppColors.dynamicTextMuted(context);
           statusText = 'Off';
         }
 
@@ -186,7 +207,7 @@ class AppShell extends StatelessWidget {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  backgroundColor: AppColors.backgroundSecondary,
+                  backgroundColor: isLight ? Colors.white : AppColors.backgroundSecondary,
                   content: Text(
                     success
                         ? 'Cloud database synchronized'
@@ -215,19 +236,20 @@ class AppShell extends StatelessWidget {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: AppColors.glassSurface,
+                        color: isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurface,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.glassBorderLight),
+                        border: Border.all(
+                          color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorderLight,
+                        ),
                       ),
                       child: Center(
                         child: state.status == SyncStatus.syncing
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 14,
                                 height: 14,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      AppColors.primaryGlow),
+                                  color: iconColor,
                                 ),
                               )
                             : Icon(iconData, size: 16, color: iconColor),
@@ -240,15 +262,15 @@ class AppShell extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.all(3),
                           decoration: const BoxDecoration(
-                            color: AppColors.primary,
+                            color: AppColors.warning,
                             shape: BoxShape.circle,
                           ),
                           child: Text(
                             '${state.pendingCount}',
                             style: const TextStyle(
+                              color: Colors.black,
                               fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
@@ -258,10 +280,10 @@ class AppShell extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   statusText,
-                  style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textMuted,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: AppColors.dynamicTextMuted(context),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

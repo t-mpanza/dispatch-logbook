@@ -29,13 +29,14 @@ class _DayScreenState extends State<DayScreen> {
     _currentDayKey = widget.dayKey;
   }
 
-  void _shiftDay(int days) {
+  void _shiftDay(int delta) {
     AppHaptics.light();
     try {
-      final current = DateTime.parse(_currentDayKey);
-      final shifted = current.add(Duration(days: days));
+      final parts = _currentDayKey.split('-');
+      final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      final next = d.add(Duration(days: delta));
       setState(() {
-        _currentDayKey = AppFormatters.dayKey(shifted);
+        _currentDayKey = AppFormatters.dayKey(next);
       });
     } catch (_) {}
   }
@@ -43,9 +44,10 @@ class _DayScreenState extends State<DayScreen> {
   @override
   Widget build(BuildContext context) {
     final parsedDate = DateTime.tryParse(_currentDayKey) ?? DateTime.now();
+    final isLight = AppColors.isLight(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.dynamicBackground(context),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           AppHaptics.medium();
@@ -63,7 +65,7 @@ class _DayScreenState extends State<DayScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back_rounded, color: AppColors.dynamicTextPrimary(context)),
           onPressed: () {
             AppHaptics.light();
             Navigator.pop(context);
@@ -71,12 +73,12 @@ class _DayScreenState extends State<DayScreen> {
         ),
         title: Text(
           AppFormatters.formatDayLabel(parsedDate.millisecondsSinceEpoch),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context)),
         ),
       ),
       body: RefreshIndicator(
-        color: AppColors.primaryGlow,
-        backgroundColor: AppColors.backgroundSecondary,
+        color: isLight ? AppColors.primary : AppColors.primaryGlow,
+        backgroundColor: isLight ? Colors.white : AppColors.backgroundSecondary,
         onRefresh: () async {
           AppHaptics.light();
           try {
@@ -101,31 +103,31 @@ class _DayScreenState extends State<DayScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: GlassDecorations.glassCard(borderRadius: 16),
+                        decoration: GlassDecorations.glassCard(context: context, borderRadius: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.chevron_left_rounded, color: AppColors.textPrimary),
+                              icon: Icon(Icons.chevron_left_rounded, color: AppColors.dynamicTextPrimary(context)),
                               onPressed: () => _shiftDay(-1),
                             ),
                             Row(
                               children: [
-                                const Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.primaryGlow),
+                                Icon(Icons.calendar_today_rounded, size: 14, color: isLight ? AppColors.primary : AppColors.primaryGlow),
                                 const SizedBox(width: 6),
                                 Text(
                                   _currentDayKey,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
+                                    color: AppColors.dynamicTextPrimary(context),
                                     fontFamily: 'monospace',
                                   ),
                                 ),
                               ],
                             ),
                             IconButton(
-                              icon: const Icon(Icons.chevron_right_rounded, color: AppColors.textPrimary),
+                              icon: Icon(Icons.chevron_right_rounded, color: AppColors.dynamicTextPrimary(context)),
                               onPressed: () => _shiftDay(1),
                             ),
                           ],
@@ -136,7 +138,7 @@ class _DayScreenState extends State<DayScreen> {
                     // List
                     Expanded(
                       child: isLoading
-                          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGlow))
+                          ? Center(child: CircularProgressIndicator(color: isLight ? AppColors.primary : AppColors.primaryGlow))
                           : entries.isEmpty
                               ? ListView(
                                   physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
@@ -145,7 +147,7 @@ class _DayScreenState extends State<DayScreen> {
                                     Center(
                                       child: Text(
                                         'No entries logged for $_currentDayKey',
-                                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                        style: TextStyle(fontSize: 12, color: AppColors.dynamicTextMuted(context)),
                                       ),
                                     ),
                                   ],

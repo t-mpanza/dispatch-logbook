@@ -13,6 +13,8 @@ class CounterScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = AppColors.isLight(context);
+
     return Consumer<EntriesViewModel>(
       builder: (context, vm, _) {
         return FutureBuilder<List<Entry>>(
@@ -27,7 +29,7 @@ class CounterScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
                 children: [
                   // Header
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -35,24 +37,24 @@ class CounterScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.primaryGlow,
+                          color: isLight ? AppColors.primary : AppColors.primaryGlow,
                           letterSpacing: 2.0,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         'Trip Counting',
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.textPrimary,
+                          color: AppColors.dynamicTextPrimary(context),
                           letterSpacing: -0.5,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         'Fast tally, NFC scan simulation & digital loading sheets.',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, color: AppColors.dynamicTextSecondary(context)),
                       ),
                     ],
                   ),
@@ -94,18 +96,18 @@ class CounterScreen extends StatelessWidget {
 
                   // Session Cards List
                   if (isLoading)
-                    const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.primaryGlow)))
+                    Center(child: Padding(padding: const EdgeInsets.all(32), child: CircularProgressIndicator(color: isLight ? AppColors.primary : AppColors.primaryGlow)))
                   else if (sessions.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(28),
-                      decoration: GlassDecorations.glassCard(borderRadius: 22),
-                      child: const Column(
+                      decoration: GlassDecorations.glassCard(context: context, borderRadius: 22),
+                      child: Column(
                         children: [
-                          Icon(Icons.local_shipping_outlined, size: 36, color: AppColors.textMuted),
-                          SizedBox(height: 12),
-                          Text('No counter sessions yet', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          SizedBox(height: 4),
-                          Text('Each session has its own running total, history and media attachments.', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                          Icon(Icons.local_shipping_outlined, size: 36, color: AppColors.dynamicTextMuted(context)),
+                          const SizedBox(height: 12),
+                          Text('No counter sessions yet', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context))),
+                          const SizedBox(height: 4),
+                          Text('Each session has its own running total, history and media attachments.', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.dynamicTextMuted(context))),
                         ],
                       ),
                     )
@@ -124,6 +126,7 @@ class CounterScreen extends StatelessWidget {
   }
 
   Widget _buildSessionCard(BuildContext context, Entry entry) {
+    final isLight = AppColors.isLight(context);
     final loadingTrips = entry.loadingSheetTrips ?? [];
     final legacyTrips = entry.trips ?? [];
 
@@ -148,19 +151,25 @@ class CounterScreen extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: GlassDecorations.glassCard(borderRadius: 20),
+        decoration: GlassDecorations.glassCard(context: context, borderRadius: 20),
         child: Row(
           children: [
             Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
+                color: AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: isLight ? AppColors.primary.withValues(alpha: 0.3) : AppColors.primaryGlow.withValues(alpha: 0.3),
+                ),
               ),
-              child: const Center(
-                child: Icon(Icons.local_shipping_rounded, color: AppColors.primaryGlow, size: 22),
+              child: Center(
+                child: Icon(
+                  Icons.local_shipping_rounded,
+                  color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                  size: 22,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -170,12 +179,16 @@ class CounterScreen extends StatelessWidget {
                 children: [
                   Text(
                     entry.title,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.dynamicTextPrimary(context),
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${AppFormatters.formatDayLabel(entry.createdAt)} · ${AppFormatters.formatTimeHHmm(entry.createdAt)}',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 11, color: AppColors.dynamicTextMuted(context)),
                   ),
                 ],
               ),
@@ -185,16 +198,16 @@ class CounterScreen extends StatelessWidget {
               children: [
                 Text(
                   '$totalTyres',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.primaryGlow,
+                    color: isLight ? AppColors.primary : AppColors.primaryGlow,
                     fontFamily: 'monospace',
                   ),
                 ),
                 Text(
                   '$tripCount ${tripCount == 1 ? "trip" : "trips"}',
-                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context)),
                 ),
               ],
             ),

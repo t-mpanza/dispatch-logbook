@@ -105,9 +105,9 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                                 ],
                               ),
                               const SizedBox(height: 2),
-                              const Text(
+                              Text(
                                 'Loading Sheet',
-                                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.textPrimary, letterSpacing: -0.5),
+                                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.dynamicTextPrimary(context), letterSpacing: -0.5),
                               ),
                             ],
                           ),
@@ -119,14 +119,14 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: GlassDecorations.glassCard(borderRadius: 14),
+                              decoration: GlassDecorations.glassCard(context: context, borderRadius: 14),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.person_rounded, size: 14, color: AppColors.primaryGlow),
+                                  Icon(Icons.person_rounded, size: 14, color: AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow),
                                   const SizedBox(width: 4),
                                   Text(
                                     despatcherName,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context)),
                                   ),
                                 ],
                               ),
@@ -139,12 +139,12 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                       // Date Navigation Bar
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                        decoration: GlassDecorations.glassCard(borderRadius: 18),
+                        decoration: GlassDecorations.glassCard(context: context, borderRadius: 18),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.chevron_left_rounded, color: AppColors.textPrimary),
+                              icon: Icon(Icons.chevron_left_rounded, color: AppColors.dynamicTextPrimary(context)),
                               onPressed: () {
                                 AppHaptics.light();
                                 vm.shiftDate(-1);
@@ -152,14 +152,14 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                             ),
                             Row(
                               children: [
-                                const Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.primaryGlow),
+                                Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow),
                                 const SizedBox(width: 6),
                                 Text(
                                   vm.selectedDate,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
+                                    color: AppColors.dynamicTextPrimary(context),
                                     fontFamily: 'monospace',
                                   ),
                                 ),
@@ -334,7 +334,7 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                       else if (trips.isEmpty)
                         Container(
                           padding: const EdgeInsets.all(32),
-                          decoration: GlassDecorations.glassCard(borderRadius: 22),
+                          decoration: GlassDecorations.glassCard(context: context, borderRadius: 22),
                           child: Column(
                             children: [
                               const Icon(Icons.local_shipping_outlined, size: 40, color: AppColors.textMuted),
@@ -432,7 +432,7 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: GlassDecorations.glassCard(borderRadius: 18),
+        decoration: GlassDecorations.glassCard(context: context, borderRadius: 18),
         child: Column(
           children: [
             Row(

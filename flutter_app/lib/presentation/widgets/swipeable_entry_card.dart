@@ -22,6 +22,7 @@ class SwipeableEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = AppColors.isLight(context);
     final trips = entry.trips ?? [];
     final loadingTrips = entry.loadingSheetTrips ?? [];
     final hasCounter = trips.isNotEmpty || loadingTrips.isNotEmpty;
@@ -80,7 +81,7 @@ class SwipeableEntryCard extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           child: Container(
             padding: const EdgeInsets.all(14),
-            decoration: GlassDecorations.glassCard(borderRadius: 20),
+            decoration: GlassDecorations.glassCard(context: context, borderRadius: 20),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -90,20 +91,22 @@ class SwipeableEntryCard extends StatelessWidget {
                   height: 42,
                   decoration: BoxDecoration(
                     color: hasCounter
-                        ? AppColors.primary.withValues(alpha: 0.15)
-                        : AppColors.glassSurfaceElevated,
+                        ? AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15)
+                        : (isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurfaceElevated),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: hasCounter
-                          ? AppColors.primaryGlow.withValues(alpha: 0.3)
-                          : AppColors.glassBorder,
+                          ? (isLight ? AppColors.primary.withValues(alpha: 0.3) : AppColors.primaryGlow.withValues(alpha: 0.3))
+                          : (isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder),
                     ),
                   ),
                   child: Center(
                     child: Icon(
                       hasCounter ? Icons.local_shipping_rounded : Icons.note_alt_rounded,
                       size: 20,
-                      color: hasCounter ? AppColors.primaryGlow : AppColors.textSecondary,
+                      color: hasCounter
+                          ? (isLight ? AppColors.primary : AppColors.primaryGlow)
+                          : AppColors.dynamicTextSecondary(context),
                     ),
                   ),
                 ),
@@ -116,10 +119,10 @@ class SwipeableEntryCard extends StatelessWidget {
                     children: [
                       Text(
                         entry.title.isNotEmpty ? entry.title : 'Untitled Log',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
+                          color: AppColors.dynamicTextPrimary(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -127,9 +130,9 @@ class SwipeableEntryCard extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         '${AppFormatters.formatDayLabel(entry.createdAt)} · ${AppFormatters.formatTimeHHmm(entry.createdAt)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: AppColors.textMuted,
+                          color: AppColors.dynamicTextMuted(context),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -144,16 +147,18 @@ class SwipeableEntryCard extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.glassSurfaceElevated,
+                                color: isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurfaceElevated,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.glassBorderLight),
+                                border: Border.all(
+                                  color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorderLight,
+                                ),
                               ),
                               child: Text(
                                 '#$tag',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.primaryGlow,
+                                  color: isLight ? AppColors.primary : AppColors.primaryGlow,
                                 ),
                               ),
                             ),
@@ -218,16 +223,20 @@ class SwipeableEntryCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
+                          color: AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: isLight
+                                ? AppColors.primary.withValues(alpha: 0.3)
+                                : AppColors.primaryGlow.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Text(
                           '$totalTyres',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
-                            color: AppColors.primaryGlow,
+                            color: isLight ? AppColors.primary : AppColors.primaryGlow,
                             fontFamily: 'monospace',
                           ),
                         ),
@@ -235,10 +244,10 @@ class SwipeableEntryCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         '${loadingTrips.isNotEmpty ? loadingTrips.length : trips.length} trips',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textMuted,
+                          color: AppColors.dynamicTextMuted(context),
                         ),
                       ),
                     ],

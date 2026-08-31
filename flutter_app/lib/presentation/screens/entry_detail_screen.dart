@@ -17,7 +17,6 @@ import '../widgets/event_log_view.dart';
 import '../widgets/floating_note_bar.dart';
 import '../widgets/photo_lightbox.dart';
 import '../widgets/tags_input.dart';
-import '../widgets/voice_recorder_sheet.dart';
 
 class EntryDetailScreen extends StatefulWidget {
   final String entryId;
@@ -59,8 +58,12 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ),
     );
-    _regController.text = sheetTrip?.reg ?? '';
-    _driverController.text = sheetTrip?.driverName ?? '';
+    if (_regController.text.isEmpty) {
+      _regController.text = sheetTrip?.reg ?? '';
+    }
+    if (_driverController.text.isEmpty) {
+      _driverController.text = sheetTrip?.driverName ?? '';
+    }
   }
 
   List<LoadingSheetTrip> _syncTripsToLoadingSheet(Entry entry, List<Trip> newTrips) {
@@ -79,8 +82,11 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
     if (targetIdx >= 0) {
       current[targetIdx] = current[targetIdx].copyWith(
         entryId: entry.id,
+        reg: _regController.text.trim().isNotEmpty ? _regController.text.trim().toUpperCase() : current[targetIdx].reg,
+        driverName: _driverController.text.trim().isNotEmpty ? _driverController.text.trim() : current[targetIdx].driverName,
         tripId: entry.title.isNotEmpty ? entry.title : current[targetIdx].tripId,
         quantityLoaded: totalQty,
+        targetQuantity: entry.expectedTotal ?? current[targetIdx].targetQuantity,
         startTime: start,
         finishTime: finish,
         durationMinutes: duration,
@@ -98,6 +104,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
           finishTime: finish,
           durationMinutes: duration,
           quantityLoaded: totalQty,
+          targetQuantity: entry.expectedTotal,
           createdAt: start,
         ),
       );
@@ -109,19 +116,21 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<EntryRepository>();
+    final isLight = AppColors.isLight(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.dynamicBackground(context),
       body: FutureBuilder<Entry?>(
         future: repo.getEntryById(widget.entryId),
         builder: (context, snapshot) {
           final entry = snapshot.data;
           if (snapshot.connectionState == ConnectionState.waiting && _cachedEntry == null) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primaryGlow));
+            return Center(child: CircularProgressIndicator(color: isLight ? AppColors.primary : AppColors.primaryGlow));
           }
 
           if (entry == null && _cachedEntry == null) {
             return Scaffold(
+              backgroundColor: AppColors.dynamicBackground(context),
               appBar: AppBar(backgroundColor: Colors.transparent),
               body: const Center(child: Text('Entry not found', style: TextStyle(color: AppColors.textMuted))),
             );
@@ -132,8 +141,8 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
 
           if (_titleController.text.isEmpty && currentEntry.title.isNotEmpty) {
             _titleController.text = currentEntry.title;
-            _syncTripDetailsToEntry(currentEntry);
           }
+          _syncTripDetailsToEntry(currentEntry);
 
           final trips = currentEntry.trips ?? [];
           final isCounterSession = currentEntry.trips != null || currentEntry.loadingSheetTrips != null;
@@ -149,13 +158,13 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                 // Top Custom Navigation Bar
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: GlassDecorations.glassCard(borderRadius: 0),
+                  decoration: GlassDecorations.glassCard(context: context, borderRadius: 0),
                   child: Column(
                     children: [
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+                            icon: Icon(Icons.arrow_back_rounded, color: AppColors.dynamicTextPrimary(context)),
                             onPressed: () {
                               AppHaptics.light();
                               Navigator.pop(context);
@@ -167,10 +176,10 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                               children: [
                                 TextField(
                                   controller: _titleController,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w800,
-                                    color: AppColors.textPrimary,
+                                    color: AppColors.dynamicTextPrimary(context),
                                     fontFamily: 'monospace',
                                   ),
                                   decoration: const InputDecoration(
@@ -179,12 +188,14 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                                     contentPadding: EdgeInsets.zero,
                                   ),
                                   onSubmitted: (newTitle) {
-                                    repo.saveEntry(currentEntry.copyWith(title: newTitle.trim()));
+                                    final updated = currentEntry.copyWith(title: newTitle.trim());
+                                    setState(() => _cachedEntry = updated);
+                                    repo.saveEntry(updated);
                                   },
                                 ),
                                 Text(
                                   '${AppFormatters.formatDayLabel(currentEntry.createdAt)} · ${AppFormatters.formatTimeHHmm(currentEntry.createdAt)}',
-                                  style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                  style: TextStyle(fontSize: 10, color: AppColors.dynamicTextMuted(context)),
                                 ),
                               ],
                             ),
@@ -193,56 +204,28 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             IconButton(
                               icon: Icon(
                                 _isDetailsOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                                color: AppColors.textMuted,
+                                color: AppColors.dynamicTextMuted(context),
                               ),
                               onPressed: () {
                                 AppHaptics.light();
                                 setState(() => _isDetailsOpen = !_isDetailsOpen);
                               },
                             ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-                            onPressed: () async {
-                              AppHaptics.error();
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  backgroundColor: AppColors.backgroundSecondary,
-                                  title: const Text('Delete Entry?', style: TextStyle(color: Colors.white)),
-                                  content: const Text('This will permanently delete this trip entry.', style: TextStyle(color: AppColors.textMuted)),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      child: const Text('Delete', style: TextStyle(color: Colors.white)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (confirm == true) {
-                                await repo.deleteEntry(currentEntry.id);
-                                if (context.mounted) {
-                                  Navigator.pop(context);
-                                }
-                              }
-                            },
-                          ),
                         ],
                       ),
 
-                      // Tags Bar
-                      if (!isCounterSession || _isDetailsOpen)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8, left: 8, right: 8),
-                          child: TagsInput(
-                            value: currentEntry.tags,
-                            onChange: (nextTags) {
-                              repo.saveEntry(currentEntry.copyWith(tags: nextTags));
-                            },
-                            suggestions: const ['tyres', 'stocks', 'nlh', 'dbn', 'bloem', 'plk'],
-                          ),
+                      // Collapsible Tag Bar
+                      if (_isDetailsOpen) ...[
+                        const SizedBox(height: 8),
+                        TagsInput(
+                          value: currentEntry.tags,
+                          onChange: (newTags) {
+                            final updated = currentEntry.copyWith(tags: newTags);
+                            setState(() => _cachedEntry = updated);
+                            repo.saveEntry(updated);
+                          },
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -262,34 +245,50 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                           driverName: _driverController.text.trim(),
                           tripTitle: currentEntry.title,
                           onSetExpected: (target) {
-                            final updatedSheetTrips = currentEntry.loadingSheetTrips?.map((st) {
-                              if (!st.isManual) {
-                                return st.copyWith(targetQuantity: target);
-                              }
-                              return st;
-                            }).toList();
-                            repo.saveEntry(currentEntry.copyWith(
+                            final List<LoadingSheetTrip> sheetTrips = [...?currentEntry.loadingSheetTrips];
+                            final idx = sheetTrips.indexWhere((t) => !t.isManual);
+                            if (idx >= 0) {
+                              sheetTrips[idx] = sheetTrips[idx].copyWith(targetQuantity: target);
+                            }
+                            final updatedEntry = currentEntry.copyWith(
                               expectedTotal: target,
-                              loadingSheetTrips: updatedSheetTrips,
-                            ));
+                              loadingSheetTrips: sheetTrips,
+                            );
+                            setState(() => _cachedEntry = updatedEntry);
+                            repo.saveEntry(updatedEntry);
                           },
                           onUpdateTruckDetails: (reg, driver, target) {
-                            if (reg != null) _regController.text = reg;
-                            if (driver != null) _driverController.text = driver;
+                            if (reg != null && reg.isNotEmpty) _regController.text = reg;
+                            if (driver != null && driver.isNotEmpty) _driverController.text = driver;
 
                             final List<LoadingSheetTrip> sheetTrips = [...?currentEntry.loadingSheetTrips];
                             final idx = sheetTrips.indexWhere((t) => !t.isManual);
                             if (idx >= 0) {
                               sheetTrips[idx] = sheetTrips[idx].copyWith(
-                                reg: reg?.toUpperCase(),
-                                driverName: driver,
+                                reg: reg?.toUpperCase() ?? sheetTrips[idx].reg,
+                                driverName: driver ?? sheetTrips[idx].driverName,
                                 targetQuantity: target,
                               );
+                            } else {
+                              sheetTrips.add(
+                                LoadingSheetTrip(
+                                  id: IdGenerator.generate(),
+                                  entryId: currentEntry.id,
+                                  reg: reg?.toUpperCase() ?? _regController.text.trim().toUpperCase(),
+                                  driverName: driver ?? _driverController.text.trim(),
+                                  tripId: currentEntry.title.isNotEmpty ? currentEntry.title : 'NLS',
+                                  quantityLoaded: grandTotal,
+                                  targetQuantity: target,
+                                  createdAt: DateTime.now().millisecondsSinceEpoch,
+                                ),
+                              );
                             }
-                            repo.saveEntry(currentEntry.copyWith(
+                            final updatedEntry = currentEntry.copyWith(
                               expectedTotal: target,
                               loadingSheetTrips: sheetTrips,
-                            ));
+                            );
+                            setState(() => _cachedEntry = updatedEntry);
+                            repo.saveEntry(updatedEntry);
                           },
                         ),
                         const SizedBox(height: 10),
@@ -297,15 +296,19 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                           trips: trips,
                           onChange: (nextTrips) {
                             final sheetTrips = _syncTripsToLoadingSheet(currentEntry, nextTrips);
-                            repo.saveEntry(currentEntry.copyWith(
+                            final updatedEntry = currentEntry.copyWith(
                               trips: nextTrips,
                               loadingSheetTrips: sheetTrips,
-                            ));
+                            );
+                            setState(() => _cachedEntry = updatedEntry);
+                            repo.saveEntry(updatedEntry);
                           },
                           onAttachment: (att) {
-                            repo.saveEntry(currentEntry.copyWith(
+                            final updatedEntry = currentEntry.copyWith(
                               attachments: [...currentEntry.attachments, att],
-                            ));
+                            );
+                            setState(() => _cachedEntry = updatedEntry);
+                            repo.saveEntry(updatedEntry);
                           },
                         ),
                       ],
@@ -313,12 +316,12 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                       const SizedBox(height: 12),
 
                       // Event Log Header
-                      const Text(
+                      Text(
                         'EVENT LOG',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textMuted,
+                          color: AppColors.dynamicTextMuted(context),
                           letterSpacing: 1.5,
                         ),
                       ),
@@ -332,19 +335,25 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                         audioService: _audioService,
                         onRemoveNote: (nid) {
                           final updated = currentEntry.notes.where((n) => n.id != nid).toList();
-                          repo.saveEntry(currentEntry.copyWith(notes: updated));
+                          final updatedEntry = currentEntry.copyWith(notes: updated);
+                          setState(() => _cachedEntry = updatedEntry);
+                          repo.saveEntry(updatedEntry);
                         },
                         onRemoveAttachment: (aid) {
                           final updated = currentEntry.attachments.where((a) => a.id != aid).toList();
-                          repo.saveEntry(currentEntry.copyWith(attachments: updated));
+                          final updatedEntry = currentEntry.copyWith(attachments: updated);
+                          setState(() => _cachedEntry = updatedEntry);
+                          repo.saveEntry(updatedEntry);
                         },
                         onRemoveTrip: (tid) {
                           final updatedTrips = (currentEntry.trips ?? []).where((t) => t.id != tid).toList();
                           final sheetTrips = _syncTripsToLoadingSheet(currentEntry, updatedTrips);
-                          repo.saveEntry(currentEntry.copyWith(
+                          final updatedEntry = currentEntry.copyWith(
                             trips: updatedTrips,
                             loadingSheetTrips: sheetTrips,
-                          ));
+                          );
+                          setState(() => _cachedEntry = updatedEntry);
+                          repo.saveEntry(updatedEntry);
                         },
                         onOpenPhoto: (att) => PhotoLightbox.show(
                           context,
@@ -354,7 +363,9 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             final updated = currentEntry.attachments
                                 .map((a) => a.id == updatedAtt.id ? updatedAtt : a)
                                 .toList();
-                            repo.saveEntry(currentEntry.copyWith(attachments: updated));
+                            final updatedEntry = currentEntry.copyWith(attachments: updated);
+                            setState(() => _cachedEntry = updatedEntry);
+                            repo.saveEntry(updatedEntry);
                           },
                         ),
                       ),
@@ -372,25 +383,33 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                         text: text,
                         createdAt: DateTime.now().millisecondsSinceEpoch,
                       );
-                      repo.saveEntry(currentEntry.copyWith(
+                      final updatedEntry = currentEntry.copyWith(
                         notes: [...currentEntry.notes, newNote],
-                      ));
+                      );
+                      setState(() => _cachedEntry = updatedEntry);
+                      repo.saveEntry(updatedEntry);
                     },
                     onAttachment: (att) {
-                      repo.saveEntry(currentEntry.copyWith(
+                      final updatedEntry = currentEntry.copyWith(
                         attachments: [...currentEntry.attachments, att],
-                      ));
-                    },
-                    onStartVoice: () {
-                      VoiceRecorderSheet.show(
-                        context,
-                        audioService: _audioService,
-                        onSave: (att) {
-                          repo.saveEntry(currentEntry.copyWith(
-                            attachments: [...currentEntry.attachments, att],
-                          ));
-                        },
                       );
+                      setState(() => _cachedEntry = updatedEntry);
+                      repo.saveEntry(updatedEntry);
+                    },
+                    onStartVoice: () async {
+                      if (_audioService.isRecording) {
+                        final att = await _audioService.stopRecording();
+                        if (att != null) {
+                          final updatedEntry = currentEntry.copyWith(
+                            attachments: [...currentEntry.attachments, att],
+                          );
+                          setState(() => _cachedEntry = updatedEntry);
+                          repo.saveEntry(updatedEntry);
+                        }
+                      } else {
+                        await _audioService.startRecording();
+                        setState(() {});
+                      }
                     },
                   ),
                 ),

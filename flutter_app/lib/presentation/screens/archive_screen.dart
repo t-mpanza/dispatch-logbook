@@ -33,6 +33,7 @@ class ArchiveScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<EntryRepository>();
+    final isLight = AppColors.isLight(context);
 
     return FutureBuilder<List<Entry>>(
       future: repo.getAllEntries(),
@@ -50,29 +51,29 @@ class ArchiveScreen extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'ARCHIVE',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryGlow,
+                      color: isLight ? AppColors.primary : AppColors.primaryGlow,
                       letterSpacing: 2.0,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  const Text(
+                  Text(
                     'All Records',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
-                      color: AppColors.textPrimary,
+                      color: AppColors.dynamicTextPrimary(context),
                       letterSpacing: -0.5,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${entries.length} ${entries.length == 1 ? "entry" : "entries"} stored locally & cloud synced',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 12, color: AppColors.dynamicTextSecondary(context)),
                   ),
                 ],
               ),
@@ -81,18 +82,18 @@ class ArchiveScreen extends StatelessWidget {
               if (entries.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(32),
-                  decoration: GlassDecorations.glassCard(borderRadius: 22),
+                  decoration: GlassDecorations.glassCard(context: context, borderRadius: 22),
                   alignment: Alignment.center,
-                  child: const Text('No records archived yet.', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                  child: Text('No records archived yet.', style: TextStyle(color: AppColors.dynamicTextMuted(context), fontSize: 13)),
                 )
               else
                 for (final year in sortedYears) ...[
                   Text(
                     year,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.textMuted,
+                      color: AppColors.dynamicTextMuted(context),
                       letterSpacing: 1.5,
                     ),
                   ),
@@ -115,42 +116,49 @@ class ArchiveScreen extends StatelessWidget {
     String monthKey,
     Map<int, List<Entry>> weeksMap,
   ) {
+    final isLight = AppColors.isLight(context);
     final monthDt = DateTime.tryParse('$monthKey-01') ?? DateTime.now();
     final monthLabel = AppFormatters.formatMonth(monthDt);
     final totalEntries = weeksMap.values.fold<int>(0, (s, l) => s + l.length);
     final sortedWeeks = weeksMap.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return Container(
-      decoration: GlassDecorations.glassCard(borderRadius: 20),
+      decoration: GlassDecorations.glassCard(context: context, borderRadius: 20),
       child: Theme(
         data: ThemeData(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: true,
-          iconColor: AppColors.primaryGlow,
-          collapsedIconColor: AppColors.textMuted,
+          iconColor: isLight ? AppColors.primary : AppColors.primaryGlow,
+          collapsedIconColor: AppColors.dynamicTextMuted(context),
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           leading: Container(
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.15),
+              color: AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.folder_rounded, size: 18, color: AppColors.primaryGlow),
+            child: Icon(Icons.folder_rounded, size: 18, color: isLight ? AppColors.primary : AppColors.primaryGlow),
           ),
           title: Text(
             monthLabel,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.dynamicTextPrimary(context)),
           ),
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppColors.glassSurfaceElevated,
+              color: isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurfaceElevated,
               borderRadius: BorderRadius.circular(8),
+              border: isLight ? Border.all(color: const Color(0xFFCBD5E1)) : null,
             ),
             child: Text(
               '$totalEntries',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGlow, fontFamily: 'monospace'),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                fontFamily: 'monospace',
+              ),
             ),
           ),
           children: [
@@ -168,7 +176,7 @@ class ArchiveScreen extends StatelessWidget {
     int weekNum,
     List<Entry> weekEntries,
   ) {
-    // Group days in this week
+    final isLight = AppColors.isLight(context);
     final Map<String, List<Entry>> daysMap = {};
     for (final e in weekEntries) {
       daysMap.putIfAbsent(e.dayKey, () => []).add(e);
@@ -179,8 +187,9 @@ class ArchiveScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2),
+        color: isLight ? const Color(0xFFF8FAFC) : Colors.black.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(14),
+        border: isLight ? Border.all(color: const Color(0xFFE2E8F0)) : null,
       ),
       child: Theme(
         data: ThemeData(dividerColor: Colors.transparent),
@@ -188,7 +197,7 @@ class ArchiveScreen extends StatelessWidget {
           dense: true,
           title: Text(
             'Week $weekNum · ${AppFormatters.getWeekRangeLabel(sampleDate)}',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.dynamicTextSecondary(context)),
           ),
           children: [
             for (final dayKey in sortedDays) ...[
@@ -197,11 +206,11 @@ class ArchiveScreen extends StatelessWidget {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 title: Text(
                   AppFormatters.formatShortDay(DateTime.tryParse(dayKey) ?? DateTime.now()),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.dynamicTextPrimary(context)),
                 ),
                 trailing: Text(
                   '${daysMap[dayKey]!.length} ${daysMap[dayKey]!.length == 1 ? "entry" : "entries"}',
-                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontFamily: 'monospace'),
+                  style: TextStyle(fontSize: 11, color: AppColors.dynamicTextMuted(context), fontFamily: 'monospace'),
                 ),
                 onTap: () {
                   AppHaptics.light();

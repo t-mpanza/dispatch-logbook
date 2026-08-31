@@ -27,6 +27,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = AppColors.isLight(context);
+
     return Consumer<EntriesViewModel>(
       builder: (context, vm, _) {
         return Scaffold(
@@ -35,7 +37,7 @@ class _SearchScreenState extends State<SearchScreen> {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
             children: [
               // Header
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -43,17 +45,17 @@ class _SearchScreenState extends State<SearchScreen> {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryGlow,
+                      color: isLight ? AppColors.primary : AppColors.primaryGlow,
                       letterSpacing: 2.0,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     'Find Anything',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
-                      color: AppColors.textPrimary,
+                      color: AppColors.dynamicTextPrimary(context),
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -64,19 +66,19 @@ class _SearchScreenState extends State<SearchScreen> {
               // Search Bar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                decoration: GlassDecorations.glassCard(borderRadius: 18),
+                decoration: GlassDecorations.glassCard(context: context, borderRadius: 18),
                 child: Row(
                   children: [
-                    const Icon(Icons.search_rounded, color: AppColors.primaryGlow, size: 20),
+                    Icon(Icons.search_rounded, color: isLight ? AppColors.primary : AppColors.primaryGlow, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
                         controller: _searchController,
                         autofocus: false,
-                        style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                        decoration: const InputDecoration(
+                        style: TextStyle(fontSize: 14, color: AppColors.dynamicTextPrimary(context)),
+                        decoration: InputDecoration(
                           hintText: 'Reg, trip ID, driver, tag, note…',
-                          hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                          hintStyle: TextStyle(color: AppColors.dynamicTextMuted(context), fontSize: 13),
                           border: InputBorder.none,
                         ),
                         onChanged: (val) {
@@ -86,7 +88,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                     if (_query.isNotEmpty)
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
+                        icon: Icon(Icons.close_rounded, size: 16, color: AppColors.dynamicTextMuted(context)),
                         onPressed: () {
                           AppHaptics.light();
                           _searchController.clear();
@@ -108,9 +110,9 @@ class _SearchScreenState extends State<SearchScreen> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'POPULAR TAGS',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 1.0),
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context), letterSpacing: 1.0),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
@@ -126,10 +128,10 @@ class _SearchScreenState extends State<SearchScreen> {
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: GlassDecorations.glassCard(borderRadius: 12),
+                                decoration: GlassDecorations.glassCard(context: context, borderRadius: 12),
                                 child: Text(
                                   '#$tag',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGlow),
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isLight ? AppColors.primary : AppColors.primaryGlow),
                                 ),
                               ),
                             ),
@@ -151,9 +153,9 @@ class _SearchScreenState extends State<SearchScreen> {
                     return Container(
                       padding: const EdgeInsets.symmetric(vertical: 40),
                       alignment: Alignment.center,
-                      child: const Text(
+                      child: Text(
                         'Type to search across titles, tags, drivers, and notes.',
-                        style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: AppColors.dynamicTextMuted(context)),
                       ),
                     );
                   }
@@ -164,7 +166,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       alignment: Alignment.center,
                       child: Text(
                         'No matches found for "$_query"',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: AppColors.dynamicTextMuted(context)),
                       ),
                     );
                   }
