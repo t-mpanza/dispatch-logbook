@@ -34,7 +34,16 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
   final TextEditingController _driverController = TextEditingController();
 
   bool _isDetailsOpen = false;
+  bool _isSaved = false;
   Entry? _cachedEntry;
+
+  void _triggerSavedIndicator() {
+    if (!mounted) return;
+    setState(() => _isSaved = true);
+    Future.delayed(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _isSaved = false);
+    });
+  }
 
   @override
   void dispose() {
@@ -191,11 +200,34 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                                     final updated = currentEntry.copyWith(title: newTitle.trim());
                                     setState(() => _cachedEntry = updated);
                                     repo.saveEntry(updated);
+                                    _triggerSavedIndicator();
                                   },
                                 ),
-                                Text(
-                                  '${AppFormatters.formatDayLabel(currentEntry.createdAt)} · ${AppFormatters.formatTimeHHmm(currentEntry.createdAt)}',
-                                  style: TextStyle(fontSize: 10, color: AppColors.dynamicTextMuted(context)),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '${AppFormatters.formatDayLabel(currentEntry.createdAt)} · ${AppFormatters.formatTimeHHmm(currentEntry.createdAt)}',
+                                      style: TextStyle(fontSize: 10, color: AppColors.dynamicTextMuted(context)),
+                                    ),
+                                    if (_isSaved) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.success.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.check_rounded, size: 10, color: AppColors.success),
+                                            SizedBox(width: 2),
+                                            Text('Saved', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.success)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ],
                             ),
@@ -223,6 +255,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             final updated = currentEntry.copyWith(tags: newTags);
                             setState(() => _cachedEntry = updated);
                             repo.saveEntry(updated);
+                            _triggerSavedIndicator();
                           },
                         ),
                       ],
@@ -249,6 +282,19 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             final idx = sheetTrips.indexWhere((t) => !t.isManual);
                             if (idx >= 0) {
                               sheetTrips[idx] = sheetTrips[idx].copyWith(targetQuantity: target);
+                            } else {
+                              sheetTrips.add(
+                                LoadingSheetTrip(
+                                  id: IdGenerator.generate(),
+                                  entryId: currentEntry.id,
+                                  reg: _regController.text.trim().toUpperCase(),
+                                  driverName: _driverController.text.trim(),
+                                  tripId: currentEntry.title.isNotEmpty ? currentEntry.title : 'NLS',
+                                  quantityLoaded: grandTotal,
+                                  targetQuantity: target,
+                                  createdAt: DateTime.now().millisecondsSinceEpoch,
+                                ),
+                              );
                             }
                             final updatedEntry = currentEntry.copyWith(
                               expectedTotal: target,
@@ -256,6 +302,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             );
                             setState(() => _cachedEntry = updatedEntry);
                             repo.saveEntry(updatedEntry);
+                            _triggerSavedIndicator();
                           },
                           onUpdateTruckDetails: (reg, driver, target) {
                             if (reg != null && reg.isNotEmpty) _regController.text = reg;
@@ -289,6 +336,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             );
                             setState(() => _cachedEntry = updatedEntry);
                             repo.saveEntry(updatedEntry);
+                            _triggerSavedIndicator();
                           },
                         ),
                         const SizedBox(height: 10),
@@ -302,6 +350,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             );
                             setState(() => _cachedEntry = updatedEntry);
                             repo.saveEntry(updatedEntry);
+                            _triggerSavedIndicator();
                           },
                           onAttachment: (att) {
                             final updatedEntry = currentEntry.copyWith(
@@ -309,6 +358,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             );
                             setState(() => _cachedEntry = updatedEntry);
                             repo.saveEntry(updatedEntry);
+                            _triggerSavedIndicator();
                           },
                         ),
                       ],
@@ -338,12 +388,14 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                           final updatedEntry = currentEntry.copyWith(notes: updated);
                           setState(() => _cachedEntry = updatedEntry);
                           repo.saveEntry(updatedEntry);
+                          _triggerSavedIndicator();
                         },
                         onRemoveAttachment: (aid) {
                           final updated = currentEntry.attachments.where((a) => a.id != aid).toList();
                           final updatedEntry = currentEntry.copyWith(attachments: updated);
                           setState(() => _cachedEntry = updatedEntry);
                           repo.saveEntry(updatedEntry);
+                          _triggerSavedIndicator();
                         },
                         onRemoveTrip: (tid) {
                           final updatedTrips = (currentEntry.trips ?? []).where((t) => t.id != tid).toList();
@@ -354,6 +406,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                           );
                           setState(() => _cachedEntry = updatedEntry);
                           repo.saveEntry(updatedEntry);
+                          _triggerSavedIndicator();
                         },
                         onOpenPhoto: (att) => PhotoLightbox.show(
                           context,
@@ -366,6 +419,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             final updatedEntry = currentEntry.copyWith(attachments: updated);
                             setState(() => _cachedEntry = updatedEntry);
                             repo.saveEntry(updatedEntry);
+                            _triggerSavedIndicator();
                           },
                         ),
                       ),
@@ -388,6 +442,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                       );
                       setState(() => _cachedEntry = updatedEntry);
                       repo.saveEntry(updatedEntry);
+                      _triggerSavedIndicator();
                     },
                     onAttachment: (att) {
                       final updatedEntry = currentEntry.copyWith(
@@ -395,6 +450,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                       );
                       setState(() => _cachedEntry = updatedEntry);
                       repo.saveEntry(updatedEntry);
+                      _triggerSavedIndicator();
                     },
                     onStartVoice: () async {
                       if (_audioService.isRecording) {
@@ -405,6 +461,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                           );
                           setState(() => _cachedEntry = updatedEntry);
                           repo.saveEntry(updatedEntry);
+                          _triggerSavedIndicator();
                         }
                       } else {
                         await _audioService.startRecording();

@@ -85,7 +85,7 @@ class _FloatingNoteBarState extends State<FloatingNoteBar> {
 
           // Gallery Button
           IconButton(
-            icon: const Icon(Icons.photo_library_rounded, color: AppColors.textSecondary, size: 20),
+            icon: Icon(Icons.photo_library_rounded, color: AppColors.dynamicTextSecondary(context), size: 20),
             onPressed: _handleGallery,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -108,10 +108,10 @@ class _FloatingNoteBarState extends State<FloatingNoteBar> {
           Expanded(
             child: TextField(
               controller: _controller,
-              style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+              style: TextStyle(fontSize: 13, color: AppColors.dynamicTextPrimary(context)),
               decoration: InputDecoration(
                 hintText: 'Add note…',
-                hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                hintStyle: TextStyle(color: AppColors.dynamicTextMuted(context), fontSize: 12),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 filled: true,
                 fillColor: Colors.black.withValues(alpha: 0.4),

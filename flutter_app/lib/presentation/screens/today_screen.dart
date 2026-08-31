@@ -23,7 +23,7 @@ class TodayScreen extends StatefulWidget {
 }
 
 class _TodayScreenState extends State<TodayScreen> {
-  String _currentVersion = 'v2.0.0';
+  String _currentVersion = '...';
   bool _isCheckingUpdate = false;
 
   @override
@@ -74,11 +74,12 @@ class _TodayScreenState extends State<TodayScreen> {
         return Consumer<EntryRepository>(
           builder: (ctx, repo, _) {
             final state = repo.syncState;
+            final accentColor = AppColors.isLight(ctx) ? AppColors.primary : AppColors.primaryGlow;
             return Container(
               padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: AppColors.backgroundSecondary,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              decoration: BoxDecoration(
+                color: AppColors.isLight(ctx) ? Colors.white : AppColors.backgroundSecondary,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
               ),
               child: SafeArea(
                 top: false,
@@ -91,27 +92,30 @@ class _TodayScreenState extends State<TodayScreen> {
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: AppColors.isLight(ctx)
+                              ? const Color(0xFFCBD5E1)
+                              : Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'Dispatch Diary System Info',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(ctx)),
                     ),
                     const SizedBox(height: 4),
-                    const Text('Native Flutter Engine · Cloud Diagnostics', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                    Text('Native Flutter Engine · Cloud Diagnostics', style: TextStyle(fontSize: 11, color: AppColors.dynamicTextMuted(ctx))),
                     const SizedBox(height: 16),
-                    _diagRow('Platform', 'Native Flutter (Android / APK)'),
-                    _diagRow('Installed Version', _currentVersion),
+                    _diagRow(ctx, 'Platform', 'Native Flutter (Android / APK)'),
+                    _diagRow(ctx, 'Installed Version', _currentVersion),
                     _diagRow(
+                      ctx,
                       'Cloud Sync Status',
                       state.status.name.toUpperCase(),
-                      color: state.status.name == 'synced' ? AppColors.success : AppColors.primaryGlow,
+                      color: state.status.name == 'synced' ? AppColors.success : accentColor,
                     ),
-                    _diagRow('Pending Changes', '${state.pendingCount}'),
+                    _diagRow(ctx, 'Pending Changes', '${state.pendingCount}'),
                     const SizedBox(height: 18),
 
                     // Check for updates button
@@ -124,11 +128,11 @@ class _TodayScreenState extends State<TodayScreen> {
                           _checkForUpdates();
                         },
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.primaryGlow),
+                          side: BorderSide(color: accentColor),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        icon: const Icon(Icons.system_update_rounded, size: 18, color: AppColors.primaryGlow),
-                        label: const Text('Check for Updates & Release Candidates', style: TextStyle(color: AppColors.primaryGlow, fontWeight: FontWeight.bold, fontSize: 12)),
+                        icon: Icon(Icons.system_update_rounded, size: 18, color: accentColor),
+                        label: Text('Check for Updates & Release Candidates', style: TextStyle(color: accentColor, fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -160,19 +164,19 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  Widget _diagRow(String label, String value, {Color? color}) {
+  Widget _diagRow(BuildContext context, String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          Text(label, style: TextStyle(fontSize: 12, color: AppColors.dynamicTextMuted(context))),
           Text(
             value,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: color ?? AppColors.textPrimary,
+              color: color ?? AppColors.dynamicTextPrimary(context),
               fontFamily: 'monospace',
             ),
           ),
@@ -180,6 +184,7 @@ class _TodayScreenState extends State<TodayScreen> {
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +212,7 @@ class _TodayScreenState extends State<TodayScreen> {
       ),
       body: RefreshIndicator(
         color: AppColors.primaryGlow,
-        backgroundColor: AppColors.backgroundSecondary,
+        backgroundColor: AppColors.isLight(context) ? Colors.white : AppColors.backgroundSecondary,
         onRefresh: () async {
           AppHaptics.light();
           try {
@@ -239,12 +244,12 @@ class _TodayScreenState extends State<TodayScreen> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'TODAY',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
-                                    color: AppColors.primaryGlow,
+                                    color: AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow,
                                     letterSpacing: 2.0,
                                   ),
                                 ),
@@ -340,11 +345,13 @@ class _TodayScreenState extends State<TodayScreen> {
                                 const SizedBox(height: 6),
                                 GestureDetector(
                                   onTap: () => _showDiagnosticsModal(context),
+                                  onLongPress: () => _checkForUpdates(),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: AppColors.isLight(context) ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05),
                                       borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: AppColors.dynamicBorder(context)),
                                     ),
                                     child: Row(
                                       children: [
@@ -356,7 +363,7 @@ class _TodayScreenState extends State<TodayScreen> {
                                         const SizedBox(width: 4),
                                         Text(
                                           _currentVersion,
-                                          style: TextStyle(fontSize: 9, color: AppColors.dynamicTextMuted(context), fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                                          style: TextStyle(fontSize: 10, color: AppColors.dynamicTextMuted(context), fontFamily: 'monospace', fontWeight: FontWeight.bold),
                                         ),
                                       ],
                                     ),

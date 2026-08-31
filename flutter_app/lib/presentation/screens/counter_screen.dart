@@ -141,6 +141,10 @@ class CounterScreen extends StatelessWidget {
       tripCount = legacyTrips.length;
     }
 
+    final hasTarget = entry.expectedTotal != null && entry.expectedTotal! > 0;
+    final pct = hasTarget ? (totalTyres / entry.expectedTotal!).clamp(0.0, 1.0) : 0.0;
+    final isComplete = hasTarget && totalTyres >= entry.expectedTotal!;
+
     return GestureDetector(
       onTap: () {
         AppHaptics.light();
@@ -152,65 +156,95 @@ class CounterScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: GlassDecorations.glassCard(context: context, borderRadius: 20),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isLight ? AppColors.primary.withValues(alpha: 0.3) : AppColors.primaryGlow.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.local_shipping_rounded,
-                  color: isLight ? AppColors.primary : AppColors.primaryGlow,
-                  size: 22,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.dynamicTextPrimary(context),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isLight ? AppColors.primary.withValues(alpha: 0.3) : AppColors.primaryGlow.withValues(alpha: 0.3),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${AppFormatters.formatDayLabel(entry.createdAt)} · ${AppFormatters.formatTimeHHmm(entry.createdAt)}',
-                    style: TextStyle(fontSize: 11, color: AppColors.dynamicTextMuted(context)),
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '$totalTyres',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: isLight ? AppColors.primary : AppColors.primaryGlow,
-                    fontFamily: 'monospace',
+                  child: Center(
+                    child: Icon(
+                      Icons.local_shipping_rounded,
+                      color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                      size: 22,
+                    ),
                   ),
                 ),
-                Text(
-                  '$tripCount ${tripCount == 1 ? "trip" : "trips"}',
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.dynamicTextPrimary(context),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${AppFormatters.formatDayLabel(entry.createdAt)} · ${AppFormatters.formatTimeHHmm(entry.createdAt)}',
+                        style: TextStyle(fontSize: 11, color: AppColors.dynamicTextMuted(context)),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      hasTarget ? '$totalTyres / ${entry.expectedTotal}' : '$totalTyres',
+                      style: TextStyle(
+                        fontSize: hasTarget ? 16 : 22,
+                        fontWeight: FontWeight.w900,
+                        color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    Text(
+                      hasTarget
+                          ? '${(pct * 100).toStringAsFixed(0)}% done'
+                          : '$tripCount ${tripCount == 1 ? "trip" : "trips"}',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: isComplete
+                            ? AppColors.success
+                            : (hasTarget
+                                ? (isLight ? AppColors.primary : AppColors.primaryGlow)
+                                : AppColors.dynamicTextMuted(context)),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
+            if (hasTarget) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 3.5,
+                  backgroundColor: isLight ? const Color(0xFFE2E8F0) : Colors.white.withValues(alpha: 0.06),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isComplete
+                        ? AppColors.success
+                        : (isLight ? AppColors.primary : AppColors.primaryGlow),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

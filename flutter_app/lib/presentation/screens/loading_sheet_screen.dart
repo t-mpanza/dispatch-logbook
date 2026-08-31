@@ -12,6 +12,7 @@ import '../../data/repositories/entry_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../viewmodels/loading_sheet_viewmodel.dart';
 import '../widgets/truck_load_dialog.dart';
+import 'entry_detail_screen.dart';
 import 'pdf_preview_screen.dart';
 
 class LoadingSheetScreen extends StatefulWidget {
@@ -75,11 +76,13 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                   ? (hours > 0 ? '${hours}h ${mins}m (${totalMinutes}m)' : '$totalMinutes mins')
                   : '0 mins';
 
+              final isLight = AppColors.isLight(context);
+
               return Scaffold(
                 backgroundColor: Colors.transparent,
                 body: RefreshIndicator(
-                  color: AppColors.primaryGlow,
-                  backgroundColor: AppColors.backgroundSecondary,
+                  color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                  backgroundColor: isLight ? Colors.white : AppColors.backgroundSecondary,
                   onRefresh: () async {
                     await context.read<EntryRepository>().syncNow();
                   },
@@ -94,13 +97,18 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Row(
+                              Row(
                                 children: [
-                                  Icon(Icons.description_rounded, size: 14, color: AppColors.primaryGlow),
-                                  SizedBox(width: 4),
+                                  Icon(Icons.description_rounded, size: 14, color: isLight ? AppColors.primary : AppColors.primaryGlow),
+                                  const SizedBox(width: 4),
                                   Text(
                                     'DAILY COMPLIANCE',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGlow, letterSpacing: 1.5),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                                      letterSpacing: 1.5,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -122,7 +130,7 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                               decoration: GlassDecorations.glassCard(context: context, borderRadius: 14),
                               child: Row(
                                 children: [
-                                  Icon(Icons.person_rounded, size: 14, color: AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow),
+                                  Icon(Icons.person_rounded, size: 14, color: isLight ? AppColors.primary : AppColors.primaryGlow),
                                   const SizedBox(width: 4),
                                   Text(
                                     despatcherName,
@@ -152,7 +160,7 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                             ),
                             Row(
                               children: [
-                                Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.isLight(context) ? AppColors.primary : AppColors.primaryGlow),
+                                Icon(Icons.calendar_today_rounded, size: 14, color: isLight ? AppColors.primary : AppColors.primaryGlow),
                                 const SizedBox(width: 6),
                                 Text(
                                   vm.selectedDate,
@@ -168,16 +176,16 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(alpha: 0.2),
+                                      color: AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.2),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: const Text('TODAY', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.primaryGlow)),
+                                    child: Text('TODAY', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: isLight ? AppColors.primary : AppColors.primaryGlow)),
                                   ),
                                 ],
                               ],
                             ),
                             IconButton(
-                              icon: const Icon(Icons.chevron_right_rounded, color: AppColors.textPrimary),
+                              icon: Icon(Icons.chevron_right_rounded, color: AppColors.dynamicTextPrimary(context)),
                               onPressed: () {
                                 AppHaptics.light();
                                 vm.shiftDate(1);
@@ -191,29 +199,47 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                       // KPI Banner
                       Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: GlassDecorations.glassElevated(borderRadius: 22),
+                        decoration: isLight
+                            ? BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFEFF6FF), Color(0xFFEEF2FF)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(color: const Color(0xFFBFDBFE)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              )
+                            : GlassDecorations.glassElevated(borderRadius: 22),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
                             _buildKpi(
+                              context: context,
                               icon: Icons.local_shipping_rounded,
                               label: 'TRUCKS',
                               value: '${trips.length}',
-                              valueColor: AppColors.textPrimary,
                             ),
-                            Container(width: 1, height: 36, color: AppColors.glassBorderLight),
+                            Container(width: 1, height: 36, color: AppColors.dynamicBorder(context)),
                             _buildKpi(
+                              context: context,
                               icon: Icons.access_time_rounded,
                               label: 'TOTAL TIME',
                               value: timeFormatted,
-                              valueColor: AppColors.textSecondary,
                             ),
-                            Container(width: 1, height: 36, color: AppColors.glassBorderLight),
+                            Container(width: 1, height: 36, color: AppColors.dynamicBorder(context)),
                             _buildKpi(
+                              context: context,
                               icon: Icons.layers_rounded,
                               label: 'TYRES',
                               value: '$totalTyres',
-                              valueColor: AppColors.primaryGlow,
+                              valueColor: isLight ? AppColors.primary : AppColors.primaryGlow,
                             ),
                           ],
                         ),
@@ -253,12 +279,12 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                                 }
                               },
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppColors.glassBorder),
+                                side: BorderSide(color: AppColors.dynamicBorder(context)),
                                 padding: const EdgeInsets.symmetric(vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
-                              icon: const Icon(Icons.picture_as_pdf_rounded, size: 16, color: AppColors.primaryGlow),
-                              label: const Text('PDF Preview', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              icon: Icon(Icons.picture_as_pdf_rounded, size: 16, color: isLight ? AppColors.primary : AppColors.primaryGlow),
+                              label: Text('PDF Preview', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context))),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -330,18 +356,18 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
 
                       // Truck Load Cards List
                       if (isLoading)
-                        const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.primaryGlow)))
+                        Center(child: Padding(padding: const EdgeInsets.all(32), child: CircularProgressIndicator(color: isLight ? AppColors.primary : AppColors.primaryGlow)))
                       else if (trips.isEmpty)
                         Container(
                           padding: const EdgeInsets.all(32),
                           decoration: GlassDecorations.glassCard(context: context, borderRadius: 22),
                           child: Column(
                             children: [
-                              const Icon(Icons.local_shipping_outlined, size: 40, color: AppColors.textMuted),
+                              Icon(Icons.local_shipping_outlined, size: 40, color: AppColors.dynamicTextMuted(context)),
                               const SizedBox(height: 12),
-                              const Text('No truck loads logged for this date', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              Text('No truck loads logged for this date', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context))),
                               const SizedBox(height: 4),
-                              const Text('Tap "+ Truck" to record a delivery trip.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                              Text('Tap "+ Truck" to record a delivery trip.', style: TextStyle(fontSize: 11, color: AppColors.dynamicTextMuted(context))),
                               const SizedBox(height: 16),
                               ElevatedButton.icon(
                                 onPressed: () {
@@ -392,25 +418,32 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
   }
 
   Widget _buildKpi({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required String value,
-    required Color valueColor,
+    Color? valueColor,
   }) {
+    final isLight = AppColors.isLight(context);
     return Column(
       children: [
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: AppColors.primaryGlow),
+            Icon(icon, size: 12, color: isLight ? AppColors.primary : AppColors.primaryGlow),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 0.8)),
+            Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context), letterSpacing: 0.8)),
           ],
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: valueColor, fontFamily: 'monospace'),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            color: valueColor ?? AppColors.dynamicTextPrimary(context),
+            fontFamily: 'monospace',
+          ),
         ),
       ],
     );
@@ -422,6 +455,7 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
     required LoadingSheetTrip trip,
     required VoidCallback onTap,
   }) {
+    final isLight = AppColors.isLight(context);
     final badgeColor = _getBadgeColor(trip.tripId, trip.presetKey);
     final hasTiming = trip.startTime != null && trip.finishTime != null;
     final timeRange = hasTiming
@@ -443,14 +477,14 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                     Container(
                       width: 24,
                       height: 24,
-                      decoration: const BoxDecoration(
-                        color: AppColors.glassSurfaceElevated,
+                      decoration: BoxDecoration(
+                        color: isLight ? const Color(0xFFE2E8F0) : AppColors.glassSurfaceElevated,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Text(
                           '$index',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context)),
                         ),
                       ),
                     ),
@@ -458,9 +492,9 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: badgeColor.withValues(alpha: 0.15),
+                        color: badgeColor.withValues(alpha: isLight ? 0.12 : 0.15),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
+                        border: Border.all(color: badgeColor.withValues(alpha: isLight ? 0.4 : 0.3)),
                       ),
                       child: Text(
                         trip.tripId.isNotEmpty ? trip.tripId : 'TRIP $index',
@@ -499,34 +533,64 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryGlow.withValues(alpha: 0.15),
+                            color: (isLight ? AppColors.primary : AppColors.primaryGlow).withValues(alpha: isLight ? 0.12 : 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text('${trip.remainingTyres} left', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGlow)),
+                          child: Text(
+                            '${trip.remainingTyres} left',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                            ),
+                          ),
                         ),
                       const SizedBox(width: 6),
                     ],
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
+                        color: AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+                        border: Border.all(color: (isLight ? AppColors.primary : AppColors.primaryGlow).withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         trip.targetQuantity != null && trip.targetQuantity! > 0
                             ? '${trip.quantityLoaded} / ${trip.targetQuantity}'
                             : '${trip.quantityLoaded} tyres',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.primaryGlow,
+                          color: isLight ? AppColors.primary : AppColors.primaryGlow,
                           fontFamily: 'monospace',
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(Icons.edit_outlined, size: 16, color: AppColors.textMuted),
+                    if (trip.entryId != null && !trip.isManual)
+                      GestureDetector(
+                        onTap: () {
+                          AppHaptics.light();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: trip.entryId!)),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: isLight ? 0.1 : 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.open_in_new_rounded,
+                            size: 14,
+                            color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                          ),
+                        ),
+                      )
+                    else
+                      Icon(Icons.edit_outlined, size: 16, color: AppColors.dynamicTextMuted(context)),
                   ],
                 ),
               ],
@@ -538,11 +602,11 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                 child: LinearProgressIndicator(
                   value: trip.progressPercent!,
                   minHeight: 4,
-                  backgroundColor: Colors.white.withValues(alpha: 0.06),
+                  backgroundColor: isLight ? const Color(0xFFE2E8F0) : Colors.white.withValues(alpha: 0.06),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     trip.isTargetReached
                         ? AppColors.success
-                        : (trip.isTargetExceeded ? AppColors.warning : AppColors.primaryGlow),
+                        : (trip.isTargetExceeded ? AppColors.warning : (isLight ? AppColors.primary : AppColors.primaryGlow)),
                   ),
                 ),
               ),
@@ -554,15 +618,16 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.glassSurfaceElevated,
+                      color: isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurfaceElevated,
                       borderRadius: BorderRadius.circular(6),
+                      border: isLight ? Border.all(color: const Color(0xFFCBD5E1)) : null,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.local_shipping_outlined, size: 10, color: AppColors.primaryGlow),
+                        Icon(Icons.local_shipping_outlined, size: 10, color: isLight ? AppColors.primary : AppColors.primaryGlow),
                         const SizedBox(width: 4),
-                        Text(trip.reg, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontFamily: 'monospace')),
+                        Text(trip.reg, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context), fontFamily: 'monospace')),
                       ],
                     ),
                   ),
@@ -572,15 +637,16 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.glassSurfaceElevated,
+                      color: isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurfaceElevated,
                       borderRadius: BorderRadius.circular(6),
+                      border: isLight ? Border.all(color: const Color(0xFFCBD5E1)) : null,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.person_outline, size: 10, color: AppColors.primaryGlow),
+                        Icon(Icons.person_outline, size: 10, color: isLight ? AppColors.primary : AppColors.primaryGlow),
                         const SizedBox(width: 4),
-                        Text(trip.driverName, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        Text(trip.driverName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context))),
                       ],
                     ),
                   ),
@@ -589,17 +655,17 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                 const Spacer(),
                 Text(
                   timeRange,
-                  style: const TextStyle(fontSize: 10, color: AppColors.textMuted, fontFamily: 'monospace'),
+                  style: TextStyle(fontSize: 10, color: AppColors.dynamicTextMuted(context), fontFamily: 'monospace'),
                 ),
                 if (trip.durationMinutes != null && trip.durationMinutes! > 0) ...[
                   const SizedBox(width: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: isLight ? const Color(0xFFE2E8F0) : Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text('${trip.durationMinutes}m', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    child: Text('${trip.durationMinutes}m', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context))),
                   ),
                 ],
               ],
@@ -611,26 +677,27 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
   }
 
   void _showEditDespatcherDialog(BuildContext context, SettingsRepository settings) {
+    final isLight = AppColors.isLight(context);
     final controller = TextEditingController(text: settings.despatcherName);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.backgroundSecondary,
-        title: const Text('Change Despatcher Name', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: isLight ? Colors.white : AppColors.backgroundSecondary,
+        title: Text('Change Despatcher Name', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context))),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.dynamicTextPrimary(context), fontWeight: FontWeight.bold),
           decoration: InputDecoration(
             hintText: 'e.g. Theolus',
-            hintStyle: const TextStyle(color: AppColors.textMuted),
+            hintStyle: TextStyle(color: AppColors.dynamicTextMuted(context)),
             filled: true,
-            fillColor: AppColors.glassSurface,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            fillColor: isLight ? const Color(0xFFF8FAFC) : AppColors.glassSurface,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: isLight ? const BorderSide(color: Color(0xFFCBD5E1)) : BorderSide.none),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: AppColors.dynamicTextMuted(context)))),
           ElevatedButton(
             onPressed: () {
               AppHaptics.light();

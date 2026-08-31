@@ -10,6 +10,8 @@ class ConnectionStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = AppColors.isLight(context);
+
     return Consumer<EntryRepository>(
       builder: (context, repo, _) {
         final state = repo.syncState;
@@ -24,14 +26,14 @@ class ConnectionStatusBanner extends StatelessWidget {
 
         switch (state.status) {
           case SyncStatus.syncing:
-            bgColor = AppColors.primary.withValues(alpha: 0.2);
-            textColor = AppColors.primaryGlow;
+            bgColor = AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.2);
+            textColor = isLight ? AppColors.primary : AppColors.primaryGlow;
             icon = Icons.sync;
             label = 'Syncing with cloud…';
             break;
           case SyncStatus.offline:
-            bgColor = Colors.grey.withValues(alpha: 0.2);
-            textColor = AppColors.textSecondary;
+            bgColor = isLight ? const Color(0xFFF1F5F9) : Colors.grey.withValues(alpha: 0.2);
+            textColor = AppColors.dynamicTextSecondary(context);
             icon = Icons.cloud_off;
             label = 'Offline — saving locally';
             break;
@@ -49,6 +51,7 @@ class ConnectionStatusBanner extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: GlassDecorations.glassCard(
+            context: context,
             color: bgColor,
             borderRadius: 14,
             borderColor: textColor.withValues(alpha: 0.3),

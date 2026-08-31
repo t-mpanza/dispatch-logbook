@@ -52,6 +52,7 @@ class CounterProgress extends StatelessWidget {
     final hasTarget = expectedTotal != null && expectedTotal! > 0;
     final remaining = hasTarget ? expectedTotal! - total : 0;
     final isOver = hasTarget && total > expectedTotal!;
+    final overCount = isOver ? total - expectedTotal! : 0;
     final isComplete = hasTarget && total == expectedTotal!;
     final pct = hasTarget && expectedTotal! > 0 ? (total / expectedTotal!).clamp(0.0, 1.0) : 0.0;
     final pctText = hasTarget ? '${(pct * 100).toStringAsFixed(0)}%' : null;
@@ -163,7 +164,7 @@ class CounterProgress extends StatelessWidget {
                         isComplete
                             ? 'LOAD COMPLETE'
                             : (isOver
-                                ? '+$remaining OVER'
+                                ? '+$overCount OVER'
                                 : (hasTarget ? '$remaining LEFT' : '+ Set Target')),
                         style: TextStyle(
                           fontSize: 10,

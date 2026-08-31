@@ -36,8 +36,8 @@ class AppShell extends StatelessWidget {
                   radius: 1.2,
                   colors: isLight
                       ? const [
-                          Color(0xFFE2E8F0), // light slate glow
-                          Color(0xFFF1F5F9), // slate 100
+                          Color(0xFFFFFFFF), // pure white center
+                          Color(0xFFEFF6FF), // blue-50 soft glow edge
                         ]
                       : const [
                           Color(0x1A2563EB), // 10% cobalt glow

@@ -43,9 +43,20 @@ class LoadingSheetViewModel extends ChangeNotifier {
     final List<LoadingSheetTrip> result = [];
     for (final e in dayEntries) {
       if (e.loadingSheetTrips != null && e.loadingSheetTrips!.isNotEmpty) {
-        result.addAll(e.loadingSheetTrips!);
+        // Sync entry.expectedTotal → targetQuantity for all entry-linked non-manual trips.
+        // The entry is the single source of truth for the target; the sheet just reflects it.
+        final trips = e.loadingSheetTrips!.map((t) {
+          if (!t.isManual &&
+              e.expectedTotal != null &&
+              e.expectedTotal! > 0 &&
+              t.targetQuantity != e.expectedTotal) {
+            return t.copyWith(targetQuantity: e.expectedTotal);
+          }
+          return t;
+        }).toList();
+        result.addAll(trips);
       } else if (e.trips != null && e.trips!.isNotEmpty) {
-        // Synthesize loading sheet trip from counter trips
+        // Synthesize loading sheet trip from counter trips, carrying expectedTotal as target.
         final totalQty = e.trips!.fold<int>(0, (s, t) => s + t.count + (t.rejected ?? 0));
         final sorted = [...e.trips!]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
         final start = sorted.first.createdAt;
@@ -57,8 +68,9 @@ class LoadingSheetViewModel extends ChangeNotifier {
           entryId: e.id,
           reg: '',
           driverName: '',
-          tripId: e.title,
+          tripId: e.title.isNotEmpty ? e.title : 'Truck Load',
           quantityLoaded: totalQty,
+          targetQuantity: e.expectedTotal, // ← entry target → sheet target
           startTime: start,
           finishTime: finish,
           durationMinutes: dur > 0 ? dur : 1,
