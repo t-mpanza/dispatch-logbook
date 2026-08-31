@@ -350,6 +350,12 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                           context,
                           att,
                           allAttachments: currentEntry.attachments,
+                          onUpdateAttachment: (updatedAtt) {
+                            final updated = currentEntry.attachments
+                                .map((a) => a.id == updatedAtt.id ? updatedAtt : a)
+                                .toList();
+                            repo.saveEntry(currentEntry.copyWith(attachments: updated));
+                          },
                         ),
                       ),
                     ],

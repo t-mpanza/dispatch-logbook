@@ -299,14 +299,32 @@ class EventLogView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      att.name ?? 'Photo Attachment',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                    ),
-                    Text(
-                      AppFormatters.formatTimeHHmm(att.createdAt),
-                      style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-                    ),
+                    if (att.caption != null && att.caption!.isNotEmpty) ...[
+                      Text(
+                        att.caption!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${att.name ?? "Photo"} • ${AppFormatters.formatTimeHHmm(att.createdAt)}',
+                        style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                      ),
+                    ] else ...[
+                      Text(
+                        att.name ?? 'Photo Attachment',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      Text(
+                        AppFormatters.formatTimeHHmm(att.createdAt),
+                        style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -444,14 +462,27 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      widget.attachment.name ?? 'Voice Note',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                    ),
-                    Text(
-                      AppFormatters.formatTimeHHmm(widget.attachment.createdAt),
-                      style: const TextStyle(fontSize: 9, color: AppColors.textMuted, fontFamily: 'monospace'),
-                    ),
+                    if (widget.attachment.caption != null && widget.attachment.caption!.isNotEmpty) ...[
+                      Text(
+                        widget.attachment.caption!,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${widget.attachment.name ?? "Voice"} • ${AppFormatters.formatTimeHHmm(widget.attachment.createdAt)}',
+                        style: const TextStyle(fontSize: 9, color: AppColors.textMuted, fontFamily: 'monospace'),
+                      ),
+                    ] else ...[
+                      Text(
+                        widget.attachment.name ?? 'Voice Note',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      Text(
+                        AppFormatters.formatTimeHHmm(widget.attachment.createdAt),
+                        style: const TextStyle(fontSize: 9, color: AppColors.textMuted, fontFamily: 'monospace'),
+                      ),
+                    ],
                   ],
                 ),
               ),

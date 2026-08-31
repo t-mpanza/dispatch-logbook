@@ -15,17 +15,20 @@ import '../../data/services/supabase_service.dart';
 class PhotoLightbox extends StatefulWidget {
   final List<Attachment> attachments;
   final int initialIndex;
+  final Function(Attachment)? onUpdateAttachment;
 
   const PhotoLightbox({
     super.key,
     required this.attachments,
     this.initialIndex = 0,
+    this.onUpdateAttachment,
   });
 
   static void show(
     BuildContext context,
     Attachment attachment, {
     List<Attachment>? allAttachments,
+    Function(Attachment)? onUpdateAttachment,
   }) {
     AppHaptics.light();
     final photoList = allAttachments != null && allAttachments.isNotEmpty
@@ -40,6 +43,7 @@ class PhotoLightbox extends StatefulWidget {
         builder: (_) => PhotoLightbox(
           attachments: photoList.isNotEmpty ? photoList : [attachment],
           initialIndex: idx >= 0 ? idx : 0,
+          onUpdateAttachment: onUpdateAttachment,
         ),
         fullscreenDialog: true,
       ),
@@ -55,21 +59,41 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
   late int _currentIndex;
   final Map<String, Uint8List> _bytesCache = {};
   final Map<String, ImageProvider> _providerCache = {};
+  final Map<String, String> _captionCache = {};
   final Set<String> _loadingIds = {};
 
   int _rotationQuarterTurns = 0;
   bool _isBrightnessBoosted = false;
   bool _showMetadata = false;
 
+  static const List<String> _quickCaptionTags = [
+    'Tyres Loaded',
+    'Damaged Tyres',
+    'Delivery Slip',
+    'Truck Reg',
+    'Seal Tag',
+    'Barcode',
+    'Trailer',
+  ];
+
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex.clamp(0, widget.attachments.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
+    for (final att in widget.attachments) {
+      if (att.caption != null && att.caption!.isNotEmpty) {
+        _captionCache[att.id] = att.caption!;
+      }
+    }
     _loadImageForIndex(_currentIndex);
   }
 
-  Attachment get _currentAttachment => widget.attachments[_currentIndex];
+  Attachment get _currentAttachment {
+    final att = widget.attachments[_currentIndex];
+    final cap = _captionCache[att.id];
+    return att.copyWith(caption: cap);
+  }
 
   Future<void> _loadImageForIndex(int idx) async {
     if (idx < 0 || idx >= widget.attachments.length) return;
@@ -191,17 +215,196 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
     return null;
   }
 
+  void _showEditCaptionSheet() {
+    AppHaptics.light();
+    final att = _currentAttachment;
+    final ctrl = TextEditingController(text: _captionCache[att.id] ?? att.caption ?? '');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.backgroundSecondary,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.subtitles_rounded, color: AppColors.primaryGlow, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Edit Photo Caption',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Caption Input
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.glassBorder),
+                  ),
+                  child: TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    maxLines: 3,
+                    minLines: 1,
+                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. Broken rim on trailer 2, tyre barcode #4912',
+                      hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Quick Tag Chips
+                const Text(
+                  'QUICK TAGS:',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textMuted,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _quickCaptionTags.map((tag) {
+                    return GestureDetector(
+                      onTap: () {
+                        AppHaptics.light();
+                        if (ctrl.text.isEmpty) {
+                          ctrl.text = tag;
+                        } else {
+                          ctrl.text = '${ctrl.text} • $tag';
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppColors.glassSurfaceElevated,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.glassBorder),
+                        ),
+                        child: Text(
+                          tag,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryGlow,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    if (ctrl.text.isNotEmpty)
+                      TextButton(
+                        onPressed: () {
+                          AppHaptics.light();
+                          ctrl.clear();
+                        },
+                        child: const Text('Clear', style: TextStyle(color: AppColors.error)),
+                      ),
+                    const Spacer(),
+                    ElevatedButton(
+                      onPressed: () {
+                        AppHaptics.success();
+                        final newCap = ctrl.text.trim();
+                        setState(() {
+                          if (newCap.isEmpty) {
+                            _captionCache.remove(att.id);
+                          } else {
+                            _captionCache[att.id] = newCap;
+                          }
+                        });
+
+                        final updated = att.copyWith(caption: newCap.isNotEmpty ? newCap : null);
+                        if (widget.onUpdateAttachment != null) {
+                          widget.onUpdateAttachment!(updated);
+                        }
+
+                        Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Save Caption', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _handleSharePhoto() async {
     AppHaptics.light();
     final att = _currentAttachment;
     final bytes = _bytesCache[att.id] ?? att.bytes;
+    final captionText = _captionCache[att.id] ?? att.caption ?? att.name ?? 'Inspection photo';
 
     try {
       if (att.localFilePath != null && File(att.localFilePath!).existsSync()) {
         await SharePlus.instance.share(
           ShareParams(
             files: [XFile(att.localFilePath!)],
-            text: 'Photo logged: ${att.name ?? "Inspection photo"}',
+            text: captionText,
           ),
         );
         return;
@@ -214,7 +417,7 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
         await SharePlus.instance.share(
           ShareParams(
             files: [XFile(shareFile.path)],
-            text: 'Photo logged: ${att.name ?? "Inspection photo"}',
+            text: captionText,
           ),
         );
         return;
@@ -223,7 +426,7 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
       final url = _resolveImageUrl(att);
       if (url != null) {
         await SharePlus.instance.share(
-          ShareParams(text: url, subject: att.name ?? 'Inspection photo'),
+          ShareParams(text: '$captionText\n$url', subject: att.name ?? 'Inspection photo'),
         );
       }
     } catch (e) {
@@ -259,6 +462,7 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
   Widget build(BuildContext context) {
     final att = _currentAttachment;
     final totalPhotos = widget.attachments.length;
+    final currentCaption = _captionCache[att.id] ?? att.caption;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -397,9 +601,69 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
             ),
           ),
 
+          // Caption Bar (Positioned above bottom toolbar)
+          Positioned(
+            bottom: 88,
+            left: 20,
+            right: 20,
+            child: SafeArea(
+              child: GestureDetector(
+                onTap: _showEditCaptionSheet,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xDD13151F),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: currentCaption != null && currentCaption.isNotEmpty
+                          ? AppColors.primaryGlow.withValues(alpha: 0.4)
+                          : Colors.white.withValues(alpha: 0.15),
+                    ),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        currentCaption != null && currentCaption.isNotEmpty
+                            ? Icons.chat_bubble_outline_rounded
+                            : Icons.add_comment_outlined,
+                        size: 16,
+                        color: currentCaption != null && currentCaption.isNotEmpty
+                            ? AppColors.primaryGlow
+                            : Colors.white70,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          currentCaption != null && currentCaption.isNotEmpty
+                              ? currentCaption
+                              : 'Tap to add a caption (e.g. barcode, damage, tyre serial)...',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: currentCaption != null && currentCaption.isNotEmpty
+                                ? Colors.white
+                                : Colors.white60,
+                            fontStyle: currentCaption == null ? FontStyle.italic : FontStyle.normal,
+                            fontWeight: currentCaption != null ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.edit_rounded, size: 14, color: AppColors.primaryGlow),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // Bottom Premium Media Controls Toolbar
           Positioned(
-            bottom: 24,
+            bottom: 20,
             left: 20,
             right: 20,
             child: SafeArea(
@@ -416,6 +680,14 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
+                    // Caption Edit Button
+                    _buildMediaActionButton(
+                      icon: Icons.subtitles_rounded,
+                      label: 'Caption',
+                      isActive: currentCaption != null && currentCaption.isNotEmpty,
+                      onTap: _showEditCaptionSheet,
+                    ),
+
                     // Rotate 90°
                     _buildMediaActionButton(
                       icon: Icons.rotate_90_degrees_cw_rounded,
@@ -432,20 +704,6 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                       activeColor: Colors.amber,
                       onTap: _toggleBrightness,
                     ),
-
-                    // Reset Transformations
-                    if (_rotationQuarterTurns != 0 || _isBrightnessBoosted)
-                      _buildMediaActionButton(
-                        icon: Icons.restore_rounded,
-                        label: 'Reset',
-                        onTap: () {
-                          AppHaptics.light();
-                          setState(() {
-                            _rotationQuarterTurns = 0;
-                            _isBrightnessBoosted = false;
-                          });
-                        },
-                      ),
 
                     // Share
                     _buildMediaActionButton(
@@ -493,6 +751,8 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                     ),
                     const SizedBox(height: 8),
                     _buildMetaRow('File Name', att.name ?? 'Unnamed'),
+                    if (currentCaption != null && currentCaption.isNotEmpty)
+                      _buildMetaRow('Caption', currentCaption),
                     _buildMetaRow('Logged At', DateTime.fromMillisecondsSinceEpoch(att.createdAt).toLocal().toString()),
                     _buildMetaRow('Local Cache', att.localFilePath != null ? 'Permanent on device' : 'In-memory / Cloud'),
                     _buildMetaRow('MIME Type', att.mime),

@@ -36,17 +36,29 @@ class _FloatingNoteBarState extends State<FloatingNoteBar> {
 
   Future<void> _handleCamera() async {
     AppHaptics.light();
+    final typedCaption = _controller.text.trim();
     final att = await CameraService.capturePhoto();
     if (att != null) {
-      widget.onAttachment(att);
+      final finalAtt = typedCaption.isNotEmpty ? att.copyWith(caption: typedCaption) : att;
+      widget.onAttachment(finalAtt);
+      if (typedCaption.isNotEmpty) {
+        _controller.clear();
+        setState(() => _hasText = false);
+      }
     }
   }
 
   Future<void> _handleGallery() async {
     AppHaptics.light();
+    final typedCaption = _controller.text.trim();
     final att = await CameraService.pickImageFromGallery();
     if (att != null) {
-      widget.onAttachment(att);
+      final finalAtt = typedCaption.isNotEmpty ? att.copyWith(caption: typedCaption) : att;
+      widget.onAttachment(finalAtt);
+      if (typedCaption.isNotEmpty) {
+        _controller.clear();
+        setState(() => _hasText = false);
+      }
     }
   }
 
