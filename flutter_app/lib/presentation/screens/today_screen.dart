@@ -22,7 +22,7 @@ class TodayScreen extends StatefulWidget {
 }
 
 class _TodayScreenState extends State<TodayScreen> {
-  String _currentVersion = 'v1.0.0';
+  String _currentVersion = 'v2.0.0';
   bool _isCheckingUpdate = false;
 
   @override

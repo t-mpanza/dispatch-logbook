@@ -62,7 +62,7 @@ jobs:
           elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG="${{ github.ref_name }}"
           else
-            TAG="v1.0.${{ github.run_number }}"
+            TAG="v2.0.${{ github.run_number }}"
           fi
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
           echo "APK_NAME=dispatch-diary-${TAG}.apk" >> $GITHUB_OUTPUT
