@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
@@ -26,221 +27,22 @@ class CounterProgress extends StatelessWidget {
   });
 
   void _showEditDetailsDialog(BuildContext context) {
-    final regCtrl = TextEditingController(text: truckReg ?? '');
-    final driverCtrl = TextEditingController(text: driverName ?? '');
-    final targetCtrl = TextEditingController(
-      text: expectedTotal != null ? '$expectedTotal' : '',
-    );
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
-          decoration: const BoxDecoration(
-            color: AppColors.backgroundSecondary,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Truck & Target Settings',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInput(
-                        label: 'REG PLATE',
-                        controller: regCtrl,
-                        hint: 'e.g. MN27PT',
-                        isMonospace: true,
-                        isCaps: true,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildInput(
-                        label: 'DRIVER NAME',
-                        controller: driverCtrl,
-                        hint: 'e.g. Stephen',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildInput(
-                  label: 'TARGET TYRES (EXPECTED LOAD)',
-                  controller: targetCtrl,
-                  hint: 'e.g. 285',
-                  isNumber: true,
-                  isMonospace: true,
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'QUICK PRESETS:',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textMuted,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [50, 100, 120, 150, 180, 200, 250, 285].map((qty) {
-                    return GestureDetector(
-                      onTap: () {
-                        AppHaptics.light();
-                        targetCtrl.text = '$qty';
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: AppColors.glassSurfaceElevated,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.glassBorder),
-                        ),
-                        child: Text(
-                          '$qty',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryGlow,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    if (expectedTotal != null)
-                      TextButton(
-                        onPressed: () {
-                          AppHaptics.light();
-                          targetCtrl.clear();
-                        },
-                        child: const Text('Clear Target', style: TextStyle(color: AppColors.error, fontSize: 12)),
-                      ),
-                    const Spacer(),
-                    ElevatedButton(
-                      onPressed: () {
-                        AppHaptics.success();
-                        final reg = regCtrl.text.trim().toUpperCase();
-                        final driver = driverCtrl.text.trim();
-                        final target = int.tryParse(targetCtrl.text.trim());
-
-                        if (onUpdateTruckDetails != null) {
-                          onUpdateTruckDetails!(reg, driver, target);
-                        } else {
-                          onSetExpected(target);
-                        }
-                        Navigator.pop(ctx);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text('Save Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildInput({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-    bool isMonospace = false,
-    bool isCaps = false,
-    bool isNumber = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textMuted,
-            letterSpacing: 0.8,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          height: 42,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.glassBorder),
-          ),
-          child: TextField(
-            controller: controller,
-            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-            textCapitalization: isCaps ? TextCapitalization.characters : TextCapitalization.words,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-              fontFamily: isMonospace ? 'monospace' : null,
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-              border: InputBorder.none,
-            ),
-          ),
-        ),
-      ],
+      builder: (ctx) => _TruckTargetBottomSheet(
+        initialReg: truckReg,
+        initialDriver: driverName,
+        initialTarget: expectedTotal,
+        onSave: (reg, driver, target) {
+          if (onUpdateTruckDetails != null) {
+            onUpdateTruckDetails!(reg, driver, target);
+          } else {
+            onSetExpected(target);
+          }
+        },
+      ),
     );
   }
 
@@ -446,6 +248,430 @@ class CounterProgress extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TruckTargetBottomSheet extends StatefulWidget {
+  final String? initialReg;
+  final String? initialDriver;
+  final int? initialTarget;
+  final Function(String? reg, String? driver, int? target) onSave;
+
+  const _TruckTargetBottomSheet({
+    required this.initialReg,
+    required this.initialDriver,
+    required this.initialTarget,
+    required this.onSave,
+  });
+
+  @override
+  State<_TruckTargetBottomSheet> createState() => _TruckTargetBottomSheetState();
+}
+
+class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
+  late TextEditingController _regCtrl;
+  late TextEditingController _driverCtrl;
+  late TextEditingController _targetCtrl;
+  int _targetValue = 0;
+
+  Timer? _repeatTimer;
+  Timer? _repeatInterval;
+
+  static const List<int> _quickIncrements = [1, 5, 10, 20, 50];
+  static const List<int> _capacityPresets = [50, 100, 120, 150, 180, 200, 250, 285];
+
+  @override
+  void initState() {
+    super.initState();
+    _regCtrl = TextEditingController(text: widget.initialReg ?? '');
+    _driverCtrl = TextEditingController(text: widget.initialDriver ?? '');
+    _targetValue = widget.initialTarget ?? 0;
+    _targetCtrl = TextEditingController(
+      text: _targetValue > 0 ? '$_targetValue' : '',
+    );
+  }
+
+  void _stopRepeat() {
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+    _repeatInterval?.cancel();
+    _repeatInterval = null;
+  }
+
+  void _startRepeat(VoidCallback action) {
+    _stopRepeat();
+    AppHaptics.light();
+    action();
+
+    _repeatTimer = Timer(const Duration(milliseconds: 260), () {
+      _repeatInterval = Timer.periodic(const Duration(milliseconds: 75), (_) {
+        AppHaptics.light();
+        action();
+      });
+    });
+  }
+
+  void _setTarget(int val) {
+    setState(() {
+      _targetValue = val.clamp(0, 9999);
+      _targetCtrl.text = _targetValue > 0 ? '$_targetValue' : '';
+    });
+  }
+
+  void _incrementTarget(int delta) {
+    setState(() {
+      _targetValue = (_targetValue + delta).clamp(0, 9999);
+      _targetCtrl.text = _targetValue > 0 ? '$_targetValue' : '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _stopRepeat();
+    _regCtrl.dispose();
+    _driverCtrl.dispose();
+    _targetCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag Handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Title
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Truck & Target Settings',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Reg & Driver Inputs
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInput(
+                    label: 'REG PLATE',
+                    controller: _regCtrl,
+                    hint: 'e.g. MN27PT',
+                    isMonospace: true,
+                    isCaps: true,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildInput(
+                    label: 'DRIVER NAME',
+                    controller: _driverCtrl,
+                    hint: 'e.g. Stephen',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Target Tyres with Long-Press Stepper
+            const Text(
+              'TARGET TYRES (HOLD TO AUTO-INCREMENT)',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textMuted,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                // Stepper Minus (Hold to repeat)
+                GestureDetector(
+                  onTapDown: (_) => _startRepeat(() => _incrementTarget(-1)),
+                  onTapUp: (_) => _stopRepeat(),
+                  onTapCancel: _stopRepeat,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.glassSurfaceElevated,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.remove_rounded, color: AppColors.textPrimary, size: 20),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Number Input Field
+                Expanded(
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                    child: TextField(
+                      controller: _targetCtrl,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primaryGlow,
+                        fontFamily: 'monospace',
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: '0',
+                        hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 16),
+                        contentPadding: EdgeInsets.zero,
+                        border: InputBorder.none,
+                      ),
+                      onChanged: (val) {
+                        final n = int.tryParse(val) ?? 0;
+                        setState(() => _targetValue = n.clamp(0, 9999));
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Stepper Plus (Hold to repeat)
+                GestureDetector(
+                  onTapDown: (_) => _startRepeat(() => _incrementTarget(1)),
+                  onTapUp: (_) => _stopRepeat(),
+                  onTapCancel: _stopRepeat,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.glassSurfaceElevated,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.add_rounded, color: AppColors.textPrimary, size: 20),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Quick Increments Row (Hold to auto-repeat)
+            const Text(
+              'INCREMENT BY (TAP OR HOLD):',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textMuted,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: _quickIncrements.map((inc) {
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: GestureDetector(
+                      onTapDown: (_) => _startRepeat(() => _incrementTarget(inc)),
+                      onTapUp: (_) => _stopRepeat(),
+                      onTapCancel: _stopRepeat,
+                      child: Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '+$inc',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.primaryGlow,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+
+            // Truck Capacity Presets
+            const Text(
+              'TRUCK CAPACITY PRESETS:',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textMuted,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _capacityPresets.map((qty) {
+                final isSelected = _targetValue == qty;
+                return GestureDetector(
+                  onTap: () {
+                    AppHaptics.light();
+                    _setTarget(qty);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppColors.primary.withValues(alpha: 0.3) : AppColors.glassSurfaceElevated,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected ? AppColors.primaryGlow : AppColors.glassBorder,
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Text(
+                      '$qty',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+
+            // Actions
+            Row(
+              children: [
+                if (_targetValue > 0)
+                  TextButton(
+                    onPressed: () {
+                      AppHaptics.light();
+                      _setTarget(0);
+                    },
+                    child: const Text('Clear Target', style: TextStyle(color: AppColors.error, fontSize: 12)),
+                  ),
+                const Spacer(),
+                ElevatedButton(
+                  onPressed: () {
+                    AppHaptics.success();
+                    final reg = _regCtrl.text.trim().toUpperCase();
+                    final driver = _driverCtrl.text.trim();
+                    final target = _targetValue > 0 ? _targetValue : null;
+                    widget.onSave(reg, driver, target);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Save Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInput({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    bool isMonospace = false,
+    bool isCaps = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textMuted,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.glassBorder),
+          ),
+          child: TextField(
+            controller: controller,
+            textCapitalization: isCaps ? TextCapitalization.characters : TextCapitalization.words,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+              fontFamily: isMonospace ? 'monospace' : null,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+              border: InputBorder.none,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

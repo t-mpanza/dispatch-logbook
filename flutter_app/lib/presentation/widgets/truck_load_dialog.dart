@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
@@ -57,6 +58,12 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
   late TextEditingController _finishController;
   late TextEditingController _targetController;
   int _quantityLoaded = 0;
+  int _targetQuantity = 0;
+
+  Timer? _repeatTimer;
+  Timer? _repeatInterval;
+
+  static const List<int> _quickIncrements = [1, 5, 10, 20, 50];
 
   @override
   void initState() {
@@ -71,8 +78,9 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       _driverController = TextEditingController(text: t.driverName);
       _startController = TextEditingController(text: AppFormatters.formatTimeHHmm(t.startTime));
       _finishController = TextEditingController(text: AppFormatters.formatTimeHHmm(t.finishTime));
+      _targetQuantity = t.targetQuantity ?? 0;
       _targetController = TextEditingController(
-          text: t.targetQuantity != null && t.targetQuantity! > 0 ? '${t.targetQuantity}' : '');
+          text: _targetQuantity > 0 ? '$_targetQuantity' : '');
       _quantityLoaded = t.quantityLoaded;
     } else {
       _selectedPreset = PresetKey.STOCKS;
@@ -85,9 +93,43 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       _driverController = TextEditingController(text: fill.driverName ?? '');
       _startController = TextEditingController();
       _finishController = TextEditingController();
+      _targetQuantity = 0;
       _targetController = TextEditingController();
       _quantityLoaded = 0;
     }
+  }
+
+  void _stopRepeat() {
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+    _repeatInterval?.cancel();
+    _repeatInterval = null;
+  }
+
+  void _startRepeat(VoidCallback action) {
+    _stopRepeat();
+    AppHaptics.light();
+    action();
+
+    _repeatTimer = Timer(const Duration(milliseconds: 260), () {
+      _repeatInterval = Timer.periodic(const Duration(milliseconds: 75), (_) {
+        AppHaptics.light();
+        action();
+      });
+    });
+  }
+
+  void _incrementLoaded(int delta) {
+    setState(() {
+      _quantityLoaded = (_quantityLoaded + delta).clamp(0, 9999);
+    });
+  }
+
+  void _incrementTarget(int delta) {
+    setState(() {
+      _targetQuantity = (_targetQuantity + delta).clamp(0, 9999);
+      _targetController.text = _targetQuantity > 0 ? '$_targetQuantity' : '';
+    });
   }
 
   void _onPresetChanged(PresetKey key) {
@@ -119,7 +161,7 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       duration = diff > 0 ? (diff / (1000 * 60)).round() : 1;
     }
 
-    final targetQty = int.tryParse(_targetController.text.trim());
+    final targetQty = _targetQuantity > 0 ? _targetQuantity : int.tryParse(_targetController.text.trim());
 
     final trip = LoadingSheetTrip(
       id: widget.existingTrip?.id ?? IdGenerator.generate(),
@@ -145,6 +187,7 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
 
   @override
   void dispose() {
+    _stopRepeat();
     _tripIdController.dispose();
     _regController.dispose();
     _driverController.dispose();
@@ -178,7 +221,7 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existingTrip != null;
-    final target = int.tryParse(_targetController.text.trim()) ?? 0;
+    final target = _targetQuantity > 0 ? _targetQuantity : (int.tryParse(_targetController.text.trim()) ?? 0);
     final remaining = target > 0 ? target - _quantityLoaded : 0;
     final isOver = target > 0 && _quantityLoaded > target;
     final isDone = target > 0 && _quantityLoaded == target;
@@ -315,12 +358,12 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
               controller: _driverController,
               hint: 'e.g. Neil',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-            // Quantities: Target vs Loaded
+            // Quantities: Target vs Loaded Steppers
             Row(
               children: [
-                // Target Qty
+                // Target Qty Stepper
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,22 +380,51 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.glassBorder),
                         ),
-                        child: TextField(
-                          controller: _targetController,
-                          keyboardType: TextInputType.number,
-                          onChanged: (_) => setState(() {}),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'monospace',
-                          ),
-                          decoration: const InputDecoration(
-                            hintText: 'e.g. 180',
-                            hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 11),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                            border: InputBorder.none,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            GestureDetector(
+                              onTapDown: (_) => _startRepeat(() => _incrementTarget(-1)),
+                              onTapUp: (_) => _stopRepeat(),
+                              onTapCancel: _stopRepeat,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Icon(Icons.remove_rounded, size: 18, color: AppColors.textPrimary),
+                              ),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: _targetController,
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                onChanged: (val) {
+                                  final n = int.tryParse(val) ?? 0;
+                                  setState(() => _targetQuantity = n.clamp(0, 9999));
+                                },
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  color: AppColors.primaryGlow,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: 'monospace',
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: '0',
+                                  hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                                  contentPadding: EdgeInsets.zero,
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTapDown: (_) => _startRepeat(() => _incrementTarget(1)),
+                              onTapUp: (_) => _stopRepeat(),
+                              onTapCancel: _stopRepeat,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Icon(Icons.add_rounded, size: 18, color: AppColors.textPrimary),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -380,12 +452,14 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove, size: 16, color: AppColors.textPrimary),
-                              onPressed: () {
-                                AppHaptics.light();
-                                setState(() => _quantityLoaded = (_quantityLoaded - 1).clamp(0, 9999));
-                              },
+                            GestureDetector(
+                              onTapDown: (_) => _startRepeat(() => _incrementLoaded(-1)),
+                              onTapUp: (_) => _stopRepeat(),
+                              onTapCancel: _stopRepeat,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Icon(Icons.remove_rounded, size: 18, color: AppColors.textPrimary),
+                              ),
                             ),
                             Text(
                               '$_quantityLoaded',
@@ -396,12 +470,14 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                                 fontFamily: 'monospace',
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.add, size: 16, color: AppColors.textPrimary),
-                              onPressed: () {
-                                AppHaptics.light();
-                                setState(() => _quantityLoaded += 1);
-                              },
+                            GestureDetector(
+                              onTapDown: (_) => _startRepeat(() => _incrementLoaded(1)),
+                              onTapUp: (_) => _stopRepeat(),
+                              onTapCancel: _stopRepeat,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Icon(Icons.add_rounded, size: 18, color: AppColors.textPrimary),
+                              ),
                             ),
                           ],
                         ),
@@ -411,10 +487,41 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+
+            // Quick Target Increment Chips
+            Row(
+              children: [
+                const Text('Target +: ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+                const SizedBox(width: 4),
+                ..._quickIncrements.map((inc) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: GestureDetector(
+                      onTapDown: (_) => _startRepeat(() => _incrementTarget(inc)),
+                      onTapUp: (_) => _stopRepeat(),
+                      onTapCancel: _stopRepeat,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          '+$inc',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGlow, fontFamily: 'monospace'),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
 
             // Target Progress Pill (if target is entered)
             if (target > 0) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
