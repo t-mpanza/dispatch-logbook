@@ -102,7 +102,29 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // Release Channel Tag
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.primaryGlow.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.hub_outlined, size: 12, color: AppColors.primaryGlow),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Release Channel: ${info.releaseChannel}',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGlow),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
 
             // Version Comparison Box
             Container(

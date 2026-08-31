@@ -13,6 +13,7 @@ class UpdateInfo {
   final String? apkDownloadUrl;
   final String? releaseUrl;
   final String? publishedAt;
+  final String releaseChannel;
 
   UpdateInfo({
     required this.hasUpdate,
@@ -23,37 +24,42 @@ class UpdateInfo {
     this.apkDownloadUrl,
     this.releaseUrl,
     this.publishedAt,
+    this.releaseChannel = 'IBT Edition',
   });
 }
 
 class UpdateService {
   static const String repoOwner = 't-mpanza';
   static const String repoName = 'dispatch-logbook';
-  static const String latestReleaseApiUrl =
-      'https://api.github.com/repos/$repoOwner/$repoName/releases/latest';
+  static const String releasesApiUrl =
+      'https://api.github.com/repos/$repoOwner/$repoName/releases';
   static const String releasesPageUrl =
       'https://github.com/$repoOwner/$repoName/releases';
 
-  /// Get current app version (e.g., '1.0.0' or 'v1.0.0')
+  /// Release channel identifier for this standalone edition
+  static const String releaseChannel = 'IBT Edition';
+
+  /// Get current app version (e.g., 'v2.1.0-rc1')
   static Future<String> getCurrentVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
       return 'v${info.version}';
     } catch (_) {
-      return 'v2.0.0';
+      return 'v2.1.0-rc1';
     }
   }
 
-  /// Check GitHub releases for a newer version
-  static Future<UpdateInfo> checkForUpdates() async {
+  /// Check GitHub releases specifically for newer IBT Edition candidates
+  static Future<UpdateInfo> checkForUpdates({http.Client? client}) async {
     final currentVer = await getCurrentVersion();
+    final httpClient = client ?? http.Client();
 
     try {
-      final response = await http.get(
-        Uri.parse(latestReleaseApiUrl),
+      final response = await httpClient.get(
+        Uri.parse(releasesApiUrl),
         headers: {
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'DispatchDiary-App',
+          'User-Agent': 'DispatchDiary-IBT-Edition',
         },
       ).timeout(const Duration(seconds: 8));
 
@@ -61,25 +67,58 @@ class UpdateService {
         throw Exception('GitHub API returned ${response.statusCode}');
       }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final latestTag = data['tag_name'] as String? ?? '';
-      final title = data['name'] as String? ?? latestTag;
-      final body = data['body'] as String? ?? '';
-      final releaseHtmlUrl = data['html_url'] as String? ?? releasesPageUrl;
-      final publishedAt = data['published_at'] as String?;
+      final releases = jsonDecode(response.body) as List<dynamic>;
 
-      // Find APK asset in release assets
-      String? apkUrl;
-      final assets = data['assets'] as List<dynamic>? ?? [];
-      for (final asset in assets) {
-        final name = (asset['name'] as String? ?? '').toLowerCase();
-        if (name.endsWith('.apk')) {
-          apkUrl = asset['browser_download_url'] as String?;
+      // Filter specifically for releases on the IBT channel
+      Map<String, dynamic>? matchingIbtRelease;
+
+      for (final rel in releases) {
+        final map = rel as Map<String, dynamic>;
+        final tag = (map['tag_name'] as String? ?? '').toLowerCase();
+        final name = (map['name'] as String? ?? '').toLowerCase();
+        final body = (map['body'] as String? ?? '').toLowerCase();
+
+        final isIbtTag = tag.contains('ibt') || name.contains('ibt') || body.contains('ibt');
+        final assets = map['assets'] as List<dynamic>? ?? [];
+        final hasIbtApk = assets.any((a) => (a['name'] as String? ?? '').toLowerCase().contains('ibt'));
+
+        if (isIbtTag || hasIbtApk) {
+          matchingIbtRelease = map;
           break;
         }
       }
 
-      final hasUpdate = _isNewerVersion(currentVer, latestTag);
+      if (matchingIbtRelease == null) {
+        // No separate IBT remote release published yet; app is at latest RC
+        return UpdateInfo(
+          hasUpdate: false,
+          currentVersion: currentVer,
+          latestVersion: currentVer,
+          releaseTitle: 'Dispatch Diary (IBT Edition)',
+          releaseNotes: 'You are on the latest standalone IBT release candidate ($currentVer).',
+          releaseUrl: releasesPageUrl,
+          releaseChannel: releaseChannel,
+        );
+      }
+
+      final latestTag = matchingIbtRelease['tag_name'] as String? ?? '';
+      final title = matchingIbtRelease['name'] as String? ?? latestTag;
+      final body = matchingIbtRelease['body'] as String? ?? '';
+      final releaseHtmlUrl = matchingIbtRelease['html_url'] as String? ?? releasesPageUrl;
+      final publishedAt = matchingIbtRelease['published_at'] as String?;
+
+      // Find APK asset in release assets
+      String? apkUrl;
+      final assets = matchingIbtRelease['assets'] as List<dynamic>? ?? [];
+      for (final asset in assets) {
+        final aName = (asset['name'] as String? ?? '').toLowerCase();
+        if (aName.endsWith('.apk')) {
+          apkUrl = asset['browser_download_url'] as String?;
+          if (aName.contains('ibt')) break;
+        }
+      }
+
+      final hasUpdate = isNewerVersion(currentVer, latestTag);
 
       return UpdateInfo(
         hasUpdate: hasUpdate,
@@ -90,16 +129,20 @@ class UpdateService {
         apkDownloadUrl: apkUrl ?? releaseHtmlUrl,
         releaseUrl: releaseHtmlUrl,
         publishedAt: publishedAt,
+        releaseChannel: releaseChannel,
       );
     } catch (e) {
-      debugPrint('Error checking for updates: $e');
+      debugPrint('Error checking for updates on IBT release channel: $e');
       return UpdateInfo(
         hasUpdate: false,
         currentVersion: currentVer,
         latestVersion: currentVer,
         releaseNotes: 'Could not fetch updates ($e)',
         releaseUrl: releasesPageUrl,
+        releaseChannel: releaseChannel,
       );
+    } finally {
+      if (client == null) httpClient.close();
     }
   }
 
@@ -112,8 +155,8 @@ class UpdateService {
     return false;
   }
 
-  /// Helper to compare semver versions (e.g. 'v2.0.44' vs 'v2.0.0')
-  static bool _isNewerVersion(String current, String latest) {
+  /// Helper to compare semver versions (e.g. 'v2.1.1-rc1' vs 'v2.1.0-rc1')
+  static bool isNewerVersion(String current, String latest) {
     if (latest.isEmpty) return false;
     final cleanCurrent = current.replaceAll(RegExp(r'[^0-9.]'), '');
     final cleanLatest = latest.replaceAll(RegExp(r'[^0-9.]'), '');
