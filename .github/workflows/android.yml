@@ -79,19 +79,13 @@ jobs:
           retention-days: 14
 
       - name: Publish GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${{ steps.vars.outputs.TAG }}"
-          APK="${{ steps.vars.outputs.APK_NAME }}"
-          
-          # Delete tag/release if it already exists to overwrite, or create clean
-          gh release create "$TAG" "$APK" \
-            --title "Dispatch Diary $TAG" \
-            --notes "### Dispatch Diary Release Candidate ($TAG)
-            
-- Native Flutter Android APK
-- Offline-first SQLite persistence & Supabase Realtime synchronization
-- Compliance loading sheets, tyre counter acceleration, PDF & WhatsApp export
-- Download and install the attached \`$APK\` to update your device." \
-            --generate-notes || gh release upload "$TAG" "$APK" --clobber
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: ${{ steps.vars.outputs.TAG }}
+          name: Dispatch Diary ${{ steps.vars.outputs.TAG }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ${{ steps.vars.outputs.APK_NAME }}
