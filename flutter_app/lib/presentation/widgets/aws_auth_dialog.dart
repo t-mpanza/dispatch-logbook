@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/services/appsync_manifest_service.dart';
+import '../screens/aws_login_webview_screen.dart';
 
 class AwsAuthDialog extends StatefulWidget {
   const AwsAuthDialog({super.key});
@@ -48,6 +49,20 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
       setState(() {
         _authInfo = info;
       });
+    }
+  }
+
+  Future<void> _handleWebSignIn() async {
+    AppHaptics.light();
+    final result = await AwsLoginWebViewScreen.push(context);
+    if (result == true) {
+      await _loadAuthStatus();
+      if (mounted) {
+        setState(() {
+          _successMessage = 'Web sign-in successful! AWS credentials stored.';
+          _errorMessage = null;
+        });
+      }
     }
   }
 
@@ -185,8 +200,7 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
   }
 
   Future<void> _openHostedUI() async {
-    const hostedUrl =
-        'https://${AppSyncManifestService.cognitoDomain}/login?client_id=${AppSyncManifestService.clientId}&response_type=token&scope=email+openid+phone+profile&redirect_uri=https://localhost:3000/callback';
+    final hostedUrl = AppSyncManifestService.getHostedUiAuthorizeUrl(tokenFlow: true);
     final uri = Uri.parse(hostedUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -208,7 +222,7 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.88,
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
       padding: EdgeInsets.only(
         top: 16,
@@ -304,8 +318,8 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                         const SizedBox(height: 2),
                         Text(
                           _authInfo.isAuthenticated
-                              ? _authInfo.email ?? _authInfo.username ?? 'Active Session'
-                              : 'Sign in below to fetch live IBT manifests directly from AppSync.',
+                              ? (_authInfo.email ?? _authInfo.username ?? 'Active Session')
+                              : 'Sign in to fetch live IBT manifests directly from AWS AppSync.',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.8),
                             fontSize: 12,
@@ -314,7 +328,7 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                         if (_authInfo.expiresAt != null) ...[
                           const SizedBox(height: 2),
                           Text(
-                            'Expires: ${_authInfo.expiresAt!.toLocal()}',
+                            'Session Expires: ${_authInfo.expiresAt!.toLocal()}',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.5),
                               fontSize: 10,
@@ -334,7 +348,28 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+
+            // PRIMARY ACTION: Web Login (Cognito Hosted UI / Microsoft SSO)
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: _handleWebSignIn,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGlow,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 4,
+                ),
+                icon: const Icon(Icons.open_in_browser_rounded, color: Colors.black, size: 20),
+                label: const Text(
+                  'Sign In with AWS Web Login (SSO)',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
 
             // Alerts
             if (_errorMessage != null)
@@ -383,7 +418,7 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                 ),
               ),
 
-            // Tab bar
+            // Tab bar for Advanced / Alternative Sign-in methods
             Container(
               decoration: BoxDecoration(
                 color: AppColors.glassSurfaceElevated,
@@ -400,16 +435,16 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                 unselectedLabelColor: Colors.white60,
                 labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 tabs: const [
-                  Tab(text: 'Cognito Sign In'),
-                  Tab(text: 'Direct Token / SSO'),
+                  Tab(text: 'Direct Login'),
+                  Tab(text: 'Paste Token / SSO'),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Tab Views
             SizedBox(
-              height: 240,
+              height: 230,
               child: TabBarView(
                 controller: _tabController,
                 children: [
@@ -439,24 +474,23 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       SizedBox(
                         width: double.infinity,
                         height: 44,
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _handleDirectLogin,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryGlow,
-                            foregroundColor: Colors.black,
+                            backgroundColor: AppColors.primary,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           child: _isLoading
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
-                              : const Text('Sign In to AWS AppSync', style: TextStyle(fontWeight: FontWeight.bold)),
+                              : const Text('Direct Sign In', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                         ),
                       ),
                     ],
@@ -479,7 +513,7 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                         hint: 'Paste refresh token for auto-renewal',
                         icon: Icons.refresh_outlined,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
@@ -489,7 +523,7 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                                 side: const BorderSide(color: Colors.white24),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
-                              child: const Text('Open Hosted UI', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                              child: const Text('Open in Browser', style: TextStyle(color: Colors.white70, fontSize: 11)),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -519,7 +553,7 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
 
             if (_authInfo.isAuthenticated) ...[
               const Divider(color: Colors.white10),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               SizedBox(
                 width: double.infinity,
                 child: TextButton.icon(

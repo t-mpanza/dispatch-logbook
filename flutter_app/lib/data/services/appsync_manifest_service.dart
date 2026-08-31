@@ -26,6 +26,7 @@ class AppSyncManifestService {
   static const String cognitoIdpEndpoint =
       'https://cognito-idp.eu-central-1.amazonaws.com';
   static const String clientId = '78ikblrgsr8h27197iovkgrro6';
+  static const String redirectUri = 'myapp://';
 
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
@@ -53,6 +54,101 @@ class AppSyncManifestService {
     40: 'K-Max S',
     52: 'X Multiway 3D',
   };
+
+  /// Build official Cognito Hosted UI Authorize URL for in-app browser
+  static String getHostedUiAuthorizeUrl({bool tokenFlow = true}) {
+    final responseType = tokenFlow ? 'token' : 'code';
+    final encodedRedirect = Uri.encodeComponent(redirectUri);
+    return 'https://$cognitoDomain/oauth2/authorize?client_id=$clientId&response_type=$responseType&scope=email+openid+profile+aws.cognito.signin.user.admin&redirect_uri=$encodedRedirect';
+  }
+
+  /// Intercept and parse redirect URI from OAuth flow (both token and code response types)
+  static Future<bool> handleRedirectUrl(String url, {http.Client? client}) async {
+    try {
+      final uri = Uri.parse(url);
+
+      // Check if redirect matches our scheme or localhost
+      if (uri.scheme == 'myapp' || uri.host == 'localhost' || uri.path.contains('callback')) {
+        // 1. Implicit Token Flow (tokens in URL fragment)
+        if (uri.fragment.isNotEmpty) {
+          final fragParams = Uri.splitQueryString(uri.fragment);
+          final idToken = fragParams['id_token'];
+          final accessToken = fragParams['access_token'];
+          final refreshToken = fragParams['refresh_token'];
+
+          if (idToken != null && idToken.isNotEmpty) {
+            await saveAuthTokens(
+              accessToken: accessToken ?? idToken,
+              idToken: idToken,
+              refreshToken: refreshToken,
+            );
+            return true;
+          }
+        }
+
+        // 2. Authorization Code Flow (code in query parameters)
+        final code = uri.queryParameters['code'];
+        if (code != null && code.isNotEmpty) {
+          return await exchangeCodeForTokens(code, client: client);
+        }
+
+        // 3. Fallback: check query params directly for tokens
+        final idTokenQuery = uri.queryParameters['id_token'];
+        if (idTokenQuery != null && idTokenQuery.isNotEmpty) {
+          final accessTokenQuery = uri.queryParameters['access_token'];
+          await saveAuthTokens(
+            accessToken: accessTokenQuery ?? idTokenQuery,
+            idToken: idTokenQuery,
+          );
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error handling OAuth redirect: $e');
+    }
+    return false;
+  }
+
+  /// Exchange authorization code for ID and access tokens
+  static Future<bool> exchangeCodeForTokens(String code, {http.Client? client}) async {
+    final httpClient = client ?? http.Client();
+    try {
+      final uri = Uri.https(cognitoDomain, '/oauth2/token');
+      final res = await httpClient.post(
+        uri,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {
+          'grant_type': 'authorization_code',
+          'client_id': clientId,
+          'code': code,
+          'redirect_uri': redirectUri,
+        },
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final idToken = data['id_token'] as String?;
+        final accessToken = data['access_token'] as String?;
+        final refreshToken = data['refresh_token'] as String?;
+
+        if (idToken != null && idToken.isNotEmpty) {
+          await saveAuthTokens(
+            accessToken: accessToken ?? idToken,
+            idToken: idToken,
+            refreshToken: refreshToken,
+          );
+          return true;
+        }
+      } else {
+        debugPrint('Token exchange failed (${res.statusCode}): ${res.body}');
+      }
+    } catch (e) {
+      debugPrint('Error exchanging auth code: $e');
+    } finally {
+      if (client == null) httpClient.close();
+    }
+    return false;
+  }
 
   /// Authenticate directly with Cognito using Username / Email & Password
   static Future<AwsUserInfo> loginWithCredentials({
