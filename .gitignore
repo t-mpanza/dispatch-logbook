@@ -46,3 +46,4 @@ flutter_app/*.apk
 flutter_app/android/.gradle/
 flutter_app/android/local.properties
 
+*.apk
