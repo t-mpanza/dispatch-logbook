@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
@@ -7,6 +8,7 @@ import '../../data/models/attachment.dart';
 import '../../data/models/note_block.dart';
 import '../../data/models/trip.dart';
 import '../../data/services/audio_service.dart';
+import '../../data/services/supabase_service.dart';
 
 class EventLogView extends StatelessWidget {
   final List<NoteBlock> notes;
@@ -229,6 +231,59 @@ class EventLogView extends StatelessWidget {
     );
   }
 
+  Widget _buildPhotoThumbnail(Attachment att) {
+    if (att.bytes != null) {
+      return Image.memory(att.bytes!, width: 44, height: 44, fit: BoxFit.cover);
+    }
+    if (att.localFilePath != null) {
+      final file = File(att.localFilePath!);
+      if (file.existsSync()) {
+        return Image.file(file, width: 44, height: 44, fit: BoxFit.cover);
+      }
+    }
+    final url = att.downloadUrl ??
+        (att.storagePath != null
+            ? SupabaseService.client.storage.from('attachments').getPublicUrl(att.storagePath!)
+            : null);
+
+    if (url != null) {
+      return Image.network(
+        url,
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            width: 44,
+            height: 44,
+            color: AppColors.glassSurfaceElevated,
+            child: const Center(
+              child: SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryGlow),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: 44,
+          height: 44,
+          color: AppColors.glassSurfaceElevated,
+          child: const Icon(Icons.broken_image_rounded, size: 20, color: AppColors.textMuted),
+        ),
+      );
+    }
+
+    return Container(
+      width: 44,
+      height: 44,
+      color: AppColors.glassSurfaceElevated,
+      child: const Icon(Icons.image_rounded, color: AppColors.textMuted),
+    );
+  }
+
   Widget _buildAttachmentRow(Attachment att) {
     final isAudio = att.kind == AttachmentKind.audio;
     final isPhoto = att.kind == AttachmentKind.photo || att.kind == AttachmentKind.image;
@@ -275,6 +330,9 @@ class EventLogView extends StatelessWidget {
                   audioService!.playAudio(att.localFilePath!);
                 } else if (att.downloadUrl != null && audioService != null) {
                   audioService!.playAudio(att.downloadUrl!);
+                } else if (att.storagePath != null && audioService != null) {
+                  final pubUrl = SupabaseService.client.storage.from('attachments').getPublicUrl(att.storagePath!);
+                  audioService!.playAudio(pubUrl);
                 }
               },
             ),
@@ -286,14 +344,7 @@ class EventLogView extends StatelessWidget {
               },
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: att.bytes != null
-                    ? Image.memory(att.bytes!, width: 44, height: 44, fit: BoxFit.cover)
-                    : Container(
-                        width: 44,
-                        height: 44,
-                        color: AppColors.glassSurfaceElevated,
-                        child: const Icon(Icons.image, color: AppColors.textMuted),
-                      ),
+                child: _buildPhotoThumbnail(att),
               ),
             ),
             const SizedBox(width: 10),

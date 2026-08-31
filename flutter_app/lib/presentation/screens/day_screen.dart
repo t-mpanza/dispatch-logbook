@@ -5,6 +5,7 @@ import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/models/entry.dart';
+import '../../data/repositories/entry_repository.dart';
 import '../viewmodels/entries_viewmodel.dart';
 import '../widgets/swipeable_entry_card.dart';
 import 'entry_detail_screen.dart';
@@ -73,95 +74,115 @@ class _DayScreenState extends State<DayScreen> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
       ),
-      body: Consumer<EntriesViewModel>(
-        builder: (context, vm, _) {
-          return FutureBuilder<List<Entry>>(
-            future: vm.getEntriesForDay(_currentDayKey),
-            builder: (context, snapshot) {
-              final entries = snapshot.data ?? [];
-              final isLoading = snapshot.connectionState == ConnectionState.waiting;
+      body: RefreshIndicator(
+        color: AppColors.primaryGlow,
+        backgroundColor: AppColors.backgroundSecondary,
+        onRefresh: () async {
+          AppHaptics.light();
+          try {
+            await context.read<EntryRepository>().syncNow().timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => false,
+            );
+          } catch (_) {}
+        },
+        child: Consumer<EntriesViewModel>(
+          builder: (context, vm, _) {
+            return FutureBuilder<List<Entry>>(
+              future: vm.getEntriesForDay(_currentDayKey),
+              builder: (context, snapshot) {
+                final entries = snapshot.data ?? [];
+                final isLoading = snapshot.connectionState == ConnectionState.waiting;
 
-              return Column(
-                children: [
-                  // Date navigation bar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: GlassDecorations.glassCard(borderRadius: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.chevron_left_rounded, color: AppColors.textPrimary),
-                            onPressed: () => _shiftDay(-1),
-                          ),
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.primaryGlow),
-                              const SizedBox(width: 6),
-                              Text(
-                                _currentDayKey,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                  fontFamily: 'monospace',
+                return Column(
+                  children: [
+                    // Date navigation bar
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: GlassDecorations.glassCard(borderRadius: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left_rounded, color: AppColors.textPrimary),
+                              onPressed: () => _shiftDay(-1),
+                            ),
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.primaryGlow),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _currentDayKey,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                    fontFamily: 'monospace',
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.chevron_right_rounded, color: AppColors.textPrimary),
-                            onPressed: () => _shiftDay(1),
-                          ),
-                        ],
+                              ],
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right_rounded, color: AppColors.textPrimary),
+                              onPressed: () => _shiftDay(1),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
 
-                  // List
-                  Expanded(
-                    child: isLoading
-                        ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGlow))
-                        : entries.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'No entries logged for $_currentDayKey',
-                                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    // List
+                    Expanded(
+                      child: isLoading
+                          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGlow))
+                          : entries.isEmpty
+                              ? ListView(
+                                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                                  children: [
+                                    SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                                    Center(
+                                      child: Text(
+                                        'No entries logged for $_currentDayKey',
+                                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : ListView.builder(
+                                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
+                                  itemCount: entries.length,
+                                  itemBuilder: (context, index) {
+                                    final entry = entries[index];
+                                    return SwipeableEntryCard(
+                                      entry: entry,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
+                                        );
+                                      },
+                                      onEdit: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
+                                        );
+                                      },
+                                      onDelete: () async {
+                                        await vm.deleteEntry(entry.id);
+                                      },
+                                    );
+                                  },
                                 ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
-                                itemCount: entries.length,
-                                itemBuilder: (context, index) {
-                                  final entry = entries[index];
-                                  return SwipeableEntryCard(
-                                    entry: entry,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
-                                      );
-                                    },
-                                    onEdit: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
-                                      );
-                                    },
-                                    onDelete: () async {
-                                      await vm.deleteEntry(entry.id);
-                                    },
-                                  );
-                                },
-                              ),
-                  ),
-                ],
-              );
-            },
-          );
-        },
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

@@ -204,21 +204,27 @@ class _TodayScreenState extends State<TodayScreen> {
           child: const Icon(Icons.add_rounded, size: 28, color: Colors.white),
         ),
       ),
-      body: Consumer<EntriesViewModel>(
-        builder: (context, vm, _) {
-          return FutureBuilder<List<Entry>>(
-            future: vm.getEntriesForDay(todayKey),
-            builder: (context, snapshot) {
-              final entries = snapshot.data ?? [];
-              final isLoading = snapshot.connectionState == ConnectionState.waiting;
+      body: RefreshIndicator(
+        color: AppColors.primaryGlow,
+        backgroundColor: AppColors.backgroundSecondary,
+        onRefresh: () async {
+          AppHaptics.light();
+          try {
+            await context.read<EntryRepository>().syncNow().timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => false,
+            );
+          } catch (_) {}
+        },
+        child: Consumer<EntriesViewModel>(
+          builder: (context, vm, _) {
+            return FutureBuilder<List<Entry>>(
+              future: vm.getEntriesForDay(todayKey),
+              builder: (context, snapshot) {
+                final entries = snapshot.data ?? [];
+                final isLoading = snapshot.connectionState == ConnectionState.waiting;
 
-              return RefreshIndicator(
-                color: AppColors.primaryGlow,
-                backgroundColor: AppColors.backgroundSecondary,
-                onRefresh: () async {
-                  await context.read<EntryRepository>().syncNow();
-                },
-                child: CustomScrollView(
+                return CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                   slivers: [
                     // Header
@@ -416,11 +422,11 @@ class _TodayScreenState extends State<TodayScreen> {
                         ),
                       ),
                   ],
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

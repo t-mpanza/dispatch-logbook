@@ -33,6 +33,7 @@ class AppColors {
   static const Color presetNlh = Color(0xFF8B5CF6); // Purple
   static const Color presetStocks = Color(0xFF3B82F6); // Blue
   static const Color presetDbn = Color(0xFF10B981); // Emerald
+  static const Color presetNls = Color(0xFF06B6D4); // Cyan
   static const Color presetPlk = Color(0xFFF97316); // Orange
   static const Color presetBloem = Color(0xFFEC4899); // Pink
   static const Color presetTirepoint = Color(0xFF14B8A6); // Teal

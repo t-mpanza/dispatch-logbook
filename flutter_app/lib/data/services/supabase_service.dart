@@ -242,6 +242,13 @@ class SupabaseService {
         // Map attachments
         final attList = attsByEntryId[id] ?? [];
         final List<Attachment> attachments = attList.map((a) {
+          final sPath = a['storage_path'] as String?;
+          final directUrl = a['download_url'] as String?;
+          final resolvedUrl = directUrl ??
+              (sPath != null
+                  ? client.storage.from('attachments').getPublicUrl(sPath)
+                  : null);
+
           return Attachment(
             id: a['id'] as String,
             kind: AttachmentKind.values.firstWhere(
@@ -254,7 +261,8 @@ class SupabaseService {
             durationMs: (a['duration_ms'] as num?)?.toInt(),
             width: (a['width'] as num?)?.toInt(),
             height: (a['height'] as num?)?.toInt(),
-            storagePath: a['storage_path'] as String?,
+            storagePath: sPath,
+            downloadUrl: resolvedUrl,
             createdAt: (a['created_at'] as num?)?.toInt() ?? 0,
           );
         }).toList();
