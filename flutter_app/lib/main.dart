@@ -81,7 +81,7 @@ class _DispatchDiaryAppState extends State<DispatchDiaryApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Dispatch Diary',
+      title: 'Dispatch Diary (IBT Edition)',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: AppShell(

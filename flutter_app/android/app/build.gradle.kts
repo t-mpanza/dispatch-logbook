@@ -36,7 +36,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.dispatchdiary.dispatch_diary"
+        applicationId = "com.dispatchdiary.ibt_edition"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
