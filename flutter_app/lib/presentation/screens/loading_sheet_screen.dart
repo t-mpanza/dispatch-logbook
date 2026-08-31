@@ -1,3 +1,4 @@
+import '../widgets/ibt_line_items_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -550,6 +551,61 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                 ],
               ],
             ),
+            if (trip.hasIbtDocuments) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.glassSurfaceElevated,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.receipt_long_outlined, size: 13, color: AppColors.primaryGlow),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        trip.ibtDocuments!.map((d) => '${d.documentNo} (${d.loadedTotal}/${d.total})').join(' • '),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        AppHaptics.medium();
+                        IbtLineItemsSheet.show(context, trip: trip);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGlow.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Breakdown',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primaryGlow,
+                              ),
+                            ),
+                            Icon(Icons.chevron_right, size: 12, color: AppColors.primaryGlow),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

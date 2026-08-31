@@ -3,8 +3,10 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
 import '../../core/utils/id_generator.dart';
+import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/preset.dart';
+import '../../data/services/appsync_manifest_service.dart';
 
 class TruckLoadDialog extends StatefulWidget {
   final LoadingSheetTrip? existingTrip;
@@ -55,7 +57,11 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
   late TextEditingController _driverController;
   late TextEditingController _startController;
   late TextEditingController _finishController;
+  final TextEditingController _ibtInputController = TextEditingController();
+
   int _quantityLoaded = 0;
+  List<IbtDocument> _ibtDocuments = [];
+  bool _isFetchingIbt = false;
 
   @override
   void initState() {
@@ -68,9 +74,12 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       _tripIdController = TextEditingController(text: t.tripId);
       _regController = TextEditingController(text: t.reg);
       _driverController = TextEditingController(text: t.driverName);
-      _startController = TextEditingController(text: AppFormatters.formatTimeHHmm(t.startTime));
-      _finishController = TextEditingController(text: AppFormatters.formatTimeHHmm(t.finishTime));
+      _startController =
+          TextEditingController(text: AppFormatters.formatTimeHHmm(t.startTime));
+      _finishController =
+          TextEditingController(text: AppFormatters.formatTimeHHmm(t.finishTime));
       _quantityLoaded = t.quantityLoaded;
+      _ibtDocuments = List.from(t.ibtDocuments ?? []);
     } else {
       _selectedPreset = PresetKey.STOCKS;
       final fill = PresetEngine.getPresetFill(
@@ -83,6 +92,7 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       _startController = TextEditingController();
       _finishController = TextEditingController();
       _quantityLoaded = 0;
+      _ibtDocuments = [];
     }
   }
 
@@ -100,20 +110,85 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
     });
   }
 
+  Future<void> _onFetchIbt() async {
+    final text = _ibtInputController.text.trim();
+    if (text.isEmpty) return;
+
+    AppHaptics.light();
+    setState(() {
+      _isFetchingIbt = true;
+    });
+
+    try {
+      final doc = await AppSyncManifestService.fetchIbtDocument(text);
+      AppHaptics.medium();
+
+      setState(() {
+        final existingIdx = _ibtDocuments.indexWhere(
+          (d) => d.documentNo.toUpperCase() == doc.documentNo.toUpperCase(),
+        );
+
+        if (existingIdx >= 0) {
+          _ibtDocuments[existingIdx] = doc;
+        } else {
+          _ibtDocuments.add(doc);
+        }
+
+        // Auto-fill / update loaded & target tyre counts
+        final totalIbtTyres =
+            _ibtDocuments.fold<int>(0, (s, d) => s + d.total);
+        if (_quantityLoaded == 0 || _quantityLoaded < totalIbtTyres) {
+          _quantityLoaded = totalIbtTyres;
+        }
+
+        _ibtInputController.clear();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to fetch IBT: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFetchingIbt = false;
+        });
+      }
+    }
+  }
+
+  void _onRemoveIbt(String documentNo) {
+    AppHaptics.light();
+    setState(() {
+      _ibtDocuments.removeWhere(
+        (d) => d.documentNo.toUpperCase() == documentNo.toUpperCase(),
+      );
+    });
+  }
+
   void _handleSave() {
     AppHaptics.success();
     final now = DateTime.now().millisecondsSinceEpoch;
     final baseDateMs = widget.existingTrip?.createdAt ??
         (DateTime.tryParse(widget.dayKey)?.millisecondsSinceEpoch ?? now);
 
-    final startMs = AppFormatters.timeStringToMs(_startController.text, baseDateMs);
-    final finishMs = AppFormatters.timeStringToMs(_finishController.text, baseDateMs);
+    final startMs =
+        AppFormatters.timeStringToMs(_startController.text, baseDateMs);
+    final finishMs =
+        AppFormatters.timeStringToMs(_finishController.text, baseDateMs);
 
     int? duration;
     if (startMs != null && finishMs != null) {
       final diff = finishMs - startMs;
       duration = diff > 0 ? (diff / (1000 * 60)).round() : 1;
     }
+
+    final totalIbtTarget =
+        _ibtDocuments.fold<int>(0, (s, d) => s + d.total);
 
     final trip = LoadingSheetTrip(
       id: widget.existingTrip?.id ?? IdGenerator.generate(),
@@ -128,8 +203,10 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       finishTime: finishMs,
       durationMinutes: duration,
       quantityLoaded: _quantityLoaded,
+      targetQuantity: totalIbtTarget > 0 ? totalIbtTarget : null,
       isManual: widget.existingTrip?.isManual ?? false,
       createdAt: widget.existingTrip?.createdAt ?? startMs ?? now,
+      ibtDocuments: _ibtDocuments.isNotEmpty ? _ibtDocuments : null,
     );
 
     widget.onSave(trip);
@@ -143,6 +220,7 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
     _driverController.dispose();
     _startController.dispose();
     _finishController.dispose();
+    _ibtInputController.dispose();
     super.dispose();
   }
 
@@ -179,169 +257,245 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
             ),
             const SizedBox(height: 14),
 
-            // Header
+            // Header Title
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.local_shipping_rounded, color: AppColors.primaryGlow, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isEdit ? 'Edit Truck Load' : 'Add Truck Load',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                        ),
-                        Text(
-                          widget.dayKey,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontFamily: 'monospace'),
-                        ),
-                      ],
-                    ),
-                  ],
+                Text(
+                  isEdit ? 'Edit Truck Load' : 'Add Truck Load',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
-                  onPressed: () => Navigator.pop(context),
-                ),
+                if (isEdit && widget.onDelete != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent),
+                    onPressed: () {
+                      AppHaptics.heavy();
+                      widget.onDelete!();
+                      Navigator.pop(context);
+                    },
+                  ),
               ],
             ),
             const SizedBox(height: 16),
 
-            // Preset Selector Grid
+            // Presets Selector
             const Text(
-              'PRESET / DESTINATION',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 1.0),
+              'Trip Preset',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final p in PresetEngine.loadingPresets)
-                  GestureDetector(
-                    onTap: () => _onPresetChanged(p.key),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _selectedPreset == p.key
-                            ? AppColors.primary
-                            : AppColors.glassSurfaceElevated,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _selectedPreset == p.key
-                              ? AppColors.primaryGlow
-                              : AppColors.glassBorderLight,
-                        ),
-                      ),
-                      child: Text(
-                        p.label.replaceAll(' [i]', ''),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: _selectedPreset == p.key ? FontWeight.w900 : FontWeight.w600,
-                          color: _selectedPreset == p.key ? Colors.white : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
+              spacing: 8,
+              runSpacing: 8,
+              children: PresetKey.values.map((preset) {
+                final isSelected = _selectedPreset == preset;
+                return ChoiceChip(
+                  label: Text(preset.name),
+                  selected: isSelected,
+                  onSelected: (_) => _onPresetChanged(preset),
+                  selectedColor: AppColors.primaryGlow.withValues(alpha: 0.25),
+                  backgroundColor: AppColors.glassSurfaceElevated,
+                  labelStyle: TextStyle(
+                    color: isSelected ? AppColors.primaryGlow : Colors.white70,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12,
                   ),
-              ],
+                  side: BorderSide(
+                    color: isSelected ? AppColors.primaryGlow : Colors.white10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                );
+              }).toList(),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
-            // Trip ID & Reg
+            // IBT Manifest Document Input Section
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.glassSurfaceElevated,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _ibtDocuments.isNotEmpty
+                      ? AppColors.primaryGlow.withValues(alpha: 0.3)
+                      : Colors.white10,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.receipt_long_outlined,
+                        size: 16,
+                        color: AppColors.primaryGlow,
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'IBT Document Number',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _ibtInputController,
+                          textCapitalization: TextCapitalization.characters,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: 'e.g. IBT119512 or 119512',
+                            hintStyle: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              fontSize: 12,
+                            ),
+                            filled: true,
+                            fillColor: Colors.black26,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onSubmitted: (_) => _onFetchIbt(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: _isFetchingIbt ? null : _onFetchIbt,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryGlow,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: _isFetchingIbt
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black,
+                                ),
+                              )
+                            : const Text(
+                                'Fetch IBT',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+
+                  // Display Attached IBT Chips
+                  if (_ibtDocuments.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _ibtDocuments.map((doc) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGlow.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.primaryGlow.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${doc.documentNo} (${doc.total} tyres • ${doc.lineItems.length} sizes)',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              InkWell(
+                                onTap: () => _onRemoveIbt(doc.documentNo),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Form Fields: Trip ID & Vehicle Reg
             Row(
               children: [
                 Expanded(
                   child: _buildTextField(
-                    label: 'TRIP ID',
+                    label: 'Trip ID',
                     controller: _tripIdController,
-                    hint: 'e.g. STOCKS 1',
+                    hint: 'e.g. DBN or STOCKS 1',
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: _buildTextField(
-                    label: 'REG PLATE',
+                    label: 'Vehicle Reg',
                     controller: _regController,
                     hint: 'e.g. MN05XNGP',
-                    textCapitalization: TextCapitalization.characters,
-                    isMonospace: true,
+                    capitalization: TextCapitalization.characters,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Driver & Quantity
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTextField(
-                    label: 'DRIVER NAME',
-                    controller: _driverController,
-                    hint: 'e.g. Neil',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'TYRES LOADED',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 1.0),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.glassBorder),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove, size: 16, color: AppColors.textPrimary),
-                              onPressed: () {
-                                AppHaptics.light();
-                                setState(() => _quantityLoaded = (_quantityLoaded - 1).clamp(0, 9999));
-                              },
-                            ),
-                            Text(
-                              '$_quantityLoaded',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.primaryGlow,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add, size: 16, color: AppColors.textPrimary),
-                              onPressed: () {
-                                AppHaptics.light();
-                                setState(() => _quantityLoaded += 1);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            // Driver Name
+            _buildTextField(
+              label: 'Driver Name',
+              controller: _driverController,
+              hint: 'e.g. Neil, Sipho',
             ),
             const SizedBox(height: 12),
 
@@ -350,60 +504,138 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
               children: [
                 Expanded(
                   child: _buildTextField(
-                    label: 'START TIME',
+                    label: 'Start Time',
                     controller: _startController,
-                    hint: 'HH:mm (e.g. 08:30)',
-                    isMonospace: true,
+                    hint: 'HH:mm (e.g. 07:30)',
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: _buildTextField(
-                    label: 'FINISH TIME',
+                    label: 'Finish Time',
                     controller: _finishController,
-                    hint: 'HH:mm (e.g. 09:15)',
-                    isMonospace: true,
+                    hint: 'HH:mm (e.g. 08:15)',
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // Action Buttons
-            Row(
-              children: [
-                if (isEdit && widget.onDelete != null) ...[
-                  TextButton.icon(
-                    onPressed: () {
-                      AppHaptics.error();
-                      widget.onDelete!();
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                    label: const Text('Delete', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+            // Quantity Loaded Stepper
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.glassSurfaceElevated,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Total Tyres Loaded',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (_ibtDocuments.isNotEmpty)
+                        Text(
+                          'From ${_ibtDocuments.length} IBT Document(s)',
+                          style: TextStyle(
+                            color: AppColors.primaryGlow.withValues(alpha: 0.8),
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
                   ),
-                  const Spacer(),
-                ] else
-                  const Spacer(),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline,
+                            color: Colors.white70),
+                        onPressed: _quantityLoaded > 0
+                            ? () {
+                                AppHaptics.light();
+                                setState(() => _quantityLoaded--);
+                              }
+                            : null,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '$_quantityLoaded',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline,
+                            color: AppColors.primaryGlow),
+                        onPressed: () {
+                          AppHaptics.light();
+                          setState(() => _quantityLoaded++);
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton(
+                        onPressed: () {
+                          AppHaptics.light();
+                          setState(() => _quantityLoaded += 5);
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6)),
+                        ),
+                        child: const Text(
+                          '+5',
+                          style: TextStyle(
+                              color: Colors.white70, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
 
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _handleSave,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: Text(
-                    isEdit ? 'Save Changes' : 'Add Truck Load',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+            // Save Button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: _handleSave,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGlow,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-              ],
+                child: Text(
+                  isEdit ? 'Update Trip' : 'Add Trip to Loading Sheet',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -415,38 +647,48 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
     required String label,
     required TextEditingController controller,
     required String hint,
-    TextCapitalization textCapitalization = TextCapitalization.none,
-    bool isMonospace = false,
+    TextCapitalization capitalization = TextCapitalization.words,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 1.0),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.glassBorder),
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
-          child: TextField(
-            controller: controller,
-            textCapitalization: textCapitalization,
-            style: TextStyle(
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          textCapitalization: capitalization,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.3),
               fontSize: 13,
-              color: AppColors.textPrimary,
-              fontFamily: isMonospace ? 'monospace' : null,
-              fontWeight: isMonospace ? FontWeight.bold : FontWeight.w500,
             ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              border: InputBorder.none,
+            filled: true,
+            fillColor: AppColors.glassSurfaceElevated,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primaryGlow),
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'preset.dart';
+import 'ibt_manifest.dart';
 
 class LoadingSheetTrip {
   final String id;
@@ -11,10 +12,12 @@ class LoadingSheetTrip {
   final int? finishTime;
   final int? durationMinutes;
   final int quantityLoaded;
+  final int? targetQuantity;
   final int? rejectedCount;
   final String? note;
   final bool isManual;
   final int createdAt;
+  final List<IbtDocument>? ibtDocuments;
 
   const LoadingSheetTrip({
     required this.id,
@@ -27,11 +30,61 @@ class LoadingSheetTrip {
     this.finishTime,
     this.durationMinutes,
     required this.quantityLoaded,
+    this.targetQuantity,
     this.rejectedCount,
     this.note,
     this.isManual = false,
     required this.createdAt,
+    this.ibtDocuments,
   });
+
+  bool get hasIbtDocuments => ibtDocuments != null && ibtDocuments!.isNotEmpty;
+
+  int get ibtTargetTotal =>
+      ibtDocuments?.fold<int>(0, (sum, doc) => sum + doc.total) ?? 0;
+
+  int get ibtLoadedTotal =>
+      ibtDocuments?.fold<int>(0, (sum, doc) => sum + doc.loadedTotal) ?? 0;
+
+  int get remainingTyres {
+    final effectiveTarget = (targetQuantity != null && targetQuantity! > 0)
+        ? targetQuantity!
+        : (hasIbtDocuments ? ibtTargetTotal : 0);
+    if (effectiveTarget <= 0) return 0;
+    final diff = effectiveTarget - quantityLoaded;
+    return diff > 0 ? diff : 0;
+  }
+
+  int get overCount {
+    final effectiveTarget = (targetQuantity != null && targetQuantity! > 0)
+        ? targetQuantity!
+        : (hasIbtDocuments ? ibtTargetTotal : 0);
+    if (effectiveTarget <= 0) return 0;
+    final diff = quantityLoaded - effectiveTarget;
+    return diff > 0 ? diff : 0;
+  }
+
+  double? get progressPercent {
+    final effectiveTarget = (targetQuantity != null && targetQuantity! > 0)
+        ? targetQuantity!
+        : (hasIbtDocuments ? ibtTargetTotal : 0);
+    if (effectiveTarget <= 0) return null;
+    return (quantityLoaded / effectiveTarget).clamp(0.0, 1.0);
+  }
+
+  bool get isTargetReached {
+    final effectiveTarget = (targetQuantity != null && targetQuantity! > 0)
+        ? targetQuantity!
+        : (hasIbtDocuments ? ibtTargetTotal : 0);
+    return effectiveTarget > 0 && quantityLoaded >= effectiveTarget;
+  }
+
+  bool get isTargetExceeded {
+    final effectiveTarget = (targetQuantity != null && targetQuantity! > 0)
+        ? targetQuantity!
+        : (hasIbtDocuments ? ibtTargetTotal : 0);
+    return effectiveTarget > 0 && quantityLoaded > effectiveTarget;
+  }
 
   LoadingSheetTrip copyWith({
     String? id,
@@ -44,10 +97,12 @@ class LoadingSheetTrip {
     int? finishTime,
     int? durationMinutes,
     int? quantityLoaded,
+    int? targetQuantity,
     int? rejectedCount,
     String? note,
     bool? isManual,
     int? createdAt,
+    List<IbtDocument>? ibtDocuments,
   }) {
     return LoadingSheetTrip(
       id: id ?? this.id,
@@ -60,10 +115,12 @@ class LoadingSheetTrip {
       finishTime: finishTime ?? this.finishTime,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       quantityLoaded: quantityLoaded ?? this.quantityLoaded,
+      targetQuantity: targetQuantity ?? this.targetQuantity,
       rejectedCount: rejectedCount ?? this.rejectedCount,
       note: note ?? this.note,
       isManual: isManual ?? this.isManual,
       createdAt: createdAt ?? this.createdAt,
+      ibtDocuments: ibtDocuments ?? this.ibtDocuments,
     );
   }
 
@@ -79,10 +136,12 @@ class LoadingSheetTrip {
       'finishTime': finishTime,
       'durationMinutes': durationMinutes,
       'quantityLoaded': quantityLoaded,
+      'targetQuantity': targetQuantity,
       'rejectedCount': rejectedCount,
       'note': note,
       'isManual': isManual ? 1 : 0,
       'createdAt': createdAt,
+      'ibtDocuments': ibtDocuments?.map((e) => e.toMap()).toList(),
     };
   }
 
@@ -95,21 +154,31 @@ class LoadingSheetTrip {
       );
     }
 
+    List<IbtDocument>? ibts;
+    if (map['ibtDocuments'] != null) {
+      final rawList = map['ibtDocuments'] as List<dynamic>;
+      ibts = rawList
+          .map((e) => IbtDocument.fromMap(e as Map<String, dynamic>))
+          .toList();
+    }
+
     return LoadingSheetTrip(
-      id: map['id'] as String,
-      entryId: map['entryId'] as String?,
-      reg: (map['reg'] as String? ?? '').toUpperCase(),
-      driverName: map['driverName'] as String? ?? '',
-      tripId: map['tripId'] as String? ?? '',
+      id: map['id']?.toString() ?? '',
+      entryId: map['entryId']?.toString(),
+      reg: map['reg']?.toString() ?? '',
+      driverName: map['driverName']?.toString() ?? '',
+      tripId: map['tripId']?.toString() ?? '',
       presetKey: preset,
       startTime: (map['startTime'] as num?)?.toInt(),
       finishTime: (map['finishTime'] as num?)?.toInt(),
       durationMinutes: (map['durationMinutes'] as num?)?.toInt(),
       quantityLoaded: (map['quantityLoaded'] as num?)?.toInt() ?? 0,
+      targetQuantity: (map['targetQuantity'] as num?)?.toInt(),
       rejectedCount: (map['rejectedCount'] as num?)?.toInt(),
-      note: map['note'] as String?,
+      note: map['note']?.toString(),
       isManual: map['isManual'] == 1 || map['isManual'] == true,
-      createdAt: map['createdAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      createdAt: (map['createdAt'] as num?)?.toInt() ?? 0,
+      ibtDocuments: ibts,
     );
   }
 }

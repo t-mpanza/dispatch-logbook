@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/id_generator.dart';
 import '../../data/models/entry.dart';
+import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/repositories/entry_repository.dart';
 
@@ -46,24 +47,30 @@ class LoadingSheetViewModel extends ChangeNotifier {
         result.addAll(e.loadingSheetTrips!);
       } else if (e.trips != null && e.trips!.isNotEmpty) {
         // Synthesize loading sheet trip from counter trips
-        final totalQty = e.trips!.fold<int>(0, (s, t) => s + t.count + (t.rejected ?? 0));
-        final sorted = [...e.trips!]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        final totalQty = e.trips!.fold<int>(
+          0,
+          (int s, t) => s + t.count + (t.rejected ?? 0),
+        );
+        final sorted = [...e.trips!]
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
         final start = sorted.first.createdAt;
         final finish = sorted.last.createdAt;
         final dur = ((finish - start) / (1000 * 60)).round();
 
-        result.add(LoadingSheetTrip(
-          id: e.id,
-          entryId: e.id,
-          reg: '',
-          driverName: '',
-          tripId: e.title,
-          quantityLoaded: totalQty,
-          startTime: start,
-          finishTime: finish,
-          durationMinutes: dur > 0 ? dur : 1,
-          createdAt: start,
-        ));
+        result.add(
+          LoadingSheetTrip(
+            id: e.id,
+            entryId: e.id,
+            reg: '',
+            driverName: '',
+            tripId: e.title,
+            quantityLoaded: totalQty,
+            startTime: start,
+            finishTime: finish,
+            durationMinutes: dur > 0 ? dur : 1,
+            createdAt: start,
+          ),
+        );
       }
     }
 
@@ -105,7 +112,9 @@ class LoadingSheetViewModel extends ChangeNotifier {
     final dayEntries = await getDayEntries();
     for (final e in dayEntries) {
       if (e.loadingSheetTrips != null) {
-        final idx = e.loadingSheetTrips!.indexWhere((t) => t.id == updatedTrip.id);
+        final idx = e.loadingSheetTrips!.indexWhere(
+          (t) => t.id == updatedTrip.id,
+        );
         if (idx >= 0) {
           final list = [...e.loadingSheetTrips!];
           list[idx] = updatedTrip;
@@ -116,11 +125,99 @@ class LoadingSheetViewModel extends ChangeNotifier {
     }
   }
 
+  /// Update quantity loaded on a specific IBT line item and sync overall trip quantity
+  Future<void> updateIbtLineQuantity({
+    required LoadingSheetTrip trip,
+    required String documentNo,
+    required String lineItemId,
+    required int newQuantity,
+  }) async {
+    if (trip.ibtDocuments == null || trip.ibtDocuments!.isEmpty) return;
+
+    final updatedDocs = <IbtDocument>[];
+    int totalLoadedAcrossAllIbts = 0;
+
+    for (final doc in trip.ibtDocuments!) {
+      if (doc.documentNo.toUpperCase() == documentNo.toUpperCase()) {
+        final updatedLines = <IbtLineItem>[];
+        for (final line in doc.lineItems) {
+          if (line.id == lineItemId) {
+            final clamped = newQuantity < 0 ? 0 : newQuantity;
+            updatedLines.add(line.copyWith(loadedQuantity: clamped));
+          } else {
+            updatedLines.add(line);
+          }
+        }
+        final updatedDoc = doc.copyWith(lineItems: updatedLines);
+        updatedDocs.add(updatedDoc);
+        totalLoadedAcrossAllIbts += updatedDoc.loadedTotal;
+      } else {
+        updatedDocs.add(doc);
+        totalLoadedAcrossAllIbts += doc.loadedTotal;
+      }
+    }
+
+    final updatedTrip = trip.copyWith(
+      ibtDocuments: updatedDocs,
+      quantityLoaded: totalLoadedAcrossAllIbts > 0
+          ? totalLoadedAcrossAllIbts
+          : trip.quantityLoaded,
+    );
+
+    await updateTruckLoad(updatedTrip);
+  }
+
+  /// Attach or replace an IBT document on a trip
+  Future<void> attachIbtDocument({
+    required LoadingSheetTrip trip,
+    required IbtDocument ibtDoc,
+  }) async {
+    final currentDocs = <IbtDocument>[...(trip.ibtDocuments ?? [])];
+    final existingIdx = currentDocs.indexWhere(
+      (d) => d.documentNo.toUpperCase() == ibtDoc.documentNo.toUpperCase(),
+    );
+
+    if (existingIdx >= 0) {
+      currentDocs[existingIdx] = ibtDoc;
+    } else {
+      currentDocs.add(ibtDoc);
+    }
+
+    final int totalTarget = currentDocs.fold<int>(0, (int sum, IbtDocument d) => sum + d.total);
+    final int totalLoaded = currentDocs.fold<int>(0, (int sum, IbtDocument d) => sum + d.loadedTotal);
+
+    final updatedTrip = trip.copyWith(
+      ibtDocuments: currentDocs,
+      targetQuantity: totalTarget > 0 ? totalTarget : trip.targetQuantity,
+      quantityLoaded: totalLoaded > 0 ? totalLoaded : trip.quantityLoaded,
+    );
+
+    await updateTruckLoad(updatedTrip);
+  }
+
+  /// Remove an IBT document from a trip
+  Future<void> removeIbtDocument({
+    required LoadingSheetTrip trip,
+    required String documentNo,
+  }) async {
+    if (trip.ibtDocuments == null) return;
+    final filtered = trip.ibtDocuments!
+        .where((d) => d.documentNo.toUpperCase() != documentNo.toUpperCase())
+        .toList();
+
+    final updatedTrip = trip.copyWith(
+      ibtDocuments: filtered.isNotEmpty ? filtered : null,
+    );
+
+    await updateTruckLoad(updatedTrip);
+  }
+
   Future<void> deleteTruckLoad(String tripId) async {
     final dayEntries = await getDayEntries();
     for (final e in dayEntries) {
       if (e.loadingSheetTrips != null) {
-        final filtered = e.loadingSheetTrips!.where((t) => t.id != tripId).toList();
+        final filtered =
+            e.loadingSheetTrips!.where((t) => t.id != tripId).toList();
         if (filtered.length != e.loadingSheetTrips!.length) {
           await _repository.saveEntry(e.copyWith(loadingSheetTrips: filtered));
           return;

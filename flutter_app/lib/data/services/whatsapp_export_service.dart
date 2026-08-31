@@ -38,6 +38,20 @@ class WhatsAppExportService {
         final dur = t.durationMinutes ?? 0;
         buffer.writeln('   Time: $startStr → $finishStr (${dur}m)');
       }
+
+      // Itemized IBT Manifest breakdown if attached
+      if (t.hasIbtDocuments) {
+        for (final doc in t.ibtDocuments!) {
+          buffer.writeln('   📄 *${doc.documentNo}* (${doc.loadedTotal}/${doc.total} tyres)');
+          for (final line in doc.lineItems) {
+            final statusStr = line.isComplete
+                ? '✓'
+                : (line.isShort ? '⚠️ Short ${line.remaining}' : '+${line.overCount} Over');
+            buffer.writeln('      ▪ ${line.loadedQuantity}/${line.targetTotal}x ${line.description} [$statusStr]');
+          }
+        }
+      }
+
       if (t.note != null && t.note!.isNotEmpty) {
         buffer.writeln('   Note: ${t.note}');
       }
