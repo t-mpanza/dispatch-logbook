@@ -7,6 +7,7 @@ import '../../core/utils/haptics.dart';
 import '../../data/models/entry.dart';
 import '../../data/services/update_service.dart';
 import '../../data/repositories/entry_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../viewmodels/entries_viewmodel.dart';
 import '../widgets/swipeable_entry_card.dart';
 import '../widgets/update_dialog.dart';
@@ -269,25 +270,72 @@ class _TodayScreenState extends State<TodayScreen> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    AppHaptics.light();
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (_) => DayScreen(dayKey: yesterdayKey)),
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: GlassDecorations.glassCard(borderRadius: 16),
-                                    child: const Row(
-                                      children: [
-                                        Icon(Icons.chevron_left_rounded, size: 16, color: AppColors.primaryGlow),
-                                        SizedBox(width: 2),
-                                        Text('Yesterday', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                                      ],
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Consumer<SettingsRepository>(
+                                      builder: (context, settings, _) {
+                                        final isSun = settings.isSunlightMode;
+                                        return GestureDetector(
+                                          onTap: () {
+                                            AppHaptics.medium();
+                                            settings.toggleSunlightMode();
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: isSun ? Colors.amber.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.08),
+                                              borderRadius: BorderRadius.circular(14),
+                                              border: Border.all(
+                                                color: isSun ? Colors.amber : AppColors.glassBorderLight,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  isSun ? Icons.wb_sunny_rounded : Icons.nightlight_round,
+                                                  size: 14,
+                                                  color: isSun ? Colors.amber : AppColors.primaryGlow,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  isSun ? 'Day' : 'Night',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isSun ? Colors.amber.shade800 : AppColors.textPrimary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  ),
+                                    const SizedBox(width: 6),
+                                    GestureDetector(
+                                      onTap: () {
+                                        AppHaptics.light();
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (_) => DayScreen(dayKey: yesterdayKey)),
+                                        );
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: GlassDecorations.glassCard(borderRadius: 14),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.chevron_left_rounded, size: 14, color: AppColors.primaryGlow),
+                                            SizedBox(width: 2),
+                                            Text('Yesterday', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 6),
                                 GestureDetector(

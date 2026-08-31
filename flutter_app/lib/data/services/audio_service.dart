@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -15,6 +14,13 @@ class AudioService {
 
   String? _currentRecordingPath;
   DateTime? _recordingStartTime;
+
+  String? _currentlyPlayingId;
+  String? get currentlyPlayingId => _currentlyPlayingId;
+
+  Stream<Duration> get onPositionChanged => _player.onPositionChanged;
+  Stream<Duration> get onDurationChanged => _player.onDurationChanged;
+  Stream<PlayerState> get onPlayerStateChanged => _player.onPlayerStateChanged;
 
   Future<void> startRecording() async {
     final hasPermission = await _recorder.hasPermission();
@@ -70,19 +76,51 @@ class AudioService {
     _currentRecordingPath = null;
   }
 
-  Future<void> playAudio(String source) async {
-    if (source.startsWith('http')) {
-      await _player.play(UrlSource(source));
-    } else {
-      await _player.play(DeviceFileSource(source));
+  Future<void> playAttachment(Attachment attachment) async {
+    _currentlyPlayingId = attachment.id;
+    if (attachment.bytes != null && attachment.bytes!.isNotEmpty) {
+      await _player.play(BytesSource(attachment.bytes!));
+      return;
+    }
+
+    if (attachment.localFilePath != null && File(attachment.localFilePath!).existsSync()) {
+      await _player.play(DeviceFileSource(attachment.localFilePath!));
+      return;
+    }
+
+    // Check app documents directory
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final localFile = File('${docDir.path}/attachments/${attachment.name}');
+      if (localFile.existsSync()) {
+        await _player.play(DeviceFileSource(localFile.path));
+        return;
+      }
+    } catch (_) {}
+
+    if (attachment.downloadUrl != null && attachment.downloadUrl!.isNotEmpty) {
+      await _player.play(UrlSource(attachment.downloadUrl!));
     }
   }
 
-  Future<void> playBytes(Uint8List bytes) async {
-    await _player.play(BytesSource(bytes));
+  Future<void> pauseAudio() async {
+    await _player.pause();
+  }
+
+  Future<void> resumeAudio() async {
+    await _player.resume();
+  }
+
+  Future<void> seekAudio(Duration position) async {
+    await _player.seek(position);
+  }
+
+  Future<void> setPlaybackRate(double rate) async {
+    await _player.setPlaybackRate(rate);
   }
 
   Future<void> stopAudio() async {
+    _currentlyPlayingId = null;
     await _player.stop();
   }
 

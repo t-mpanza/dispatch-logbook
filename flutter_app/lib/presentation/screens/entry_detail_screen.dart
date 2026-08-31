@@ -346,7 +346,11 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             loadingSheetTrips: sheetTrips,
                           ));
                         },
-                        onOpenPhoto: (att) => PhotoLightbox.show(context, att),
+                        onOpenPhoto: (att) => PhotoLightbox.show(
+                          context,
+                          att,
+                          allAttachments: currentEntry.attachments,
+                        ),
                       ),
                     ],
                   ),

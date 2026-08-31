@@ -7,12 +7,12 @@ import '../../core/utils/haptics.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/preset.dart';
-import '../../data/services/pdf_export_service.dart';
 import '../../data/services/whatsapp_export_service.dart';
 import '../../data/repositories/entry_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../viewmodels/loading_sheet_viewmodel.dart';
 import '../widgets/truck_load_dialog.dart';
+import 'pdf_preview_screen.dart';
 
 class LoadingSheetScreen extends StatefulWidget {
   const LoadingSheetScreen({super.key});
@@ -244,15 +244,21 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                                         yearKey: vm.selectedDate.substring(0, 4),
                                       );
 
-                                await PdfExportService.printOrSharePdf(entry, despatcherName);
+                                if (context.mounted) {
+                                  await PdfPreviewScreen.openLoadingSheet(
+                                    context,
+                                    entry: entry,
+                                    despatcherName: despatcherName,
+                                  );
+                                }
                               },
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: AppColors.glassBorder),
                                 padding: const EdgeInsets.symmetric(vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
-                              icon: const Icon(Icons.print_rounded, size: 16, color: AppColors.primaryGlow),
-                              label: const Text('Print PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              icon: const Icon(Icons.picture_as_pdf_rounded, size: 16, color: AppColors.primaryGlow),
+                              label: const Text('PDF Preview', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                             ),
                           ),
                           const SizedBox(width: 8),

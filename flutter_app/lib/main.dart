@@ -80,22 +80,28 @@ class _DispatchDiaryAppState extends State<DispatchDiaryApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Dispatch Diary',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: AppShell(
-        currentIndex: _currentIndex,
-        onTabSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        child: IndexedStack(
-          index: _currentIndex,
-          children: _screens,
-        ),
-      ),
+    return Consumer<SettingsRepository>(
+      builder: (context, settings, _) {
+        return MaterialApp(
+          title: 'Dispatch Diary',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: settings.isSunlightMode ? ThemeMode.light : ThemeMode.dark,
+          home: AppShell(
+            currentIndex: _currentIndex,
+            onTabSelected: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
+          ),
+        );
+      },
     );
   }
 }
