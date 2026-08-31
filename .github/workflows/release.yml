@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version tag (e.g. v1.0.1)'
+        description: 'Release version tag (e.g. v2.0.1)'
         required: true
-        default: 'v1.0.0'
+        default: 'v2.0.0'
 
 permissions:
   contents: write
@@ -44,16 +44,19 @@ jobs:
         working-directory: ./flutter_app
         run: flutter test
 
-      - name: Build Android Release APK
-        working-directory: ./flutter_app
-        run: flutter build apk --release
-
       - name: Determine Version Tag
         id: vars
         run: |
           TAG="${{ github.ref_name || inputs.version }}"
+          BUILD_NAME="${TAG#v}"
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "BUILD_NAME=$BUILD_NAME" >> $GITHUB_OUTPUT
           echo "APK_NAME=DispatchDiary-${TAG}.apk" >> $GITHUB_OUTPUT
+
+      - name: Build Android Release APK
+        working-directory: ./flutter_app
+        run: |
+          flutter build apk --release --build-name="${{ steps.vars.outputs.BUILD_NAME }}" --build-number="${{ github.run_number }}"
 
       - name: Copy Release APK
         run: |

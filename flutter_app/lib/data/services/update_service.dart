@@ -112,7 +112,7 @@ class UpdateService {
     return false;
   }
 
-  /// Helper to compare semver versions (e.g. 'v1.0.2' vs 'v1.0.1')
+  /// Helper to compare semver versions (e.g. 'v2.0.44' vs 'v2.0.0')
   static bool _isNewerVersion(String current, String latest) {
     if (latest.isEmpty) return false;
     final cleanCurrent = current.replaceAll(RegExp(r'[^0-9.]'), '');
@@ -123,14 +123,16 @@ class UpdateService {
     final currParts = cleanCurrent.split('.').map((p) => int.tryParse(p) ?? 0).toList();
     final latestParts = cleanLatest.split('.').map((p) => int.tryParse(p) ?? 0).toList();
 
-    while (currParts.length < 3) {
+    final maxLen = currParts.length > latestParts.length ? currParts.length : latestParts.length;
+
+    while (currParts.length < maxLen) {
       currParts.add(0);
     }
-    while (latestParts.length < 3) {
+    while (latestParts.length < maxLen) {
       latestParts.add(0);
     }
 
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < maxLen; i++) {
       if (latestParts[i] > currParts[i]) return true;
       if (latestParts[i] < currParts[i]) return false;
     }
