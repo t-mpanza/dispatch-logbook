@@ -247,9 +247,13 @@ class SupabaseService {
           }
         }
 
-        // Map attachments
+        // Map attachments, preserving local file paths and bytes
+        final localAttMap = {for (final a in (local?.attachments ?? [])) a.id: a};
+
         final attList = attsByEntryId[id] ?? [];
         final List<Attachment> attachments = attList.map((a) {
+          final attId = a['id'] as String;
+          final localAtt = localAttMap[attId];
           final sPath = a['storage_path'] as String?;
           final directUrl = a['download_url'] as String?;
           final resolvedUrl = directUrl ??
@@ -258,22 +262,31 @@ class SupabaseService {
                   : null);
 
           return Attachment(
-            id: a['id'] as String,
+            id: attId,
             kind: AttachmentKind.values.firstWhere(
               (k) => k.name == (a['kind'] as String? ?? 'file'),
               orElse: () => AttachmentKind.file,
             ),
+            bytes: localAtt?.bytes,
             mime: a['mime'] as String? ?? 'application/octet-stream',
-            name: a['name'] as String?,
-            caption: a['caption'] as String?,
-            durationMs: (a['duration_ms'] as num?)?.toInt(),
-            width: (a['width'] as num?)?.toInt(),
-            height: (a['height'] as num?)?.toInt(),
-            storagePath: sPath,
-            downloadUrl: resolvedUrl,
-            createdAt: (a['created_at'] as num?)?.toInt() ?? 0,
+            name: a['name'] as String? ?? localAtt?.name,
+            caption: a['caption'] as String? ?? localAtt?.caption,
+            durationMs: (a['duration_ms'] as num?)?.toInt() ?? localAtt?.durationMs,
+            width: (a['width'] as num?)?.toInt() ?? localAtt?.width,
+            height: (a['height'] as num?)?.toInt() ?? localAtt?.height,
+            storagePath: sPath ?? localAtt?.storagePath,
+            downloadUrl: resolvedUrl ?? localAtt?.downloadUrl,
+            localFilePath: localAtt?.localFilePath,
+            createdAt: (a['created_at'] as num?)?.toInt() ?? localAtt?.createdAt ?? 0,
           );
         }).toList();
+
+        // Also preserve any newly captured local attachments not yet in remote
+        for (final localAtt in (local?.attachments ?? [])) {
+          if (!attachments.any((a) => a.id == localAtt.id)) {
+            attachments.add(localAtt);
+          }
+        }
 
         // Parse trips
         List<Trip>? trips;
