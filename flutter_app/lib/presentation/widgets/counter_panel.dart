@@ -104,10 +104,12 @@ class _CounterPanelState extends State<CounterPanel> {
   }
 
   Future<void> _handleCaptureSlipPhoto() async {
-    AppHaptics.medium();
+    AppHaptics.light();
     final att = await CameraService.capturePhoto();
     if (att != null) {
-      widget.onAttachment?.call(att);
+      if (widget.onAttachment != null) {
+        widget.onAttachment!(att);
+      }
       _logManual(noteOverride: 'slip:photo:${att.id}');
     }
   }
@@ -125,17 +127,17 @@ class _CounterPanelState extends State<CounterPanel> {
     final canLog = _tabIndex == 0 ? _count > 0 : _manualCount > 0;
 
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: GlassDecorations.glassElevated(borderRadius: 22),
+      padding: const EdgeInsets.all(10),
+      decoration: GlassDecorations.glassElevated(borderRadius: 16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Segmented Tab Control (Scanned vs Manual)
+          // Segmented Tabs
           Container(
-            padding: const EdgeInsets.all(3),
+            padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.glassBorderLight),
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
@@ -168,7 +170,7 @@ class _CounterPanelState extends State<CounterPanel> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Steppers & Numeric Row
           Row(
@@ -188,30 +190,30 @@ class _CounterPanelState extends State<CounterPanel> {
                 onTapUp: (_) => _stopRepeat(),
                 onTapCancel: _stopRepeat,
                 child: Container(
-                  width: 48,
-                  height: 48,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: AppColors.glassSurfaceElevated,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.glassBorder),
                   ),
                   child: const Center(
-                    child: Icon(Icons.remove_rounded, color: AppColors.textPrimary, size: 22),
+                    child: Icon(Icons.remove_rounded, color: AppColors.textPrimary, size: 20),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
 
               // Number Display / Input
               SizedBox(
-                width: 60,
-                height: 48,
+                width: 52,
+                height: 40,
                 child: TextField(
                   controller: _numberController,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 22,
+                    fontSize: 18,
                     fontWeight: FontWeight.w900,
                     color: AppColors.textPrimary,
                     fontFamily: 'monospace',
@@ -221,11 +223,11 @@ class _CounterPanelState extends State<CounterPanel> {
                     filled: true,
                     fillColor: Colors.black.withValues(alpha: 0.4),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: AppColors.glassBorder),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: AppColors.primaryGlow, width: 1.5),
                     ),
                   ),
@@ -239,7 +241,7 @@ class _CounterPanelState extends State<CounterPanel> {
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
 
               // Stepper Plus
               GestureDetector(
@@ -256,19 +258,19 @@ class _CounterPanelState extends State<CounterPanel> {
                 onTapUp: (_) => _stopRepeat(),
                 onTapCancel: _stopRepeat,
                 child: Container(
-                  width: 48,
-                  height: 48,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: AppColors.glassSurfaceElevated,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.glassBorder),
                   ),
                   child: const Center(
-                    child: Icon(Icons.add_rounded, color: AppColors.textPrimary, size: 22),
+                    child: Icon(Icons.add_rounded, color: AppColors.textPrimary, size: 20),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
 
               // Quick Add Buttons or Slip Input
               if (_tabIndex == 0)
@@ -289,17 +291,17 @@ class _CounterPanelState extends State<CounterPanel> {
                               onTapUp: (_) => _stopRepeat(),
                               onTapCancel: _stopRepeat,
                               child: Container(
-                                height: 48,
+                                height: 40,
                                 decoration: BoxDecoration(
                                   color: AppColors.glassSurfaceElevated,
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: AppColors.glassBorder),
                                 ),
                                 child: Center(
                                   child: Text(
                                     '+$n',
                                     style: const TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.w900,
                                       color: AppColors.primaryGlow,
                                       fontFamily: 'monospace',
@@ -318,22 +320,25 @@ class _CounterPanelState extends State<CounterPanel> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _slipController,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textPrimary,
-                            fontFamily: 'monospace',
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Slip #',
-                            hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                            filled: true,
-                            fillColor: Colors.black.withValues(alpha: 0.4),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(color: AppColors.glassBorder),
+                        child: SizedBox(
+                          height: 40,
+                          child: TextField(
+                            controller: _slipController,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textPrimary,
+                              fontFamily: 'monospace',
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Slip #',
+                              hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                              filled: true,
+                              fillColor: Colors.black.withValues(alpha: 0.4),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.glassBorder),
+                              ),
                             ),
                           ),
                         ),
@@ -342,15 +347,15 @@ class _CounterPanelState extends State<CounterPanel> {
                       GestureDetector(
                         onTap: _handleCaptureSlipPhoto,
                         child: Container(
-                          width: 48,
-                          height: 48,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: AppColors.warning.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
                           ),
                           child: const Center(
-                            child: Icon(Icons.camera_alt_rounded, color: AppColors.warning, size: 20),
+                            child: Icon(Icons.camera_alt_rounded, color: AppColors.warning, size: 18),
                           ),
                         ),
                       ),
@@ -359,12 +364,12 @@ class _CounterPanelState extends State<CounterPanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Log Action Button
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 42,
             child: ElevatedButton(
               onPressed: canLog ? (_tabIndex == 0 ? _logScanned : () => _logManual()) : null,
               style: ElevatedButton.styleFrom(
@@ -372,22 +377,22 @@ class _CounterPanelState extends State<CounterPanel> {
                 disabledBackgroundColor: Colors.white.withValues(alpha: 0.05),
                 foregroundColor: Colors.white,
                 disabledForegroundColor: AppColors.textMuted,
-                elevation: canLog ? 8 : 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: canLog ? 6 : 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.check_rounded, size: 20),
-                  const SizedBox(width: 8),
+                  const Icon(Icons.check_rounded, size: 18),
+                  const SizedBox(width: 6),
                   Text(
                     _tabIndex == 0
                         ? 'LOG ${_count > 0 ? "$_count " : ""}SCANNED'
                         : 'LOG $_manualCount MANUAL',
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 1.0,
+                      letterSpacing: 0.8,
                     ),
                   ),
                 ],
@@ -408,10 +413,10 @@ class _CounterPanelState extends State<CounterPanel> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? AppColors.glassSurfaceElevated : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isActive ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
           ),
@@ -420,10 +425,10 @@ class _CounterPanelState extends State<CounterPanel> {
           child: Text(
             title.toUpperCase(),
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
               color: isActive ? AppColors.textPrimary : AppColors.textMuted,
-              letterSpacing: 0.8,
+              letterSpacing: 0.6,
             ),
           ),
         ),

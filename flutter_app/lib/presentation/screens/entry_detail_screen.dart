@@ -273,8 +273,26 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                               loadingSheetTrips: updatedSheetTrips,
                             ));
                           },
+                          onUpdateTruckDetails: (reg, driver, target) {
+                            if (reg != null) _regController.text = reg;
+                            if (driver != null) _driverController.text = driver;
+
+                            final List<LoadingSheetTrip> sheetTrips = [...?currentEntry.loadingSheetTrips];
+                            final idx = sheetTrips.indexWhere((t) => !t.isManual);
+                            if (idx >= 0) {
+                              sheetTrips[idx] = sheetTrips[idx].copyWith(
+                                reg: reg?.toUpperCase(),
+                                driverName: driver,
+                                targetQuantity: target,
+                              );
+                            }
+                            repo.saveEntry(currentEntry.copyWith(
+                              expectedTotal: target,
+                              loadingSheetTrips: sheetTrips,
+                            ));
+                          },
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         CounterPanel(
                           trips: trips,
                           onChange: (nextTrips) {
@@ -290,74 +308,9 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                             ));
                           },
                         ),
-                        const SizedBox(height: 12),
-
-                        // Trip Details (Reg & Driver)
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: GlassDecorations.glassCard(borderRadius: 18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'TRUCK ASSIGNMENT',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 1.0),
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _regController,
-                                      textCapitalization: TextCapitalization.characters,
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontFamily: 'monospace'),
-                                      decoration: InputDecoration(
-                                        labelText: 'REG NO',
-                                        labelStyle: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-                                        filled: true,
-                                        fillColor: Colors.black.withValues(alpha: 0.3),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      onChanged: (val) {
-                                        final List<LoadingSheetTrip> sheetTrips = [...?currentEntry.loadingSheetTrips];
-                                        final idx = sheetTrips.indexWhere((t) => !t.isManual);
-                                        if (idx >= 0) {
-                                          sheetTrips[idx] = sheetTrips[idx].copyWith(reg: val.toUpperCase());
-                                          repo.saveEntry(currentEntry.copyWith(loadingSheetTrips: sheetTrips));
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _driverController,
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                      decoration: InputDecoration(
-                                        labelText: 'DRIVER NAME',
-                                        labelStyle: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-                                        filled: true,
-                                        fillColor: Colors.black.withValues(alpha: 0.3),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      onChanged: (val) {
-                                        final List<LoadingSheetTrip> sheetTrips = [...?currentEntry.loadingSheetTrips];
-                                        final idx = sheetTrips.indexWhere((t) => !t.isManual);
-                                        if (idx >= 0) {
-                                          sheetTrips[idx] = sheetTrips[idx].copyWith(driverName: val);
-                                          repo.saveEntry(currentEntry.copyWith(loadingSheetTrips: sheetTrips));
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
 
                       // Event Log Header
                       const Text(
