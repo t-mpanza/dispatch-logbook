@@ -1,0 +1,355 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/constants/supabase_constants.dart';
+import '../models/entry.dart';
+import '../models/attachment.dart';
+import '../models/note_block.dart';
+import '../models/loading_sheet_trip.dart';
+import '../models/trip.dart';
+import 'database_service.dart';
+
+class SupabaseService {
+  static SupabaseClient? _client;
+  static String? _cachedUserId;
+  static RealtimeChannel? _realtimeChannel;
+
+  static SupabaseClient get client {
+    _client ??= Supabase.instance.client;
+    return _client!;
+  }
+
+  static Future<void> initialize() async {
+    await Supabase.initialize(
+      url: SupabaseConstants.url,
+      // ignore: deprecated_member_use
+      anonKey: SupabaseConstants.anonKey,
+    );
+    _client = Supabase.instance.client;
+  }
+
+  static Future<String?> getUserId() async {
+    if (_cachedUserId != null) return _cachedUserId;
+
+    try {
+      final user = client.auth.currentUser;
+      if (user != null) {
+        _cachedUserId = user.id;
+        return _cachedUserId;
+      }
+
+      // Auto-authenticate with operational master account
+      final res = await client.auth.signInWithPassword(
+        email: SupabaseConstants.masterEmail,
+        password: SupabaseConstants.masterPassword,
+      );
+
+      _cachedUserId = res.user?.id;
+      return _cachedUserId;
+    } catch (e) {
+      debugPrint('Supabase auth error: $e');
+      return null;
+    }
+  }
+
+  // ── Push Engine (Batch Upsert) ──────────────────────────────────────────────
+
+  static Map<String, dynamic> _formatEntryPayload(Entry entry, String userId) {
+    final cleanNotes =
+        entry.notes.where((n) => n.id != '__meta_sheet__').toList();
+    final hasMeta = (entry.loadingSheetTrips != null &&
+            entry.loadingSheetTrips!.isNotEmpty) ||
+        entry.despatcherName != null;
+
+    final notesPayload = hasMeta
+        ? [
+            ...cleanNotes.map((n) => n.toMap()),
+            {
+              'id': '__meta_sheet__',
+              'text': jsonEncode({
+                'loadingSheetTrips':
+                    entry.loadingSheetTrips?.map((t) => t.toMap()).toList() ?? [],
+                'despatcherName': entry.despatcherName ?? 'Theolus',
+              }),
+              'createdAt': entry.updatedAt,
+            }
+          ]
+        : cleanNotes.map((n) => n.toMap()).toList();
+
+    return {
+      'id': entry.id,
+      'user_id': userId,
+      'title': entry.title,
+      'tags': entry.tags,
+      'notes': notesPayload,
+      'trips': entry.trips?.map((t) => t.toMap()).toList(),
+      'expected_total': entry.expectedTotal,
+      'day_key': entry.dayKey,
+      'month_key': entry.monthKey,
+      'year_key': entry.yearKey,
+      'created_at': entry.createdAt,
+      'updated_at': entry.updatedAt,
+    };
+  }
+
+  static Future<bool> pushEntriesBatch(List<Entry> entries) async {
+    if (entries.isEmpty) return true;
+
+    final userId = await getUserId();
+    if (userId == null) return false;
+
+    try {
+      final payloads =
+          entries.map((e) => _formatEntryPayload(e, userId)).toList();
+
+      for (var i = 0; i < payloads.length; i += 50) {
+        final chunk = payloads.sublist(
+          i,
+          (i + 50 > payloads.length) ? payloads.length : i + 50,
+        );
+        await client.from('entries').upsert(chunk, onConflict: 'id');
+      }
+
+      // Background upload of media attachments
+      for (final entry in entries) {
+        for (final att in entry.attachments) {
+          if (att.bytes != null && att.storagePath == null) {
+            _uploadAttachment(userId, entry.id, att);
+          }
+        }
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Supabase push batch error: $e');
+      return false;
+    }
+  }
+
+  static Future<void> _uploadAttachment(
+    String userId,
+    String entryId,
+    Attachment att,
+  ) async {
+    if (att.bytes == null) return;
+    final ext = att.mime.split('/').length > 1
+        ? att.mime.split('/')[1].split(';')[0]
+        : 'bin';
+    final path = '$userId/${att.id}.$ext';
+
+    try {
+      await client.storage.from(SupabaseConstants.attachmentsBucket).uploadBinary(
+            path,
+            att.bytes!,
+            fileOptions: FileOptions(contentType: att.mime, upsert: true),
+          );
+
+      await client.from('entry_attachments').upsert({
+        'id': att.id,
+        'entry_id': entryId,
+        'user_id': userId,
+        'kind': att.kind.name,
+        'mime': att.mime,
+        'name': att.name,
+        'caption': att.caption,
+        'duration_ms': att.durationMs,
+        'width': att.width,
+        'height': att.height,
+        'storage_path': path,
+        'created_at': att.createdAt,
+      }, onConflict: 'id');
+    } catch (e) {
+      debugPrint('Attachment upload error: $e');
+    }
+  }
+
+  // ── Pull Engine ─────────────────────────────────────────────────────────────
+
+  static Future<bool> pullAndMerge() async {
+    final userId = await getUserId();
+    if (userId == null) return false;
+
+    try {
+      final entriesRes = await client
+          .from('entries')
+          .select('*')
+          .eq('user_id', userId)
+          .order('updated_at', ascending: false)
+          .limit(200);
+
+      final attsRes = await client
+          .from('entry_attachments')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(300);
+
+      final remoteEntries = List<Map<String, dynamic>>.from(entriesRes);
+      final remoteAtts = List<Map<String, dynamic>>.from(attsRes);
+
+      final Map<String, List<Map<String, dynamic>>> attsByEntryId = {};
+      for (final att in remoteAtts) {
+        final entryId = att['entry_id'] as String?;
+        if (entryId != null) {
+          attsByEntryId.putIfAbsent(entryId, () => []).add(att);
+        }
+      }
+
+      final localEntries = await DatabaseService.getAllEntries();
+      final localMap = {for (final e in localEntries) e.id: e};
+      final List<Entry> toUpdate = [];
+
+      for (final remote in remoteEntries) {
+        final id = remote['id'] as String;
+        final local = localMap[id];
+        final remoteUpdatedAt =
+            (remote['updated_at'] as num?)?.toInt() ?? 0;
+
+        final isNewer = local == null || remoteUpdatedAt > local.updatedAt;
+        if (!isNewer) continue;
+
+        // Parse meta notes
+        List<LoadingSheetTrip>? loadingTrips;
+        String? despatcherName;
+        final List<NoteBlock> userNotes = [];
+
+        final rawNotes = remote['notes'];
+        if (rawNotes is List) {
+          for (final n in rawNotes) {
+            if (n is Map) {
+              if (n['id'] == '__meta_sheet__') {
+                try {
+                  final parsed = jsonDecode(n['text'] as String);
+                  if (parsed is Map) {
+                    if (parsed['loadingSheetTrips'] is List) {
+                      loadingTrips = (parsed['loadingSheetTrips'] as List)
+                          .map((t) => LoadingSheetTrip.fromMap(
+                              Map<String, dynamic>.from(t)))
+                          .toList();
+                    }
+                    if (parsed['despatcherName'] is String) {
+                      despatcherName = parsed['despatcherName'] as String;
+                    }
+                  }
+                } catch (_) {}
+              } else {
+                userNotes.add(NoteBlock.fromMap(Map<String, dynamic>.from(n)));
+              }
+            }
+          }
+        }
+
+        // Map attachments
+        final attList = attsByEntryId[id] ?? [];
+        final List<Attachment> attachments = attList.map((a) {
+          return Attachment(
+            id: a['id'] as String,
+            kind: AttachmentKind.values.firstWhere(
+              (k) => k.name == (a['kind'] as String? ?? 'file'),
+              orElse: () => AttachmentKind.file,
+            ),
+            mime: a['mime'] as String? ?? 'application/octet-stream',
+            name: a['name'] as String?,
+            caption: a['caption'] as String?,
+            durationMs: (a['duration_ms'] as num?)?.toInt(),
+            width: (a['width'] as num?)?.toInt(),
+            height: (a['height'] as num?)?.toInt(),
+            storagePath: a['storage_path'] as String?,
+            createdAt: (a['created_at'] as num?)?.toInt() ?? 0,
+          );
+        }).toList();
+
+        // Parse trips
+        List<Trip>? trips;
+        if (remote['trips'] is List) {
+          trips = (remote['trips'] as List)
+              .map((t) => Trip.fromMap(Map<String, dynamic>.from(t)))
+              .toList();
+        }
+
+        List<String> tags = [];
+        if (remote['tags'] is List) {
+          tags = (remote['tags'] as List).map((e) => e.toString()).toList();
+        }
+
+        final merged = Entry(
+          id: id,
+          title: remote['title'] as String? ?? 'Untitled',
+          tags: tags,
+          expectedTotal: (remote['expected_total'] as num?)?.toInt(),
+          notes: userNotes,
+          attachments: attachments,
+          trips: trips,
+          loadingSheetTrips: loadingTrips ?? local?.loadingSheetTrips,
+          despatcherName: despatcherName ?? local?.despatcherName,
+          createdAt: (remote['created_at'] as num?)?.toInt() ?? 0,
+          updatedAt: remoteUpdatedAt,
+          dayKey: remote['day_key'] as String? ?? '',
+          monthKey: remote['month_key'] as String? ?? '',
+          yearKey: remote['year_key'] as String? ?? '',
+        );
+
+        toUpdate.add(merged);
+      }
+
+      if (toUpdate.isNotEmpty) {
+        await DatabaseService.insertOrUpdateBatch(toUpdate);
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Supabase pull error: $e');
+      return false;
+    }
+  }
+
+  // ── Realtime & Broadcast ────────────────────────────────────────────────────
+
+  static void setupRealtimeSync(VoidCallback onEntryChanged) {
+    try {
+      _realtimeChannel = client.channel('dispatch_live_sync');
+      _realtimeChannel!.onBroadcast(
+        event: 'entry_changed',
+        callback: (payload) async {
+          await pullAndMerge();
+          onEntryChanged();
+        },
+      ).subscribe();
+    } catch (e) {
+      debugPrint('Realtime channel setup error: $e');
+    }
+  }
+
+  static void broadcastEntryChange(String entryId) {
+    try {
+      _realtimeChannel?.sendBroadcastMessage(
+        event: 'entry_changed',
+        payload: {
+          'entryId': entryId,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        },
+      );
+    } catch (e) {
+      debugPrint('Broadcast error: $e');
+    }
+  }
+
+  static Future<bool> deleteRemoteEntry(String entryId) async {
+    final userId = await getUserId();
+    if (userId == null) return false;
+
+    try {
+      await client
+          .from('entries')
+          .delete()
+          .eq('id', entryId)
+          .eq('user_id', userId);
+
+      broadcastEntryChange(entryId);
+      return true;
+    } catch (e) {
+      debugPrint('Supabase delete error: $e');
+      return false;
+    }
+  }
+}

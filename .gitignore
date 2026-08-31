@@ -33,3 +33,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Flutter
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/.pub-cache/
+flutter_app/.pub/
+flutter_app/build/
+flutter_app/coverage/
+flutter_app/*.apk
+flutter_app/android/.gradle/
+flutter_app/android/local.properties
+

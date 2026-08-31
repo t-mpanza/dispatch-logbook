@@ -1,4 +1,4 @@
-name: Build & Release Native App
+name: Release Flutter Native App
 
 on:
   push:
@@ -16,64 +16,56 @@ permissions:
 
 jobs:
   build:
-    name: Build APK & OTA Bundle
+    name: Build & Release Flutter APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Codebase
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
       - name: Setup Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: gradle
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
 
       - name: Install Dependencies
-        run: npm ci || npm install
+        working-directory: ./flutter_app
+        run: flutter pub get
 
-      - name: Build Web Application
-        env:
-          VITE_APP_VERSION: ${{ github.ref_name || inputs.version }}
-        run: npm run build
-
-      - name: Package OTA Bundle (dist.zip)
-        run: |
-          cd dist/client
-          zip -r ../../dist.zip .
-          cd ../..
-
-      - name: Sync Capacitor Android
-        run: npx cap sync android
-
-      - name: Make Gradlew Executable
-        run: chmod +x android/gradlew
+      - name: Run Tests
+        working-directory: ./flutter_app
+        run: flutter test
 
       - name: Build Android Release APK
+        working-directory: ./flutter_app
+        run: flutter build apk --release
+
+      - name: Determine Version Tag
+        id: vars
         run: |
-          cd android
-          ./gradlew assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk ../DispatchDiary.apk
-          cd ..
+          TAG="${{ github.ref_name || inputs.version }}"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "APK_NAME=DispatchDiary-${TAG}.apk" >> $GITHUB_OUTPUT
+
+      - name: Copy Release APK
+        run: |
+          cp flutter_app/build/app/outputs/flutter-apk/app-release.apk ${{ steps.vars.outputs.APK_NAME }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
-          tag_name: ${{ github.ref_name || inputs.version }}
-          name: Dispatch Diary ${{ github.ref_name || inputs.version }}
+          tag_name: ${{ steps.vars.outputs.TAG }}
+          name: Dispatch Diary ${{ steps.vars.outputs.TAG }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: |
-            DispatchDiary.apk
-            dist.zip
+            ${{ steps.vars.outputs.APK_NAME }}

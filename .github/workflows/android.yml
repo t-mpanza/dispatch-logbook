@@ -1,71 +1,97 @@
-name: Build Android APK
+name: Build & Release Flutter Android APK
 
 on:
   push:
     branches: ["main"]
+    tags:
+      - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version tag (e.g. v1.0.1)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build APK
+    name: Build Native Flutter APK
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: "npm"
-
-      - name: Install Node dependencies
-        run: npm install
-
-      - name: Build Web App
-        env:
-          VITE_APP_VERSION: "v1.0.${{ github.run_number }}"
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: npm run build
-
-      - name: Create OTA Web Bundle
-        run: |
-          cd dist/client
-          zip -r ../../dist.zip .
-          cd ../..
-
-      - name: Sync Capacitor
-        run: npx cap sync android
-
-      - name: Setup JDK 21
+      - name: Setup Java JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: "21"
           distribution: "temurin"
+          java-version: "17"
           cache: gradle
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
 
-      - name: Build Debug APK
-        run: cd android && ./gradlew assembleDebug
+      - name: Install Dependencies
+        working-directory: ./flutter_app
+        run: flutter pub get
 
-      - name: Upload APK artifact
+      - name: Run Static Analysis
+        working-directory: ./flutter_app
+        run: flutter analyze
+
+      - name: Run Automated Tests
+        working-directory: ./flutter_app
+        run: flutter test
+
+      - name: Build Android APK
+        working-directory: ./flutter_app
+        run: |
+          flutter build apk --release
+
+      - name: Determine Version Tag
+        id: vars
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            TAG="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="v1.0.${{ github.run_number }}"
+          fi
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "APK_NAME=dispatch-diary-${TAG}.apk" >> $GITHUB_OUTPUT
+
+      - name: Prepare APK Asset
+        run: |
+          cp flutter_app/build/app/outputs/flutter-apk/app-release.apk ${{ steps.vars.outputs.APK_NAME }}
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dispatch-diary-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 7
+          name: ${{ steps.vars.outputs.APK_NAME }}
+          path: ${{ steps.vars.outputs.APK_NAME }}
+          retention-days: 14
 
-      - name: Publish to GitHub Releases
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG_NAME="v1.0.${{ github.run_number }}"
-          APK_NAME="dispatch-diary-${TAG_NAME}.apk"
-          mv android/app/build/outputs/apk/debug/app-debug.apk $APK_NAME
-          gh release create "$TAG_NAME" $APK_NAME dist.zip -t "Build $TAG_NAME" -n "Automated nightly build of Dispatch Diary ($TAG_NAME)."
+          TAG="${{ steps.vars.outputs.TAG }}"
+          APK="${{ steps.vars.outputs.APK_NAME }}"
+          
+          # Delete tag/release if it already exists to overwrite, or create clean
+          gh release create "$TAG" "$APK" \
+            --title "Dispatch Diary $TAG" \
+            --notes "### Dispatch Diary Release Candidate ($TAG)
+            
+- Native Flutter Android APK
+- Offline-first SQLite persistence & Supabase Realtime synchronization
+- Compliance loading sheets, tyre counter acceleration, PDF & WhatsApp export
+- Download and install the attached \`$APK\` to update your device." \
+            --generate-notes || gh release upload "$TAG" "$APK" --clobber
