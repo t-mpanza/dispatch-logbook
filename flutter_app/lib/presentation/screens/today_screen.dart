@@ -1,3 +1,4 @@
+import '../widgets/aws_auth_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -132,21 +133,41 @@ class _TodayScreenState extends State<TodayScreen> {
                     ),
                     const SizedBox(height: 8),
 
-                    // Force sync button
+                    // AWS AppSync Login button
                     SizedBox(
                       width: double.infinity,
                       height: 44,
                       child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          AwsAuthDialog.show(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryGlow,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        icon: const Icon(Icons.vpn_key_rounded, color: Colors.black, size: 18),
+                        label: const Text('AWS AppSync / Cognito Login', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Force sync button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: OutlinedButton.icon(
                         onPressed: () async {
                           AppHaptics.medium();
                           await repo.syncNow();
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.glassBorder),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
                         icon: const Icon(Icons.sync_rounded, color: Colors.white, size: 18),
-                        label: const Text('Force Cloud Sync Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                        label: const Text('Force Supabase Cloud Sync Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                     ),
                   ],

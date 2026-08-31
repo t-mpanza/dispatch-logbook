@@ -4,8 +4,13 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
+import '../../core/utils/id_generator.dart';
+import '../../data/models/ibt_manifest.dart';
+import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/preset.dart';
+import '../../data/services/appsync_manifest_service.dart';
 import '../viewmodels/entries_viewmodel.dart';
+import '../widgets/aws_auth_dialog.dart';
 import '../widgets/tags_input.dart';
 import 'entry_detail_screen.dart';
 
@@ -18,9 +23,14 @@ class NewEntryScreen extends StatefulWidget {
 
 class _NewEntryScreenState extends State<NewEntryScreen> {
   final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _ibtInputController = TextEditingController();
+
   List<String> _tags = ['despatch'];
   bool _withCounter = true;
   PresetKey _selectedPreset = PresetKey.CUSTOM;
+
+  final List<IbtDocument> _ibtDocuments = [];
+  bool _isFetchingIbt = false;
 
   @override
   void initState() {
@@ -84,6 +94,60 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     }
   }
 
+  Future<void> _onFetchIbt() async {
+    final text = _ibtInputController.text.trim();
+    if (text.isEmpty) return;
+
+    AppHaptics.light();
+    setState(() => _isFetchingIbt = true);
+
+    try {
+      final doc = await AppSyncManifestService.fetchIbtDocument(text);
+      AppHaptics.medium();
+
+      setState(() {
+        final existingIdx = _ibtDocuments.indexWhere(
+          (d) => d.documentNo.toUpperCase() == doc.documentNo.toUpperCase(),
+        );
+
+        if (existingIdx >= 0) {
+          _ibtDocuments[existingIdx] = doc;
+        } else {
+          _ibtDocuments.add(doc);
+        }
+
+        _ibtInputController.clear();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to fetch IBT: $e'),
+            backgroundColor: Colors.redAccent,
+            action: SnackBarAction(
+              label: 'AWS Login',
+              textColor: Colors.white,
+              onPressed: () => AwsAuthDialog.show(context),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isFetchingIbt = false);
+      }
+    }
+  }
+
+  void _onRemoveIbt(String docNo) {
+    AppHaptics.light();
+    setState(() {
+      _ibtDocuments.removeWhere(
+        (d) => d.documentNo.toUpperCase() == docNo.toUpperCase(),
+      );
+    });
+  }
+
   Color _getPresetColor(PresetKey key) {
     switch (key) {
       case PresetKey.DBN:
@@ -111,11 +175,42 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
     AppHaptics.success();
     final vm = context.read<EntriesViewModel>();
+
+    final isStocks = _selectedPreset == PresetKey.STOCKS;
+    final totalIbtTyres =
+        _ibtDocuments.fold<int>(0, (s, d) => s + d.total);
+
+    LoadingSheetTrip? initialTrip;
+    if (isStocks && _ibtDocuments.isNotEmpty) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      initialTrip = LoadingSheetTrip(
+        id: IdGenerator.generate(),
+        tripId: title,
+        reg: '',
+        driverName: '',
+        presetKey: _selectedPreset,
+        quantityLoaded: 0,
+        targetQuantity: totalIbtTyres > 0 ? totalIbtTyres : null,
+        startTime: now,
+        createdAt: now,
+        ibtDocuments: _ibtDocuments,
+      );
+    }
+
     final entry = await vm.createEntry(
       title: title,
       tags: _tags,
       withCounter: _withCounter,
     );
+
+    if (initialTrip != null) {
+      final updatedEntry = entry.copyWith(
+        loadingSheetTrips: [
+          initialTrip.copyWith(entryId: entry.id),
+        ],
+      );
+      await vm.updateEntry(updatedEntry);
+    }
 
     if (mounted) {
       Navigator.pushReplacement(
@@ -128,6 +223,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   @override
   void dispose() {
     _titleController.dispose();
+    _ibtInputController.dispose();
     super.dispose();
   }
 
@@ -220,7 +316,146 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // IBT Section (ONLY VISIBLE WHEN STOCKS PRESET IS SELECTED)
+            if (_selectedPreset == PresetKey.STOCKS) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.glassSurfaceElevated,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _ibtDocuments.isNotEmpty
+                        ? AppColors.primaryGlow.withValues(alpha: 0.35)
+                        : Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.receipt_long_rounded, color: AppColors.primaryGlow, size: 18),
+                            SizedBox(width: 6),
+                            Text(
+                              'Attach IBT Documents (Stocks)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        InkWell(
+                          onTap: () => AwsAuthDialog.show(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.vpn_key_outlined, size: 10, color: AppColors.primaryGlow),
+                                SizedBox(width: 4),
+                                Text(
+                                  'AWS Auth',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGlow),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _ibtInputController,
+                            textCapitalization: TextCapitalization.characters,
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                            decoration: InputDecoration(
+                              hintText: 'e.g. IBT119512 or 119512',
+                              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                              filled: true,
+                              fillColor: Colors.black26,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            onSubmitted: (_) => _onFetchIbt(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _isFetchingIbt ? null : _onFetchIbt,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryGlow,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: _isFetchingIbt
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                )
+                              : const Text('Fetch IBT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+
+                    if (_ibtDocuments.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _ibtDocuments.map((doc) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGlow.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${doc.documentNo} (${doc.total} tyres • ${doc.lineItems.length} lines)',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                InkWell(
+                                  onTap: () => _onRemoveIbt(doc.documentNo),
+                                  child: const Icon(Icons.close, size: 14, color: Colors.white70),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Title input
             const Text(
@@ -304,11 +539,9 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                   ),
                   Switch(
                     value: _withCounter,
+                    onChanged: (val) => setState(() => _withCounter = val),
                     activeThumbColor: AppColors.primaryGlow,
-                    onChanged: (val) {
-                      AppHaptics.light();
-                      setState(() => _withCounter = val);
-                    },
+                    activeTrackColor: AppColors.primary,
                   ),
                 ],
               ),
@@ -318,7 +551,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             // Create button
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 52,
               child: ElevatedButton(
                 onPressed: _handleCreate,
                 style: ElevatedButton.styleFrom(
@@ -328,11 +561,13 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                   elevation: 8,
                 ),
                 child: const Text(
-                  'Create Trip Entry',
+                  'CREATE TRIP ENTRY',
                   style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 1.0,
+                  ),
                 ),
               ),
             ),

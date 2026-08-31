@@ -4,11 +4,27 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../models/ibt_manifest.dart';
 
+class AwsUserInfo {
+  final bool isAuthenticated;
+  final String? email;
+  final String? username;
+  final DateTime? expiresAt;
+
+  const AwsUserInfo({
+    required this.isAuthenticated,
+    this.email,
+    this.username,
+    this.expiresAt,
+  });
+}
+
 class AppSyncManifestService {
   static const String endpoint =
       'https://w2jsgqhlgngcfn3d27xvl2r6iq.appsync-api.eu-central-1.amazonaws.com/graphql';
   static const String cognitoDomain =
       'cabsystem.auth.eu-central-1.amazoncognito.com';
+  static const String cognitoIdpEndpoint =
+      'https://cognito-idp.eu-central-1.amazonaws.com';
   static const String clientId = '78ikblrgsr8h27197iovkgrro6';
 
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -38,7 +54,60 @@ class AppSyncManifestService {
     52: 'X Multiway 3D',
   };
 
-  /// Save tokens from Cognito Hosted UI / Microsoft SSO login
+  /// Authenticate directly with Cognito using Username / Email & Password
+  static Future<AwsUserInfo> loginWithCredentials({
+    required String username,
+    required String password,
+    http.Client? client,
+  }) async {
+    final httpClient = client ?? http.Client();
+    try {
+      final response = await httpClient.post(
+        Uri.parse(cognitoIdpEndpoint),
+        headers: {
+          'Content-Type': 'application/x-amz-json-1.1',
+          'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
+        },
+        body: jsonEncode({
+          'AuthFlow': 'USER_PASSWORD_AUTH',
+          'ClientId': clientId,
+          'AuthParameters': {
+            'USERNAME': username.trim(),
+            'PASSWORD': password,
+          },
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        final errorType = data['__type']?.toString().split('#').last ?? 'AuthError';
+        final message = data['message'] ?? data['Message'] ?? 'Cognito authentication failed';
+        throw Exception('$errorType: $message');
+      }
+
+      final authResult = data['AuthenticationResult'];
+      if (authResult == null) {
+        throw Exception('Cognito challenge required: ${data['ChallengeName'] ?? "Unknown Challenge"}');
+      }
+
+      final idToken = authResult['IdToken'] as String;
+      final accessToken = authResult['AccessToken'] as String;
+      final refreshToken = authResult['RefreshToken'] as String?;
+
+      await saveAuthTokens(
+        accessToken: accessToken,
+        idToken: idToken,
+        refreshToken: refreshToken,
+      );
+
+      return await getAuthDetails();
+    } finally {
+      if (client == null) httpClient.close();
+    }
+  }
+
+  /// Save tokens directly (from Hosted UI redirect or manual entry)
   static Future<void> saveAuthTokens({
     required String accessToken,
     required String idToken,
@@ -49,6 +118,53 @@ class AppSyncManifestService {
     if (refreshToken != null) {
       await _storage.write(key: _keyRefreshToken, value: refreshToken);
     }
+  }
+
+  /// Get current authentication details & token metadata
+  static Future<AwsUserInfo> getAuthDetails() async {
+    final idToken = await _storage.read(key: _keyIdToken);
+    if (idToken == null || idToken.isEmpty) {
+      return const AwsUserInfo(isAuthenticated: false);
+    }
+
+    try {
+      final parts = idToken.split('.');
+      if (parts.length == 3) {
+        final payload = jsonDecode(
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+        );
+        final exp = (payload['exp'] as num?)?.toInt() ?? 0;
+        final email = payload['email'] as String? ?? payload['cognito:username'] as String?;
+        final username = payload['cognito:username'] as String? ?? email;
+        final expiresAt = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+
+        final isExpired = DateTime.now().isAfter(expiresAt);
+        if (isExpired) {
+          // Attempt automatic token refresh
+          final refreshed = await refreshAccessToken();
+          if (refreshed != null) {
+            return await getAuthDetails();
+          }
+          return AwsUserInfo(
+            isAuthenticated: false,
+            email: email,
+            username: username,
+            expiresAt: expiresAt,
+          );
+        }
+
+        return AwsUserInfo(
+          isAuthenticated: true,
+          email: email,
+          username: username,
+          expiresAt: expiresAt,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error inspecting JWT token: $e');
+    }
+
+    return const AwsUserInfo(isAuthenticated: false);
   }
 
   /// Read active ID Token (with automated refresh if expired)
@@ -115,7 +231,7 @@ class AppSyncManifestService {
     return null;
   }
 
-  /// Check if long-lived session is configured
+  /// Check if session is authenticated and valid
   static Future<bool> isAuthenticated() async {
     final token = await getValidIdToken();
     return token != null && token.isNotEmpty;
@@ -126,6 +242,39 @@ class AppSyncManifestService {
     await _storage.delete(key: _keyAccessToken);
     await _storage.delete(key: _keyIdToken);
     await _storage.delete(key: _keyRefreshToken);
+  }
+
+  /// Test live AppSync connectivity with current token
+  static Future<bool> testConnection({http.Client? client}) async {
+    final idToken = await getValidIdToken(client: client);
+    if (idToken == null || idToken.isEmpty) return false;
+
+    const query = r'''
+    query TestQuery {
+      getDeliveryInfo(getDeliveryInfo: {ibt: "IBT000000"}) {
+        ibt {
+          total
+        }
+      }
+    }
+    ''';
+
+    final httpClient = client ?? http.Client();
+    try {
+      final res = await httpClient.post(
+        Uri.parse(endpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({'query': query}),
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    } finally {
+      if (client == null) httpClient.close();
+    }
   }
 
   /// Fetch IBT document contents directly from AWS AppSync GraphQL API
@@ -142,7 +291,7 @@ class AppSyncManifestService {
     final idToken = explicitIdToken ?? await getValidIdToken(client: client);
     if (idToken == null || idToken.isEmpty) {
       throw Exception(
-        'Authentication required: No valid AWS AppSync token found. Please log in.',
+        'Authentication required: No valid AWS session token found. Please sign in with your AWS / Cognito credentials in Settings.',
       );
     }
 

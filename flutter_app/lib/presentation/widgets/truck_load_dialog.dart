@@ -7,6 +7,7 @@ import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/preset.dart';
 import '../../data/services/appsync_manifest_service.dart';
+import 'aws_auth_dialog.dart';
 
 class TruckLoadDialog extends StatefulWidget {
   final LoadingSheetTrip? existingTrip;
@@ -149,6 +150,11 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
           SnackBar(
             content: Text('Failed to fetch IBT: $e'),
             backgroundColor: Colors.redAccent,
+            action: SnackBarAction(
+              label: 'AWS Login',
+              textColor: Colors.white,
+              onPressed: () => AwsAuthDialog.show(context),
+            ),
           ),
         );
       }
@@ -206,7 +212,9 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       targetQuantity: totalIbtTarget > 0 ? totalIbtTarget : null,
       isManual: widget.existingTrip?.isManual ?? false,
       createdAt: widget.existingTrip?.createdAt ?? startMs ?? now,
-      ibtDocuments: _ibtDocuments.isNotEmpty ? _ibtDocuments : null,
+      ibtDocuments: (_selectedPreset == PresetKey.STOCKS && _ibtDocuments.isNotEmpty)
+          ? _ibtDocuments
+          : null,
     );
 
     widget.onSave(trip);
@@ -321,152 +329,179 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
             ),
             const SizedBox(height: 16),
 
-            // IBT Manifest Document Input Section
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.glassSurfaceElevated,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _ibtDocuments.isNotEmpty
-                      ? AppColors.primaryGlow.withValues(alpha: 0.3)
-                      : Colors.white10,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.receipt_long_outlined,
-                        size: 16,
-                        color: AppColors.primaryGlow,
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'IBT Document Number',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+            // IBT Manifest Document Input Section (ONLY APPEARS FOR STOCKS)
+            if (_selectedPreset == PresetKey.STOCKS) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.glassSurfaceElevated,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _ibtDocuments.isNotEmpty
+                        ? AppColors.primaryGlow.withValues(alpha: 0.3)
+                        : Colors.white10,
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _ibtInputController,
-                          textCapitalization: TextCapitalization.characters,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: 'e.g. IBT119512 or 119512',
-                            hintStyle: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.3),
-                              fontSize: 12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.receipt_long_outlined,
+                              size: 16,
+                              color: AppColors.primaryGlow,
                             ),
-                            filled: true,
-                            fillColor: Colors.black26,
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
+                            SizedBox(width: 6),
+                            Text(
+                              'IBT Document Number',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        InkWell(
+                          onTap: () => AwsAuthDialog.show(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.vpn_key_outlined, size: 10, color: AppColors.primaryGlow),
+                                SizedBox(width: 4),
+                                Text(
+                                  'AWS Auth',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGlow),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _ibtInputController,
+                            textCapitalization: TextCapitalization.characters,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 13),
+                            decoration: InputDecoration(
+                              hintText: 'e.g. IBT119512 or 119512',
+                              hintStyle: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                fontSize: 12,
+                              ),
+                              filled: true,
+                              fillColor: Colors.black26,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            onSubmitted: (_) => _onFetchIbt(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _isFetchingIbt ? null : _onFetchIbt,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryGlow,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 10,
                             ),
-                            border: OutlineInputBorder(
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
                             ),
                           ),
-                          onSubmitted: (_) => _onFetchIbt(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: _isFetchingIbt ? null : _onFetchIbt,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryGlow,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: _isFetchingIbt
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.black,
+                          child: _isFetchingIbt
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
+                                )
+                              : const Text(
+                                  'Fetch IBT',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                              )
-                            : const Text(
-                                'Fetch IBT',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
+                        ),
+                      ],
+                    ),
+
+                    // Display Attached IBT Chips
+                    if (_ibtDocuments.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _ibtDocuments.map((doc) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGlow.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppColors.primaryGlow.withValues(alpha: 0.3),
                               ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${doc.documentNo} (${doc.total} tyres • ${doc.lineItems.length} sizes)',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                InkWell(
+                                  onTap: () => _onRemoveIbt(doc.documentNo),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ],
-                  ),
-
-                  // Display Attached IBT Chips
-                  if (_ibtDocuments.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _ibtDocuments.map((doc) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryGlow.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppColors.primaryGlow.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${doc.documentNo} (${doc.total} tyres • ${doc.lineItems.length} sizes)',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              InkWell(
-                                onTap: () => _onRemoveIbt(doc.documentNo),
-                                child: const Icon(
-                                  Icons.close,
-                                  size: 14,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
 
             // Form Fields: Trip ID & Vehicle Reg
             Row(

@@ -4,7 +4,35 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:dispatch_diary/data/services/appsync_manifest_service.dart';
 
+import 'package:flutter/services.dart';
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  final Map<String, String> mockStorage = {};
+  const channel = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+    if (methodCall.method == 'write') {
+      final key = methodCall.arguments['key'] as String;
+      final value = methodCall.arguments['value'] as String;
+      mockStorage[key] = value;
+      return null;
+    } else if (methodCall.method == 'read') {
+      final key = methodCall.arguments['key'] as String;
+      return mockStorage[key];
+    } else if (methodCall.method == 'delete') {
+      final key = methodCall.arguments['key'] as String;
+      mockStorage.remove(key);
+      return null;
+    } else if (methodCall.method == 'deleteAll') {
+      mockStorage.clear();
+      return null;
+    }
+    return null;
+  });
+
   group('AppSyncManifestService TDD Tests', () {
     test('Throws exception when no authentication token is provided', () async {
       expect(
@@ -16,6 +44,73 @@ void main() {
           (e) => e.toString(),
           'message',
           contains('Authentication required'),
+        )),
+      );
+    });
+
+    test('loginWithCredentials sends InitiateAuth request to Cognito and returns user info', () async {
+      final mockCognitoClient = MockClient((request) async {
+        expect(request.url.toString(), AppSyncManifestService.cognitoIdpEndpoint);
+        expect(request.headers['X-Amz-Target'], 'AWSCognitoIdentityProviderService.InitiateAuth');
+
+        final payload = jsonDecode(request.body);
+        expect(payload['AuthFlow'], 'USER_PASSWORD_AUTH');
+        expect(payload['ClientId'], AppSyncManifestService.clientId);
+        expect(payload['AuthParameters']['USERNAME'], 'neil@tredcor.co.za');
+        expect(payload['AuthParameters']['PASSWORD'], 'SecretPassword123!');
+
+        // Generate mock JWT ID token payload with email
+        final jwtHeader = base64Url.encode(utf8.encode(jsonEncode({"alg": "RS256", "typ": "JWT"})));
+        final jwtClaims = base64Url.encode(utf8.encode(jsonEncode({
+          "email": "neil@tredcor.co.za",
+          "cognito:username": "neil",
+          "exp": (DateTime.now().millisecondsSinceEpoch ~/ 1000) + 3600,
+        })));
+        final mockIdToken = '$jwtHeader.$jwtClaims.MOCK_SIGNATURE';
+
+        final responsePayload = {
+          "AuthenticationResult": {
+            "IdToken": mockIdToken,
+            "AccessToken": "MOCK_ACCESS_TOKEN",
+            "RefreshToken": "MOCK_REFRESH_TOKEN",
+            "ExpiresIn": 3600,
+            "TokenType": "Bearer",
+          }
+        };
+
+        return http.Response(jsonEncode(responsePayload), 200);
+      });
+
+      final userInfo = await AppSyncManifestService.loginWithCredentials(
+        username: 'neil@tredcor.co.za',
+        password: 'SecretPassword123!',
+        client: mockCognitoClient,
+      );
+
+      expect(userInfo.isAuthenticated, isTrue);
+      expect(userInfo.email, 'neil@tredcor.co.za');
+      expect(userInfo.username, 'neil');
+    });
+
+    test('loginWithCredentials throws descriptive exception on invalid credentials', () async {
+      final mockCognitoClient = MockClient((request) async {
+        final errorPayload = {
+          "__type": "NotAuthorizedException",
+          "message": "Incorrect username or password."
+        };
+        return http.Response(jsonEncode(errorPayload), 400);
+      });
+
+      expect(
+        () => AppSyncManifestService.loginWithCredentials(
+          username: 'wrong@user.com',
+          password: 'BadPassword',
+          client: mockCognitoClient,
+        ),
+        throwsA(isA<Exception>().having(
+          (e) => e.toString(),
+          'message',
+          contains('NotAuthorizedException: Incorrect username or password.'),
         )),
       );
     });

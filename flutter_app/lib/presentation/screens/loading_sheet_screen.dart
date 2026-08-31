@@ -1,3 +1,4 @@
+import '../widgets/aws_auth_dialog.dart';
 import '../widgets/ibt_line_items_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -113,25 +114,47 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                             ],
                           ),
 
-                          // Despatcher Name Pill
-                          GestureDetector(
-                            onTap: () {
-                              _showEditDespatcherDialog(context, settingsRepo);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: GlassDecorations.glassCard(borderRadius: 14),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.person_rounded, size: 14, color: AppColors.primaryGlow),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    despatcherName,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () => AwsAuthDialog.show(context),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  decoration: GlassDecorations.glassCard(borderRadius: 14),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.cloud_sync_rounded, size: 14, color: AppColors.primaryGlow),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'AWS Sync',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 6),
+                              // Despatcher Name Pill
+                              GestureDetector(
+                                onTap: () {
+                                  _showEditDespatcherDialog(context, settingsRepo);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: GlassDecorations.glassCard(borderRadius: 14),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.person_rounded, size: 14, color: AppColors.primaryGlow),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        despatcherName,
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
