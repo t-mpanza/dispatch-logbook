@@ -55,6 +55,7 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
   late TextEditingController _driverController;
   late TextEditingController _startController;
   late TextEditingController _finishController;
+  late TextEditingController _targetController;
   int _quantityLoaded = 0;
 
   @override
@@ -70,6 +71,8 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       _driverController = TextEditingController(text: t.driverName);
       _startController = TextEditingController(text: AppFormatters.formatTimeHHmm(t.startTime));
       _finishController = TextEditingController(text: AppFormatters.formatTimeHHmm(t.finishTime));
+      _targetController = TextEditingController(
+          text: t.targetQuantity != null && t.targetQuantity! > 0 ? '${t.targetQuantity}' : '');
       _quantityLoaded = t.quantityLoaded;
     } else {
       _selectedPreset = PresetKey.STOCKS;
@@ -82,6 +85,7 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       _driverController = TextEditingController(text: fill.driverName ?? '');
       _startController = TextEditingController();
       _finishController = TextEditingController();
+      _targetController = TextEditingController();
       _quantityLoaded = 0;
     }
   }
@@ -115,6 +119,8 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       duration = diff > 0 ? (diff / (1000 * 60)).round() : 1;
     }
 
+    final targetQty = int.tryParse(_targetController.text.trim());
+
     final trip = LoadingSheetTrip(
       id: widget.existingTrip?.id ?? IdGenerator.generate(),
       entryId: widget.existingTrip?.entryId,
@@ -128,6 +134,7 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       finishTime: finishMs,
       durationMinutes: duration,
       quantityLoaded: _quantityLoaded,
+      targetQuantity: targetQty,
       isManual: widget.existingTrip?.isManual ?? false,
       createdAt: widget.existingTrip?.createdAt ?? startMs ?? now,
     );
@@ -143,30 +150,56 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
     _driverController.dispose();
     _startController.dispose();
     _finishController.dispose();
+    _targetController.dispose();
     super.dispose();
+  }
+
+  Color _getPresetColor(PresetKey key) {
+    switch (key) {
+      case PresetKey.DBN:
+        return AppColors.presetDbn;
+      case PresetKey.NLS:
+        return AppColors.presetNls;
+      case PresetKey.BLOEM:
+        return AppColors.presetBloem;
+      case PresetKey.PLK:
+        return AppColors.presetPlk;
+      case PresetKey.STOCKS:
+        return AppColors.presetStocks;
+      case PresetKey.NLH:
+        return AppColors.presetNlh;
+      case PresetKey.TIREPOINT:
+        return AppColors.presetTirepoint;
+      case PresetKey.CUSTOM:
+        return AppColors.primaryGlow;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existingTrip != null;
+    final target = int.tryParse(_targetController.text.trim()) ?? 0;
+    final remaining = target > 0 ? target - _quantityLoaded : 0;
+    final isOver = target > 0 && _quantityLoaded > target;
+    final isDone = target > 0 && _quantityLoaded == target;
 
     return Container(
       padding: EdgeInsets.only(
-        top: 16,
         left: 20,
         right: 20,
+        top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       decoration: const BoxDecoration(
         color: AppColors.backgroundSecondary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Grabber handle
+            // Drag Handle
             Center(
               child: Container(
                 width: 36,
@@ -177,38 +210,20 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
             // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.local_shipping_rounded, color: AppColors.primaryGlow, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isEdit ? 'Edit Truck Load' : 'Add Truck Load',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                        ),
-                        Text(
-                          widget.dayKey,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontFamily: 'monospace'),
-                        ),
-                      ],
-                    ),
-                  ],
+                Text(
+                  isEdit ? 'Edit Truck Load' : 'Add Truck Load',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.3,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
@@ -216,56 +231,68 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // Preset Selector Grid
+            // Route Preset Chips
             const Text(
-              'PRESET / DESTINATION',
+              'ROUTE PRESET',
               style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 1.0),
             ),
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: [
-                for (final p in PresetEngine.loadingPresets)
-                  GestureDetector(
-                    onTap: () => _onPresetChanged(p.key),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _selectedPreset == p.key
-                            ? AppColors.primary
-                            : AppColors.glassSurfaceElevated,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _selectedPreset == p.key
-                              ? AppColors.primaryGlow
-                              : AppColors.glassBorderLight,
-                        ),
-                      ),
-                      child: Text(
-                        p.label.replaceAll(' [i]', ''),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: _selectedPreset == p.key ? FontWeight.w900 : FontWeight.w600,
-                          color: _selectedPreset == p.key ? Colors.white : AppColors.textSecondary,
-                        ),
+              children: PresetEngine.loadingPresets.map((preset) {
+                final isSelected = _selectedPreset == preset.key;
+                final color = _getPresetColor(preset.key);
+
+                return GestureDetector(
+                  onTap: () => _onPresetChanged(preset.key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected ? color.withValues(alpha: 0.25) : AppColors.glassSurface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSelected ? color : Colors.white.withValues(alpha: 0.08),
+                        width: isSelected ? 1.5 : 1.0,
                       ),
                     ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          preset.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                            color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-              ],
+                );
+              }).toList(),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
-            // Trip ID & Reg
+            // Trip ID & Vehicle Reg
             Row(
               children: [
                 Expanded(
                   child: _buildTextField(
-                    label: 'TRIP ID',
+                    label: 'TRIP / ROUTE NAME',
                     controller: _tripIdController,
                     hint: 'e.g. STOCKS 1',
+                    textCapitalization: TextCapitalization.characters,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -282,23 +309,64 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
             ),
             const SizedBox(height: 12),
 
-            // Driver & Quantity
+            // Driver Name
+            _buildTextField(
+              label: 'DRIVER NAME',
+              controller: _driverController,
+              hint: 'e.g. Neil',
+            ),
+            const SizedBox(height: 12),
+
+            // Quantities: Target vs Loaded
             Row(
               children: [
-                Expanded(
-                  child: _buildTextField(
-                    label: 'DRIVER NAME',
-                    controller: _driverController,
-                    hint: 'e.g. Neil',
-                  ),
-                ),
-                const SizedBox(width: 10),
+                // Target Qty
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'TYRES LOADED',
+                        'TARGET TYRES',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 1.0),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.glassBorder),
+                        ),
+                        child: TextField(
+                          controller: _targetController,
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setState(() {}),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace',
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'e.g. 180',
+                            hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 11),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                // Loaded Qty Stepper
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'LOADED TYRES',
                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 1.0),
                       ),
                       const SizedBox(height: 4),
@@ -343,6 +411,51 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                 ),
               ],
             ),
+
+            // Target Progress Pill (if target is entered)
+            if (target > 0) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDone
+                      ? AppColors.success.withValues(alpha: 0.15)
+                      : (isOver
+                          ? AppColors.warning.withValues(alpha: 0.15)
+                          : AppColors.primary.withValues(alpha: 0.15)),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDone
+                        ? AppColors.success.withValues(alpha: 0.4)
+                        : (isOver
+                            ? AppColors.warning.withValues(alpha: 0.4)
+                            : AppColors.primaryGlow.withValues(alpha: 0.4)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isDone
+                          ? Icons.check_circle_rounded
+                          : (isOver ? Icons.warning_amber_rounded : Icons.hourglass_bottom_rounded),
+                      size: 14,
+                      color: isDone ? AppColors.success : (isOver ? AppColors.warning : AppColors.primaryGlow),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isDone
+                          ? 'Target reached! (100% loaded)'
+                          : (isOver ? '+${_quantityLoaded - target} tyres over target!' : '$remaining tyres left to load'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isDone ? AppColors.success : (isOver ? AppColors.warning : AppColors.primaryGlow),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
 
             // Start & Finish Times

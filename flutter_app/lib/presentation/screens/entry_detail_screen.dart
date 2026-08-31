@@ -258,8 +258,20 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                           total: grandTotal,
                           tripCount: trips.length,
                           expectedTotal: currentEntry.expectedTotal,
+                          truckReg: _regController.text.trim(),
+                          driverName: _driverController.text.trim(),
+                          tripTitle: currentEntry.title,
                           onSetExpected: (target) {
-                            repo.saveEntry(currentEntry.copyWith(expectedTotal: target));
+                            final updatedSheetTrips = currentEntry.loadingSheetTrips?.map((st) {
+                              if (!st.isManual) {
+                                return st.copyWith(targetQuantity: target);
+                              }
+                              return st;
+                            }).toList();
+                            repo.saveEntry(currentEntry.copyWith(
+                              expectedTotal: target,
+                              loadingSheetTrips: updatedSheetTrips,
+                            ));
                           },
                         ),
                         const SizedBox(height: 12),

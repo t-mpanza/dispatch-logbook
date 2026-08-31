@@ -11,6 +11,7 @@ class LoadingSheetTrip {
   final int? finishTime;
   final int? durationMinutes;
   final int quantityLoaded;
+  final int? targetQuantity;
   final int? rejectedCount;
   final String? note;
   final bool isManual;
@@ -27,11 +28,35 @@ class LoadingSheetTrip {
     this.finishTime,
     this.durationMinutes,
     required this.quantityLoaded,
+    this.targetQuantity,
     this.rejectedCount,
     this.note,
     this.isManual = false,
     required this.createdAt,
   });
+
+  int get remainingTyres {
+    if (targetQuantity == null || targetQuantity! <= 0) return 0;
+    final diff = targetQuantity! - quantityLoaded;
+    return diff > 0 ? diff : 0;
+  }
+
+  int get overCount {
+    if (targetQuantity == null || targetQuantity! <= 0) return 0;
+    final diff = quantityLoaded - targetQuantity!;
+    return diff > 0 ? diff : 0;
+  }
+
+  double? get progressPercent {
+    if (targetQuantity == null || targetQuantity! <= 0) return null;
+    return (quantityLoaded / targetQuantity!).clamp(0.0, 1.0);
+  }
+
+  bool get isTargetReached =>
+      targetQuantity != null && targetQuantity! > 0 && quantityLoaded >= targetQuantity!;
+
+  bool get isTargetExceeded =>
+      targetQuantity != null && targetQuantity! > 0 && quantityLoaded > targetQuantity!;
 
   LoadingSheetTrip copyWith({
     String? id,
@@ -44,6 +69,7 @@ class LoadingSheetTrip {
     int? finishTime,
     int? durationMinutes,
     int? quantityLoaded,
+    int? targetQuantity,
     int? rejectedCount,
     String? note,
     bool? isManual,
@@ -60,6 +86,7 @@ class LoadingSheetTrip {
       finishTime: finishTime ?? this.finishTime,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       quantityLoaded: quantityLoaded ?? this.quantityLoaded,
+      targetQuantity: targetQuantity ?? this.targetQuantity,
       rejectedCount: rejectedCount ?? this.rejectedCount,
       note: note ?? this.note,
       isManual: isManual ?? this.isManual,
@@ -79,6 +106,7 @@ class LoadingSheetTrip {
       'finishTime': finishTime,
       'durationMinutes': durationMinutes,
       'quantityLoaded': quantityLoaded,
+      'targetQuantity': targetQuantity,
       'rejectedCount': rejectedCount,
       'note': note,
       'isManual': isManual ? 1 : 0,
@@ -106,6 +134,7 @@ class LoadingSheetTrip {
       finishTime: (map['finishTime'] as num?)?.toInt(),
       durationMinutes: (map['durationMinutes'] as num?)?.toInt(),
       quantityLoaded: (map['quantityLoaded'] as num?)?.toInt() ?? 0,
+      targetQuantity: (map['targetQuantity'] as num?)?.toInt(),
       rejectedCount: (map['rejectedCount'] as num?)?.toInt(),
       note: map['note'] as String?,
       isManual: map['isManual'] == 1 || map['isManual'] == true,

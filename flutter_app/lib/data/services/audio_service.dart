@@ -20,9 +20,13 @@ class AudioService {
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) return;
 
-    final dir = await getTemporaryDirectory();
+    final docDir = await getApplicationDocumentsDirectory();
+    final attachmentsDir = Directory('${docDir.path}/attachments');
+    if (!attachmentsDir.existsSync()) {
+      await attachmentsDir.create(recursive: true);
+    }
     final fileName = 'voice_${IdGenerator.generate()}.m4a';
-    _currentRecordingPath = '${dir.path}/$fileName';
+    _currentRecordingPath = '${attachmentsDir.path}/$fileName';
     _recordingStartTime = DateTime.now();
 
     await _recorder.start(

@@ -26,6 +26,14 @@ class SupabaseService {
       anonKey: SupabaseConstants.anonKey,
     );
     _client = Supabase.instance.client;
+
+    // Attempt to ensure attachments bucket exists
+    try {
+      await _client!.storage.createBucket(
+        SupabaseConstants.attachmentsBucket,
+        const BucketOptions(public: true),
+      );
+    } catch (_) {}
   }
 
   static Future<String?> getUserId() async {

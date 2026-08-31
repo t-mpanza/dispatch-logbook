@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/models/attachment.dart';
 import '../../data/services/supabase_service.dart';
@@ -15,12 +16,12 @@ class PhotoLightbox extends StatefulWidget {
   const PhotoLightbox({super.key, required this.attachment});
 
   static void show(BuildContext context, Attachment attachment) {
+    AppHaptics.light();
     Navigator.push(
       context,
-      PageRouteBuilder(
-        opaque: false,
-        barrierColor: Colors.black.withValues(alpha: 0.95),
-        pageBuilder: (context, _, _) => PhotoLightbox(attachment: attachment),
+      MaterialPageRoute(
+        builder: (_) => PhotoLightbox(attachment: attachment),
+        fullscreenDialog: true,
       ),
     );
   }
@@ -31,6 +32,92 @@ class PhotoLightbox extends StatefulWidget {
 
 class _PhotoLightboxState extends State<PhotoLightbox> {
   bool _isDownloading = false;
+  ImageProvider? _imageProvider;
+  bool _isLoadingProvider = true;
+  String? _resolvedUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _initImageProvider();
+  }
+
+  Future<void> _initImageProvider() async {
+    setState(() => _isLoadingProvider = true);
+
+    // 1. Direct Memory Bytes
+    if (widget.attachment.bytes != null && widget.attachment.bytes!.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _imageProvider = MemoryImage(widget.attachment.bytes!);
+          _isLoadingProvider = false;
+        });
+      }
+      return;
+    }
+
+    // 2. Direct Local File Path
+    if (widget.attachment.localFilePath != null) {
+      final file = File(widget.attachment.localFilePath!);
+      if (await file.exists()) {
+        if (mounted) {
+          setState(() {
+            _imageProvider = FileImage(file);
+            _isLoadingProvider = false;
+          });
+        }
+        return;
+      }
+    }
+
+    // 3. Fallback to App Documents Directory
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final localCandidate1 = File('${docDir.path}/attachments/${widget.attachment.id}.jpg');
+      if (await localCandidate1.exists()) {
+        if (mounted) {
+          setState(() {
+            _imageProvider = FileImage(localCandidate1);
+            _isLoadingProvider = false;
+          });
+        }
+        return;
+      }
+
+      if (widget.attachment.name != null) {
+        final localCandidate2 = File('${docDir.path}/${widget.attachment.name}');
+        if (await localCandidate2.exists()) {
+          if (mounted) {
+            setState(() {
+              _imageProvider = FileImage(localCandidate2);
+              _isLoadingProvider = false;
+            });
+          }
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // 4. Remote Cloud URL
+    final url = _resolveImageUrl();
+    if (url != null) {
+      _resolvedUrl = url;
+      if (mounted) {
+        setState(() {
+          _imageProvider = NetworkImage(url);
+          _isLoadingProvider = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _imageProvider = null;
+        _isLoadingProvider = false;
+      });
+    }
+  }
 
   String? _resolveImageUrl() {
     if (widget.attachment.downloadUrl != null &&
@@ -46,26 +133,6 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
     return null;
   }
 
-  ImageProvider? _resolveImageProvider() {
-    if (widget.attachment.bytes != null) {
-      return MemoryImage(widget.attachment.bytes!);
-    }
-
-    if (widget.attachment.localFilePath != null) {
-      final file = File(widget.attachment.localFilePath!);
-      if (file.existsSync()) {
-        return FileImage(file);
-      }
-    }
-
-    final url = _resolveImageUrl();
-    if (url != null) {
-      return NetworkImage(url);
-    }
-
-    return null;
-  }
-
   Future<void> _handleDownload() async {
     AppHaptics.medium();
     setState(() => _isDownloading = true);
@@ -78,6 +145,10 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
 
       if (widget.attachment.bytes != null) {
         await file.writeAsBytes(widget.attachment.bytes!);
+      } else if (widget.attachment.localFilePath != null &&
+          File(widget.attachment.localFilePath!).existsSync()) {
+        final src = File(widget.attachment.localFilePath!);
+        await file.writeAsBytes(await src.readAsBytes());
       } else {
         final url = _resolveImageUrl();
         if (url != null) {
@@ -85,10 +156,10 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
           if (res.statusCode == 200) {
             await file.writeAsBytes(res.bodyBytes);
           } else {
-            throw Exception('HTTP ${res.statusCode}');
+            throw Exception('Cloud storage returned HTTP ${res.statusCode}');
           }
         } else {
-          throw Exception('No image source available');
+          throw Exception('No local or cloud image source found');
         }
       }
 
@@ -124,7 +195,7 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
           SnackBar(
             backgroundColor: AppColors.errorBg,
             content: Text(
-              'Failed to download image: $e',
+              'Failed to save image: $e',
               style: const TextStyle(color: AppColors.error, fontSize: 12),
             ),
           ),
@@ -150,13 +221,12 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
 
   @override
   Widget build(BuildContext context) {
-    final imageProvider = _resolveImageProvider();
-    final url = _resolveImageUrl();
+    final url = _resolvedUrl ?? _resolveImageUrl();
 
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black.withValues(alpha: 0.7),
+        backgroundColor: Colors.black.withValues(alpha: 0.8),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded, color: Colors.white),
@@ -200,61 +270,125 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                   )
                 : const Icon(Icons.download_rounded,
                     color: AppColors.primaryGlow, size: 22),
-            tooltip: 'Download Image',
+            tooltip: 'Save to Device',
             onPressed: _isDownloading ? null : _handleDownload,
           ),
         ],
       ),
-      body: imageProvider == null
-          ? const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.broken_image_rounded,
-                      size: 48, color: AppColors.textMuted),
-                  SizedBox(height: 12),
-                  Text(
-                    'Image not available locally or in cloud',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                  ),
-                ],
-              ),
-            )
-          : PhotoView(
-              imageProvider: imageProvider,
-              minScale: PhotoViewComputedScale.contained,
-              maxScale: PhotoViewComputedScale.covered * 3.0,
-              backgroundDecoration: const BoxDecoration(color: Colors.black),
-              loadingBuilder: (context, event) => Center(
-                child: SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(
-                    value: event == null
-                        ? 0
-                        : event.cumulativeBytesLoaded /
-                            (event.expectedTotalBytes ?? 1),
-                    color: AppColors.primaryGlow,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-              errorBuilder: (context, error, stackTrace) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline_rounded,
-                        size: 48, color: AppColors.error),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Failed to load image ($error)',
-                      style:
-                          const TextStyle(color: AppColors.error, fontSize: 12),
+      body: _isLoadingProvider
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGlow))
+          : _imageProvider == null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: GlassDecorations.glassCard(borderRadius: 20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.image_not_supported_rounded,
+                              size: 48, color: AppColors.warning),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'Image Stored Locally',
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'This image is saved on the originating device. If synced to a second device, the Supabase storage bucket "attachments" is required.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: _initImageProvider,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: const Icon(Icons.refresh_rounded, size: 16, color: Colors.white),
+                            label: const Text('Retry Loading',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12)),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
+                )
+              : PhotoView(
+                  imageProvider: _imageProvider!,
+                  minScale: PhotoViewComputedScale.contained,
+                  maxScale: PhotoViewComputedScale.covered * 3.0,
+                  backgroundDecoration: const BoxDecoration(color: Colors.black),
+                  loadingBuilder: (context, event) => Center(
+                    child: SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: CircularProgressIndicator(
+                        value: event == null
+                            ? 0
+                            : event.cumulativeBytesLoaded /
+                                (event.expectedTotalBytes ?? 1),
+                        color: AppColors.primaryGlow,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ),
+                  errorBuilder: (context, error, stackTrace) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: GlassDecorations.glassCard(borderRadius: 20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.cloud_off_rounded,
+                                size: 48, color: AppColors.warning),
+                            const SizedBox(height: 14),
+                            const Text(
+                              'Cloud Bucket "attachments" Not Found',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'The storage bucket is missing in your Supabase project dashboard. Captured photos will continue to save safely in local device storage.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _initImageProvider,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.refresh_rounded, size: 16, color: Colors.white),
+                              label: const Text('Retry Local Load',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
     );
   }
 }

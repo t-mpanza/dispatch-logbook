@@ -232,7 +232,7 @@ class EventLogView extends StatelessWidget {
   }
 
   Widget _buildPhotoThumbnail(Attachment att) {
-    if (att.bytes != null) {
+    if (att.bytes != null && att.bytes!.isNotEmpty) {
       return Image.memory(att.bytes!, width: 44, height: 44, fit: BoxFit.cover);
     }
     if (att.localFilePath != null) {
@@ -241,6 +241,7 @@ class EventLogView extends StatelessWidget {
         return Image.file(file, width: 44, height: 44, fit: BoxFit.cover);
       }
     }
+
     final url = att.downloadUrl ??
         (att.storagePath != null
             ? SupabaseService.client.storage.from('attachments').getPublicUrl(att.storagePath!)
@@ -271,7 +272,7 @@ class EventLogView extends StatelessWidget {
           width: 44,
           height: 44,
           color: AppColors.glassSurfaceElevated,
-          child: const Icon(Icons.broken_image_rounded, size: 20, color: AppColors.textMuted),
+          child: const Icon(Icons.image_outlined, size: 20, color: AppColors.textMuted),
         ),
       );
     }

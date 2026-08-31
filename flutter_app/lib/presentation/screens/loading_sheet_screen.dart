@@ -470,6 +470,36 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                 ),
                 Row(
                   children: [
+                    if (trip.targetQuantity != null && trip.targetQuantity! > 0) ...[
+                      if (trip.isTargetReached && !trip.isTargetExceeded)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('Done', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.success)),
+                        )
+                      else if (trip.isTargetExceeded)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text('+${trip.overCount} over', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.warning)),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGlow.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text('${trip.remainingTyres} left', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGlow)),
+                        ),
+                      const SizedBox(width: 6),
+                    ],
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -478,7 +508,9 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                         border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
                       ),
                       child: Text(
-                        '${trip.quantityLoaded} tyres',
+                        trip.targetQuantity != null && trip.targetQuantity! > 0
+                            ? '${trip.quantityLoaded} / ${trip.targetQuantity}'
+                            : '${trip.quantityLoaded} tyres',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
@@ -493,6 +525,22 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                 ),
               ],
             ),
+            if (trip.progressPercent != null) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: trip.progressPercent!,
+                  minHeight: 4,
+                  backgroundColor: Colors.white.withValues(alpha: 0.06),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    trip.isTargetReached
+                        ? AppColors.success
+                        : (trip.isTargetExceeded ? AppColors.warning : AppColors.primaryGlow),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Row(
               children: [
