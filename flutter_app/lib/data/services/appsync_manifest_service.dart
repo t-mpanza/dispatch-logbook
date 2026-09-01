@@ -455,9 +455,9 @@ class AppSyncManifestService {
           'query': query,
           'variables': {
             'ibt': docNo,
-            'inv': null,
-            'dibt': null,
-            'amsInv': null,
+            'inv': '',
+            'dibt': '',
+            'amsInv': '',
           },
         }),
       );
