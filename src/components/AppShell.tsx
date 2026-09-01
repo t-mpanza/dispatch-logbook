@@ -51,7 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-transparent text-foreground flex flex-col max-w-md mx-auto relative antialiased select-none">
-      {/* Hardware-Composited Fixed Background Layer (Zero scroll invalidation) */}
+      {/* Hardware-Composited Fixed Background Layer */}
       <div className="ios-ambient-bg" />
 
       {/* Dynamic Island Style Connection Status Pill */}
@@ -95,30 +95,30 @@ export function AppShell({ children }: { children: ReactNode }) {
             disabled={syncState.status === "syncing"}
             className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-2xl ios-press relative ${
               syncState.status === "syncing"
-                ? "text-primary-glow"
+                ? "text-blue-600 dark:text-primary-glow"
                 : syncState.status === "error"
                   ? "text-destructive"
                   : syncState.status === "offline"
-                    ? "text-slate-500"
-                    : "text-primary-glow/90 hover:text-primary-glow"
+                    ? "text-slate-400 dark:text-slate-500"
+                    : "text-blue-600 dark:text-primary-glow/90 hover:text-blue-700 dark:hover:text-primary-glow"
             }`}
             title="Tap to sync with cloud database"
             aria-label={`Sync status: ${syncState.status}`}
           >
-            <div className="relative grid place-items-center h-7 w-7 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+            <div className="relative grid place-items-center h-7 w-7 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08]">
               {syncState.status === "syncing" ? (
-                <RefreshCw size={14} className="animate-spin text-primary-glow" />
+                <RefreshCw size={14} className="animate-spin text-blue-600 dark:text-primary-glow" />
               ) : syncState.status === "error" ? (
                 <AlertCircle size={14} className="text-destructive animate-pulse" />
               ) : syncState.status === "offline" ? (
-                <CloudOff size={14} className="text-slate-500" />
+                <CloudOff size={14} className="text-slate-400 dark:text-slate-500" />
               ) : (
-                <Cloud size={14} className="text-primary-glow" />
+                <Cloud size={14} className="text-blue-600 dark:text-primary-glow" />
               )}
 
               {/* Unsynced pending badge */}
               {syncState.pendingCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-blue-500 text-white font-mono text-[9px] font-bold grid place-items-center shadow-md">
+                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-blue-600 text-white font-mono text-[9px] font-bold grid place-items-center shadow-md">
                   {syncState.pendingCount > 9 ? "9+" : syncState.pendingCount}
                 </span>
               )}
@@ -158,21 +158,21 @@ function NavBtn({
       to={to}
       onClick={() => vibrate("light")}
       className={`flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-2xl ios-press relative ${
-        active ? "text-primary-glow" : "text-slate-400 hover:text-slate-200"
+        active ? "text-blue-600 dark:text-primary-glow" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
       }`}
     >
       <div
         className={`grid place-items-center h-7 w-7 rounded-xl transition-all duration-200 ${
           active
-            ? "bg-primary/20 border border-primary-glow/40 shadow-[0_0_14px_rgba(59,130,246,0.35)] text-primary-glow scale-105"
-            : "bg-transparent text-slate-400"
+            ? "bg-blue-500/15 border border-blue-500/30 shadow-[0_0_14px_rgba(59,130,246,0.25)] text-blue-600 dark:text-primary-glow scale-105"
+            : "bg-transparent text-slate-500 dark:text-slate-400"
         }`}
       >
         {icon}
       </div>
       <span
         className={`text-[9px] tracking-wide uppercase transition-all duration-200 ${
-          active ? "font-bold text-slate-100 scale-95" : "font-medium text-slate-500"
+          active ? "font-bold text-slate-900 dark:text-slate-100 scale-95" : "font-medium text-slate-500 dark:text-slate-500"
         }`}
       >
         {label}

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, X, RefreshCw, Smartphone, Cloud, CloudOff } from "lucide-react";
+import { Plus, ChevronLeft, X, RefreshCw, Smartphone, Cloud } from "lucide-react";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { entriesByDay } from "@/lib/db";
@@ -11,6 +11,8 @@ import { Capacitor } from "@capacitor/core";
 import { useSyncState, syncNow } from "@/lib/sync";
 import { vibrate } from "@/lib/haptics";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTheme } from "@/lib/theme";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -33,6 +35,7 @@ const APP_VERSION = import.meta.env.VITE_APP_VERSION || "dev";
 function TodayPage() {
   const qc = useQueryClient();
   const syncState = useSyncState();
+  const { theme, setTheme } = useTheme();
   const today = new Date();
   const key = dayKey(today);
   const { data: entries = [], isLoading } = useQuery({
@@ -117,20 +120,21 @@ function TodayPage() {
         <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-3 flex items-start justify-between">
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">Today</p>
-            <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-100 font-sans">{fmtDayLabel(today)}</h1>
-            <p className="mt-1 text-xs text-slate-400 font-medium">
+            <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-sans">{fmtDayLabel(today)}</h1>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
               {entries.length === 0
                 ? "Nothing logged yet. Tap + to capture."
                 : `${entries.length} ${entries.length === 1 ? "trip entry" : "trip entries"}`}
             </p>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Link
               to="/day/$date"
               params={{ date: yesterdayDateStr }}
               onClick={() => vibrate("light")}
-              className="h-9 px-3.5 rounded-full ios-glass flex items-center gap-1 text-xs font-bold text-slate-200 hover:text-white ios-press shadow-md"
+              className="h-9 px-3.5 rounded-full ios-glass flex items-center gap-1 text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white ios-press shadow-sm"
               aria-label="Yesterday"
             >
               <ChevronLeft size={16} className="text-primary-glow" />
@@ -143,7 +147,7 @@ function TodayPage() {
                 setShowAbout(true);
                 setUpdateStatus(null);
               }}
-              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]"
+              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors px-2 py-1.5 rounded-full bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.06]"
               aria-label="App version info"
             >
               <Smartphone size={10} />
@@ -177,30 +181,53 @@ function TodayPage() {
             {/* iOS Grabber */}
             <div className="ios-grabber" />
 
-            <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 dark:border-white/[0.08]">
               <div>
-                <h2 className="text-base font-bold text-slate-100">Dispatch Diary</h2>
-                <p className="text-xs text-slate-400">System Info & Cloud Diagnostics</p>
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Dispatch Diary</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">System Info & Cloud Diagnostics</p>
               </div>
               <button
                 onClick={() => setShowAbout(false)}
-                className="h-8 w-8 rounded-full bg-white/[0.06] grid place-items-center text-slate-400 hover:text-slate-200 active:scale-90 transition-all"
+                className="h-8 w-8 rounded-full bg-slate-100 dark:bg-white/[0.06] grid place-items-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 active:scale-90 transition-all"
               >
                 <X size={16} />
               </button>
             </div>
 
             <div className="space-y-3 text-xs mt-4">
-              <div className="flex justify-between py-2 border-b border-white/[0.06]">
-                <span className="text-slate-400">Version</span>
-                <span className="font-mono font-bold text-slate-100">{APP_VERSION}</span>
+              {/* Appearance Theme Switcher */}
+              <div className="py-2.5 border-b border-slate-200 dark:border-white/[0.06] space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Appearance Theme</span>
+                  <span className="font-mono font-bold capitalize text-slate-900 dark:text-slate-100">{theme}</span>
+                </div>
+                <div className="flex p-1 rounded-xl bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] gap-1">
+                  {(["system", "light", "dark"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setTheme(mode)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
+                        theme === mode
+                          ? "bg-white text-slate-900 shadow-sm border border-slate-200/80 dark:bg-white/[0.12] dark:text-slate-100 dark:border-white/20 font-black"
+                          : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex justify-between py-2 border-b border-white/[0.06]">
-                <span className="text-slate-400">Platform</span>
-                <span className="font-mono text-slate-200">{Capacitor.isNativePlatform() ? Capacitor.getPlatform() : "web"}</span>
+
+              <div className="flex justify-between py-2 border-b border-slate-200 dark:border-white/[0.06]">
+                <span className="text-slate-500 dark:text-slate-400">Version</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{APP_VERSION}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-white/[0.06]">
-                <span className="text-slate-400">Database Sync</span>
+              <div className="flex justify-between py-2 border-b border-slate-200 dark:border-white/[0.06]">
+                <span className="text-slate-500 dark:text-slate-400">Platform</span>
+                <span className="font-mono text-slate-700 dark:text-slate-200">{Capacitor.isNativePlatform() ? Capacitor.getPlatform() : "web"}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-slate-200 dark:border-white/[0.06]">
+                <span className="text-slate-500 dark:text-slate-400">Database Sync</span>
                 <span className="flex items-center gap-1.5 font-medium text-xs">
                   {syncState.status === "syncing" ? (
                     <>
@@ -208,22 +235,22 @@ function TodayPage() {
                       <span className="text-primary-glow font-bold">Syncing…</span>
                     </>
                   ) : syncState.status === "error" ? (
-                    <span className="text-rose-400 font-bold">Sync Error</span>
+                    <span className="text-rose-600 dark:text-rose-400 font-bold">Sync Error</span>
                   ) : syncState.status === "offline" ? (
                     <span className="text-slate-500">Offline</span>
                   ) : (
                     <>
-                      <Cloud size={12} className="text-primary-glow" />
-                      <span className="text-primary-glow font-bold">
+                      <Cloud size={12} className="text-blue-600 dark:text-primary-glow" />
+                      <span className="text-blue-600 dark:text-primary-glow font-bold">
                         Synced {syncState.lastSyncedAt ? `(${fmtTime(syncState.lastSyncedAt)})` : ""}
                       </span>
                     </>
                   )}
                 </span>
               </div>
-              <div className="flex justify-between py-2 border-b border-white/[0.06]">
-                <span className="text-slate-400">Unsynced Pending Logs</span>
-                <span className="font-mono font-bold text-blue-400">{syncState.pendingCount}</span>
+              <div className="flex justify-between py-2 border-b border-slate-200 dark:border-white/[0.06]">
+                <span className="text-slate-500 dark:text-slate-400">Unsynced Pending Logs</span>
+                <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{syncState.pendingCount}</span>
               </div>
             </div>
 
@@ -241,13 +268,13 @@ function TodayPage() {
               <button
                 onClick={handleCheckForUpdates}
                 disabled={checkingUpdate}
-                className="w-full h-11 rounded-2xl bg-white/[0.06] border border-white/[0.1] hover:bg-white/[0.12] text-slate-200 font-bold text-xs flex items-center justify-center gap-2 ios-press disabled:opacity-50"
+                className="w-full h-11 rounded-2xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.1] hover:bg-slate-200 dark:hover:bg-white/[0.12] text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 ios-press disabled:opacity-50"
               >
                 {checkingUpdate ? "Checking Releases…" : "Check for Updates (OTA)"}
               </button>
 
               {updateStatus && (
-                <p className="text-center text-[11px] text-blue-400 font-mono pt-1">
+                <p className="text-center text-[11px] text-blue-600 dark:text-blue-400 font-mono pt-1">
                   {updateStatus}
                 </p>
               )}
@@ -272,11 +299,11 @@ function TodayPage() {
 function EmptyState() {
   return (
     <div className="mt-6 ios-glass-card p-8 text-center border-dashed">
-      <div className="mx-auto h-14 w-14 rounded-full bg-blue-500/15 border border-blue-500/30 grid place-items-center shadow-lg text-blue-400">
+      <div className="mx-auto h-14 w-14 rounded-full bg-blue-500/15 border border-blue-500/30 grid place-items-center shadow-lg text-blue-600 dark:text-blue-400">
         <Plus size={24} />
       </div>
-      <h2 className="mt-4 font-bold text-slate-100 text-base">Start logging</h2>
-      <p className="mt-1 text-xs text-slate-400 max-w-xs mx-auto">
+      <h2 className="mt-4 font-bold text-slate-900 dark:text-slate-100 text-base">Start logging</h2>
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
         Voice notes, photos, videos, and loading sheets — stored securely on this device.
       </p>
       <Link

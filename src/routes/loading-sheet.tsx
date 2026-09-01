@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, FileText } from "l
 import { AppShell } from "@/components/AppShell";
 import { LoadingSheet } from "@/components/LoadingSheet";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { allEntries, updateEntry } from "@/lib/db";
 import { dayKey, uid } from "@/lib/format";
 import { syncTripsToLoadingSheet, calculateDurationMinutes } from "@/lib/loading-presets";
@@ -161,14 +162,19 @@ function LoadingSheetPage() {
       <PullToRefresh onRefresh={async () => { await syncNow(qc); }}>
         {/* ── HEADER ────────────────────────────────────────────────────────── */}
         <header className="px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-3">
-          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">
-            <FileText size={14} />
-            <span>Daily Compliance</span>
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.2em] text-primary-glow font-bold">
+                <FileText size={14} />
+                <span>Daily Compliance</span>
+              </div>
+              <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 font-sans">Despatch Loading Sheet</h1>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                Swipe left/right to change date, edit, or export truck loads.
+              </p>
+            </div>
+            <ThemeToggle />
           </div>
-          <h1 className="mt-0.5 text-3xl font-extrabold tracking-tight text-slate-100 font-sans">Despatch Loading Sheet</h1>
-          <p className="mt-1 text-xs text-slate-400 font-medium">
-            Swipe left/right to change date, edit, or export truck loads.
-          </p>
 
           {/* ── iOS Glass Date Selection Bar with Swipe Gestures ─────────── */}
           <div
@@ -181,7 +187,7 @@ function LoadingSheetPage() {
                 vibrate("light");
                 handleDateChange(-1);
               }}
-              className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] active:scale-90 text-slate-100 transition-all"
+              className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.1] grid place-items-center hover:bg-slate-200 dark:hover:bg-white/[0.12] active:scale-90 text-slate-800 dark:text-slate-100 transition-all"
               title="Previous Day (or swipe right)"
             >
               <ChevronLeft size={18} />
@@ -193,10 +199,10 @@ function LoadingSheetPage() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-                className="bg-transparent text-xs font-bold font-mono outline-none text-slate-100 cursor-pointer"
+                className="bg-transparent text-xs font-bold font-mono outline-none text-slate-900 dark:text-slate-100 cursor-pointer"
               />
               {selectedDate === dayKey(Date.now()) && (
-                <span className="text-[10px] uppercase font-bold bg-blue-500/15 border border-blue-500/30 text-blue-400 px-2 py-0.5 rounded-full font-mono">
+                <span className="text-[10px] uppercase font-bold bg-blue-500/15 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-mono">
                   Today
                 </span>
               )}
@@ -207,7 +213,7 @@ function LoadingSheetPage() {
                 vibrate("light");
                 handleDateChange(1);
               }}
-              className="h-8 w-8 rounded-xl bg-white/[0.06] border border-white/[0.1] grid place-items-center hover:bg-white/[0.12] active:scale-90 text-slate-100 transition-all"
+              className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.1] grid place-items-center hover:bg-slate-200 dark:hover:bg-white/[0.12] active:scale-90 text-slate-800 dark:text-slate-100 transition-all"
               title="Next Day (or swipe left)"
             >
               <ChevronRight size={18} />

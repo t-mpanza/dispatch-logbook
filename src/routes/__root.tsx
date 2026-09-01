@@ -16,6 +16,7 @@ import { Network } from "@capacitor/network";
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
 import { fullSync, setupRealtimeSync } from "@/lib/sync";
 import { supabase } from "@/lib/supabase";
+import { getStoredTheme, applyTheme } from "@/lib/theme";
 
 import appCss from "../styles.css?url";
 
@@ -152,6 +153,8 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    applyTheme(getStoredTheme());
+
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker
         .register(`${import.meta.env.BASE_URL}sw.js`, {

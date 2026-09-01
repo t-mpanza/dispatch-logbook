@@ -145,7 +145,7 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
         className={`h-9 w-9 shrink-0 rounded-full grid place-items-center transition-all ${
           menuOpen
             ? "bg-blue-600 text-white shadow-md"
-            : "text-slate-400 hover:bg-white/[0.08] hover:text-slate-200"
+            : "text-slate-500 hover:bg-slate-200/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-slate-200"
         } disabled:opacity-40 ios-press`}
         aria-label="Add attachment"
       >
@@ -159,11 +159,11 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
       {menuOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute bottom-12 left-0 z-50 ios-glass-elevated border border-white/[0.1] rounded-2xl shadow-2xl p-2 flex flex-col gap-1 w-44 origin-bottom-left animate-fade-in-scale">
+          <div className="absolute bottom-12 left-0 z-50 ios-glass-elevated border border-slate-200 dark:border-white/[0.1] rounded-2xl shadow-2xl p-2 flex flex-col gap-1 w-44 origin-bottom-left animate-fade-in-scale">
             <MenuBtn
               icon={<Mic size={16} />}
               label="Audio Note"
-              color="text-emerald-400"
+              color="text-emerald-600 dark:text-emerald-400"
               bg="bg-emerald-500/15"
               onClick={() => {
                 vibrate("light");
@@ -174,7 +174,7 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
             <MenuBtn
               icon={<Camera size={16} />}
               label="Take Photo"
-              color="text-blue-400"
+              color="text-blue-600 dark:text-blue-400"
               bg="bg-blue-500/15"
               onClick={() => {
                 vibrate("light");
@@ -185,7 +185,7 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
             <MenuBtn
               icon={<Video size={16} />}
               label="Record Video"
-              color="text-amber-400"
+              color="text-amber-600 dark:text-amber-400"
               bg="bg-amber-500/15"
               onClick={() => {
                 vibrate("light");
@@ -196,8 +196,8 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
             <MenuBtn
               icon={<File size={16} />}
               label="Attach File"
-              color="text-slate-300"
-              bg="bg-white/[0.08]"
+              color="text-slate-700 dark:text-slate-300"
+              bg="bg-slate-100 dark:bg-white/[0.08]"
               onClick={() => {
                 vibrate("light");
                 setMenuOpen(false);
@@ -209,7 +209,7 @@ export function CaptureBar({ onAttachment, onStartVoice, disabled }: Props) {
       )}
 
       {processing && (
-        <div className="absolute bottom-12 left-0 z-50 rounded-xl ios-glass-elevated border border-white/[0.1] px-3 py-1.5 shadow-lg text-[11px] text-blue-400 font-bold animate-pulse">
+        <div className="absolute bottom-12 left-0 z-50 rounded-xl ios-glass-elevated border border-slate-200 dark:border-white/[0.1] px-3 py-1.5 shadow-lg text-[11px] text-blue-600 dark:text-blue-400 font-bold animate-pulse">
           Processing…
         </div>
       )}
@@ -300,7 +300,7 @@ function MenuBtn({
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2.5 w-full p-2 rounded-xl hover:bg-white/[0.08] text-slate-200 ios-press"
+      className="flex items-center gap-2.5 w-full p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-800 dark:text-slate-200 ios-press"
     >
       <div className={`h-7 w-7 rounded-lg ${bg} ${color} grid place-items-center shrink-0`}>{icon}</div>
       <span className="text-xs font-bold truncate">{label}</span>

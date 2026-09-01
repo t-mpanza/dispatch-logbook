@@ -34,46 +34,184 @@
   --color-surface-elevated: var(--surface-elevated);
 }
 
-/* ── Obsidian & Precision Cobalt / Titanium Theme (Human-Crafted Production) ── */
+/* ── Light Mode (Crisp Apple Slate Theme) ────────────────────────────── */
 :root {
   --radius: 1rem;
 
-  --background: oklch(0.11 0.015 260); /* Deep Obsidian #0b0c12 */
-  --foreground: oklch(0.98 0.005 260); /* Titanium White #f8fafc */
+  --background: #f8fafc; /* Slate 50 */
+  --foreground: #0f172a; /* Slate 900 */
 
-  --surface: oklch(0.15 0.02 260); /* Satin Graphite #141622 */
-  --surface-elevated: oklch(0.19 0.025 260); /* Elevated Titanium #1c2030 */
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
 
-  --card: oklch(0.15 0.02 260);
-  --card-foreground: oklch(0.98 0.005 260);
+  --card: #ffffff;
+  --card-foreground: #0f172a;
 
-  --popover: oklch(0.17 0.02 260);
-  --popover-foreground: oklch(0.98 0.005 260);
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
 
-  --primary: oklch(0.60 0.20 250); /* Precision Cobalt #3b82f6 */
+  --primary: #2563eb; /* Blue 600 */
   --primary-foreground: #ffffff;
-  --primary-glow: oklch(0.72 0.18 250); /* Cobalt Glow #60a5fa */
+  --primary-glow: #3b82f6;
 
-  --secondary: oklch(0.20 0.02 260);
-  --secondary-foreground: oklch(0.95 0.01 260);
+  --secondary: #f1f5f9; /* Slate 100 */
+  --secondary-foreground: #0f172a;
 
-  --muted: oklch(0.17 0.015 260);
-  --muted-foreground: oklch(0.65 0.015 260); /* Slate #94a3b8 */
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b; /* Slate 500 */
 
-  --accent: oklch(0.75 0.16 75); /* Industrial Amber #f59e0b */
-  --accent-foreground: oklch(0.11 0.015 260);
+  --accent: #f59e0b; /* Amber 500 */
+  --accent-foreground: #ffffff;
 
-  --destructive: oklch(0.60 0.22 25); /* Crimson #f43f5e */
+  --destructive: #f43f5e; /* Rose 500 */
   --destructive-foreground: #ffffff;
 
-  --border: oklch(0.24 0.02 260); /* Hairline #282c3f */
-  --input: oklch(0.18 0.02 260);
-  --ring: oklch(0.60 0.20 250);
+  --border: rgba(0, 0, 0, 0.08);
+  --input: #f1f5f9;
+  --ring: #2563eb;
 
-  --gradient-primary: linear-gradient(135deg, #2563eb, #3b82f6);
-  --gradient-surface: linear-gradient(180deg, var(--surface), var(--background));
-  --shadow-glow: 0 10px 36px -10px rgba(59, 130, 246, 0.4);
-  --shadow-elevated: 0 12px 36px -8px rgba(0, 0, 0, 0.75);
+  --glass-card-bg: rgba(255, 255, 255, 0.88);
+  --glass-card-border: rgba(0, 0, 0, 0.07);
+  --glass-card-border-top: rgba(0, 0, 0, 0.1);
+  --glass-card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+
+  --glass-dock-bg: rgba(255, 255, 255, 0.92);
+  --glass-dock-border: rgba(0, 0, 0, 0.08);
+  --glass-dock-border-top: rgba(0, 0, 0, 0.12);
+  --glass-dock-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.12);
+
+  --glass-elevated-bg: rgba(255, 255, 255, 0.96);
+  --glass-elevated-border: rgba(0, 0, 0, 0.08);
+  --glass-elevated-border-top: rgba(0, 0, 0, 0.12);
+  --glass-elevated-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.14);
+
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(0, 0, 0, 0.07);
+  --glass-border-top: rgba(0, 0, 0, 0.1);
+
+  --ambient-bg-color: #f8fafc;
+  --ambient-grad-1: rgba(59, 130, 246, 0.06);
+  --ambient-grad-2: rgba(99, 102, 241, 0.04);
+  --ambient-grad-3: rgba(14, 165, 233, 0.04);
+}
+
+/* ── Dark Mode (Obsidian Titanium Production Theme) ──────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #0b0c12; /* Deep Obsidian */
+    --foreground: #f8fafc; /* Titanium White */
+
+    --surface: #141622; /* Satin Graphite */
+    --surface-elevated: #1c2030; /* Elevated Titanium */
+
+    --card: #141622;
+    --card-foreground: #f8fafc;
+
+    --popover: #1c2030;
+    --popover-foreground: #f8fafc;
+
+    --primary: #3b82f6; /* Precision Cobalt */
+    --primary-foreground: #ffffff;
+    --primary-glow: #60a5fa;
+
+    --secondary: #1e2235;
+    --secondary-foreground: #f1f5f9;
+
+    --muted: #1a1d2d;
+    --muted-foreground: #94a3b8; /* Slate 400 */
+
+    --accent: #f59e0b; /* Industrial Amber */
+    --accent-foreground: #0b0c12;
+
+    --destructive: #f43f5e; /* Crimson Rose */
+    --destructive-foreground: #ffffff;
+
+    --border: rgba(255, 255, 255, 0.08);
+    --input: #1a1d2d;
+    --ring: #3b82f6;
+
+    --glass-card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%), rgba(20, 23, 34, 0.82);
+    --glass-card-border: rgba(255, 255, 255, 0.08);
+    --glass-card-border-top: rgba(255, 255, 255, 0.18);
+    --glass-card-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.55);
+
+    --glass-dock-bg: rgba(14, 16, 26, 0.88);
+    --glass-dock-border: rgba(255, 255, 255, 0.1);
+    --glass-dock-border-top: rgba(255, 255, 255, 0.22);
+    --glass-dock-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.8);
+
+    --glass-elevated-bg: rgba(20, 23, 36, 0.94);
+    --glass-elevated-border: rgba(255, 255, 255, 0.12);
+    --glass-elevated-border-top: rgba(255, 255, 255, 0.24);
+    --glass-elevated-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.85);
+
+    --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%), rgba(20, 23, 34, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.09);
+    --glass-border-top: rgba(255, 255, 255, 0.18);
+
+    --ambient-bg-color: #0b0c12;
+    --ambient-grad-1: rgba(59, 130, 246, 0.09);
+    --ambient-grad-2: rgba(99, 102, 241, 0.06);
+    --ambient-grad-3: rgba(14, 165, 233, 0.06);
+  }
+}
+
+.dark {
+  --background: #0b0c12;
+  --foreground: #f8fafc;
+
+  --surface: #141622;
+  --surface-elevated: #1c2030;
+
+  --card: #141622;
+  --card-foreground: #f8fafc;
+
+  --popover: #1c2030;
+  --popover-foreground: #f8fafc;
+
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --primary-glow: #60a5fa;
+
+  --secondary: #1e2235;
+  --secondary-foreground: #f1f5f9;
+
+  --muted: #1a1d2d;
+  --muted-foreground: #94a3b8;
+
+  --accent: #f59e0b;
+  --accent-foreground: #0b0c12;
+
+  --destructive: #f43f5e;
+  --destructive-foreground: #ffffff;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --input: #1a1d2d;
+  --ring: #3b82f6;
+
+  --glass-card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%), rgba(20, 23, 34, 0.82);
+  --glass-card-border: rgba(255, 255, 255, 0.08);
+  --glass-card-border-top: rgba(255, 255, 255, 0.18);
+  --glass-card-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.55);
+
+  --glass-dock-bg: rgba(14, 16, 26, 0.88);
+  --glass-dock-border: rgba(255, 255, 255, 0.1);
+  --glass-dock-border-top: rgba(255, 255, 255, 0.22);
+  --glass-dock-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.8);
+
+  --glass-elevated-bg: rgba(20, 23, 36, 0.94);
+  --glass-elevated-border: rgba(255, 255, 255, 0.12);
+  --glass-elevated-border-top: rgba(255, 255, 255, 0.24);
+  --glass-elevated-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.85);
+
+  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%), rgba(20, 23, 34, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-border-top: rgba(255, 255, 255, 0.18);
+
+  --ambient-bg-color: #0b0c12;
+  --ambient-grad-1: rgba(59, 130, 246, 0.09);
+  --ambient-grad-2: rgba(99, 102, 241, 0.06);
+  --ambient-grad-3: rgba(14, 165, 233, 0.06);
 }
 
 @layer base {
@@ -83,8 +221,8 @@
 
   html,
   body {
-    background-color: #0b0c12;
-    color: var(--color-foreground);
+    background-color: var(--background);
+    color: var(--foreground);
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     user-select: none;
@@ -127,69 +265,71 @@
   }
 }
 
-/* ── Hardware-Composited Fixed Background Layer (Zero Scroll Invalidation) ─ */
+/* ── Hardware-Composited Fixed Background Layer ───────────────────────── */
 .ios-ambient-bg {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background-color: #0b0c12;
+  background-color: var(--ambient-bg-color);
   background-image: 
-    radial-gradient(circle at 15% 5%, rgba(59, 130, 246, 0.09) 0px, transparent 40%),
-    radial-gradient(circle at 85% 10%, rgba(99, 102, 241, 0.06) 0px, transparent 40%),
-    radial-gradient(circle at 50% 95%, rgba(14, 165, 233, 0.06) 0px, transparent 45%);
+    radial-gradient(circle at 15% 5%, var(--ambient-grad-1) 0px, transparent 40%),
+    radial-gradient(circle at 85% 10%, var(--ambient-grad-2) 0px, transparent 40%),
+    radial-gradient(circle at 50% 95%, var(--ambient-grad-3) 0px, transparent 45%);
   transform: translate3d(0, 0, 0);
   will-change: transform;
 }
 
 /* ── High-Performance Liquid Glass Architecture ──────────────────────── */
 
-/* 1. Scrollable List Cards: 0ms GPU Blur Shader Pass, Pure Hardware Composite */
+/* 1. Scrollable List Cards */
 .ios-glass-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%), rgba(20, 23, 34, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  background: var(--glass-card-bg);
+  border: 1px solid var(--glass-card-border);
+  border-top: 1px solid var(--glass-card-border-top);
+  box-shadow: var(--glass-card-shadow), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
   border-radius: 1.25rem;
 }
 
-/* 2. Fixed Floating Dock: Selective Hardware Blur (Static on Screen) */
+/* 2. Fixed Floating Dock */
 .ios-glass-dock {
-  background: rgba(14, 16, 26, 0.88);
+  background: var(--glass-dock-bg);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-top: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.8), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--glass-dock-border);
+  border-top: 1px solid var(--glass-dock-border-top);
+  box-shadow: var(--glass-dock-shadow), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
   border-radius: 2rem;
   transform: translateZ(0);
 }
 
 /* 3. Fixed Modals / Bottom Sheets */
 .ios-glass-elevated {
-  background: rgba(20, 23, 36, 0.94);
+  background: var(--glass-elevated-bg);
   backdrop-filter: blur(32px) saturate(190%);
   -webkit-backdrop-filter: blur(32px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-top: 1px solid rgba(255, 255, 255, 0.24);
-  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.85), inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--glass-elevated-border);
+  border-top: 1px solid var(--glass-elevated-border-top);
+  box-shadow: var(--glass-elevated-shadow), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
   border-radius: 1.5rem;
   transform: translateZ(0);
 }
 
 /* 4. Glass Pills & Buttons */
 .ios-glass {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%), rgba(20, 23, 34, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-top: 1px solid var(--glass-border-top);
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08);
   transform: translateZ(0);
 }
 
 .ios-glass-pill {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-top: 1px solid var(--glass-border-top);
   border-radius: 9999px;
   transform: translateZ(0);
 }
@@ -198,7 +338,8 @@
   width: 38px;
   height: 5px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.24);
+  background: currentColor;
+  opacity: 0.2;
   margin: 0 auto 14px auto;
 }
 
@@ -206,7 +347,8 @@
   width: 136px;
   height: 4.5px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.3);
+  background: currentColor;
+  opacity: 0.25;
   margin: 6px auto 2px auto;
 }
 
@@ -259,45 +401,80 @@
   animation: fadeInScale 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ── Logistics Preset Badges (Authentic Transport Identity) ───────────── */
+/* ── Logistics Preset Badges (Light & Dark Adaptive) ─────────────────── */
 .badge-preset-nlh {
   background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.dark .badge-preset-nlh,
+:root:not(.light) .badge-preset-nlh {
   color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-color: rgba(52, 211, 153, 0.3);
 }
 
 .badge-preset-stocks {
   background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.dark .badge-preset-stocks,
+:root:not(.light) .badge-preset-stocks {
   color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-color: rgba(251, 191, 36, 0.3);
 }
 
 .badge-preset-dbn {
   background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.dark .badge-preset-dbn,
+:root:not(.light) .badge-preset-dbn {
   color: #60a5fa;
-  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-color: rgba(96, 165, 250, 0.3);
 }
 
 .badge-preset-plk {
   background: rgba(249, 115, 22, 0.12);
+  color: #ea580c;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+.dark .badge-preset-plk,
+:root:not(.light) .badge-preset-plk {
   color: #fb923c;
-  border: 1px solid rgba(251, 146, 60, 0.3);
+  border-color: rgba(251, 146, 60, 0.3);
 }
 
 .badge-preset-bloem {
   background: rgba(244, 63, 94, 0.12);
+  color: #e11d48;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+.dark .badge-preset-bloem,
+:root:not(.light) .badge-preset-bloem {
   color: #fb7185;
-  border: 1px solid rgba(251, 113, 133, 0.3);
+  border-color: rgba(251, 113, 133, 0.3);
 }
 
 .badge-preset-tirepoint {
   background: rgba(20, 184, 166, 0.12);
+  color: #0d9488;
+  border: 1px solid rgba(20, 184, 166, 0.3);
+}
+.dark .badge-preset-tirepoint,
+:root:not(.light) .badge-preset-tirepoint {
   color: #2dd4bf;
-  border: 1px solid rgba(45, 212, 191, 0.3);
+  border-color: rgba(45, 212, 191, 0.3);
 }
 
 .badge-preset-custom {
-  background: rgba(148, 163, 184, 0.12);
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+}
+.dark .badge-preset-custom,
+:root:not(.light) .badge-preset-custom {
   color: #cbd5e1;
-  border: 1px solid rgba(203, 213, 225, 0.25);
+  border-color: rgba(203, 213, 225, 0.25);
 }

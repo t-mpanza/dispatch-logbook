@@ -56,7 +56,7 @@ export function FloatingNoteBar({ onAdd, onAttachment, onStartVoice }: Props) {
           }}
           onKeyDown={handleKey}
           placeholder="Log observation or note…"
-          className="flex-1 resize-none bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500 leading-snug py-1.5 font-sans"
+          className="flex-1 resize-none bg-transparent text-sm text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 leading-snug py-1.5 font-sans"
         />
         <button
           onClick={submit}

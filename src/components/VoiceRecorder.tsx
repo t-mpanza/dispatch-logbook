@@ -56,6 +56,7 @@ export function VoiceRecorder({
       rec.start();
       startRef.current = Date.now();
       setRecording(true);
+      vibrate("medium");
       timerRef.current = setInterval(() => {
         setElapsed(Date.now() - startRef.current);
       }, 200);
@@ -83,52 +84,79 @@ export function VoiceRecorder({
 
   if (error) {
     return (
-      <div className="rounded-2xl bg-rose-500/15 border border-rose-500/30 p-4 text-xs text-rose-300">
-        <p className="font-bold">{error}</p>
-        <button onClick={onCancel} className="mt-2 underline text-white">
-          Close
-        </button>
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] animate-sheet-slide-up">
+        <div className="rounded-3xl ios-glass-elevated border border-rose-500/30 p-4 text-xs text-rose-300 shadow-2xl flex items-center justify-between">
+          <div>
+            <p className="font-bold">Microphone Error</p>
+            <p className="text-[11px] opacity-80">{error}</p>
+          </div>
+          <button
+            onClick={onCancel}
+            className="h-8 px-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold"
+          >
+            Dismiss
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="ios-glass-card p-5 border border-white/[0.1] shadow-2xl space-y-3 animate-fade-in-scale">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span
-            className={`h-3 w-3 rounded-full ${
-              recording ? "bg-rose-500 animate-pulse shadow-[0_0_10px_rgba(244,63,94,0.8)]" : "bg-slate-500"
-            }`}
-          />
-          <span className="font-mono text-xl font-bold tabular-nums text-slate-100">{formatDuration(elapsed)}</span>
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] animate-sheet-slide-up">
+      <div className="flex items-center justify-between gap-3 rounded-3xl ios-glass-dock px-4 py-3 shadow-2xl border border-rose-500/30">
+        {/* Pulsing indicator + Duration */}
+        <div className="flex items-center gap-2.5">
+          <div className="relative flex items-center justify-center">
+            <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-rose-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500" />
+          </div>
+          <span className="font-mono text-base font-black tabular-nums text-slate-900 dark:text-slate-100">
+            {formatDuration(elapsed)}
+          </span>
+
+          {/* Animated audio frequency equalizer bars */}
+          <div className="flex items-center gap-0.5 h-4 ml-1">
+            {[12, 18, 8, 22, 14, 20, 10].map((h, i) => (
+              <span
+                key={i}
+                className="w-1 bg-rose-500 rounded-full animate-pulse"
+                style={{
+                  height: `${h}px`,
+                  animationDuration: `${0.4 + (i % 4) * 0.15}s`,
+                }}
+              />
+            ))}
+          </div>
         </div>
+
+        {/* Action buttons */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
               vibrate("light");
               onCancel();
             }}
-            className="h-10 w-10 rounded-full bg-white/[0.06] border border-white/[0.1] hover:bg-white/[0.12] text-slate-300 grid place-items-center ios-press"
+            className="h-9 w-9 rounded-full bg-slate-200/70 dark:bg-white/[0.08] hover:bg-slate-300 dark:hover:bg-white/[0.15] text-slate-600 dark:text-slate-300 grid place-items-center ios-press"
             aria-label="Cancel recording"
+            title="Cancel"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
+
           <button
             onClick={() => {
               vibrate("success");
               stop(false);
             }}
             disabled={!recording}
-            className="h-11 px-5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-2 shadow-[0_8px_25px_rgba(37,99,235,0.4)] disabled:opacity-50 ios-press"
+            className="h-10 px-4 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-2 shadow-[0_4px_16px_rgba(225,29,72,0.4)] disabled:opacity-50 ios-press"
+            aria-label="Stop and save recording"
           >
-            <Square size={14} fill="currentColor" /> Stop & Save
+            <Square size={13} fill="currentColor" />
+            <span>Done</span>
           </button>
         </div>
       </div>
-      <p className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-        <Mic size={13} className="text-blue-400" /> Recording audio memo — stored securely on this device.
-      </p>
     </div>
   );
 }
