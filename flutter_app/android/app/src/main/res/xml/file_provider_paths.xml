@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- For APKs downloaded to the app's cache directory -->
+    <cache-path name="apk_cache" path="." />
+    <!-- For APKs in external cache -->
+    <external-cache-path name="external_apk_cache" path="." />
+</paths>
