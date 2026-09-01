@@ -3,6 +3,7 @@ package com.dispatchdiary.dispatch_diary
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -24,6 +25,25 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_PATH", "APK path is null", null)
                         return@setMethodCallHandler
                     }
+
+                    // API 26+: verify "Install unknown apps" is granted for this source
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                        !packageManager.canRequestPackageInstalls()
+                    ) {
+                        val settingsIntent = Intent(
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:$packageName")
+                        )
+                        settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(settingsIntent)
+                        result.error(
+                            "PERMISSION_REQUIRED",
+                            "Enable 'Install unknown apps' for Dispatch Diary in Settings, then retry the update.",
+                            null
+                        )
+                        return@setMethodCallHandler
+                    }
+
                     try {
                         val file = File(path)
                         if (!file.exists()) {

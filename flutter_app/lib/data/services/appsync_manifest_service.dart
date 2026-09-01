@@ -276,7 +276,7 @@ class AppSyncManifestService {
         );
         final exp = (payload['exp'] as num?)?.toInt() ?? 0;
         final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-        if (exp < now + 60) {
+        if (exp < now + 300) {
           // Token expired or expiring within 60s, refresh token
           final refreshed = await refreshAccessToken(client: client);
           if (refreshed != null) return refreshed;

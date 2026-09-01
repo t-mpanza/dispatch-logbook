@@ -4,6 +4,7 @@ import '../../core/utils/id_generator.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
+import '../../data/models/preset.dart';
 import '../../data/repositories/entry_repository.dart';
 
 class LoadingSheetViewModel extends ChangeNotifier {
@@ -44,14 +45,14 @@ class LoadingSheetViewModel extends ChangeNotifier {
     final List<LoadingSheetTrip> result = [];
     for (final e in dayEntries) {
       if (e.loadingSheetTrips != null && e.loadingSheetTrips!.isNotEmpty) {
-        // Sync entry.expectedTotal → targetQuantity for all entry-linked non-manual trips.
-        // The entry is the single source of truth for the target; the sheet just reflects it.
+        // Seed targetQuantity from entry.expectedTotal ONLY when the trip has no target yet.
+        // Once a target is set (via TruckLoadDialog or IBT), respect it — never overwrite.
         final trips = e.loadingSheetTrips!.map((t) {
           if (!t.isManual &&
               !t.hasIbtDocuments &&
+              t.targetQuantity == null &&
               e.expectedTotal != null &&
-              e.expectedTotal! > 0 &&
-              t.targetQuantity != e.expectedTotal) {
+              e.expectedTotal! > 0) {
             return t.copyWith(targetQuantity: e.expectedTotal);
           }
           return t;
@@ -72,7 +73,7 @@ class LoadingSheetViewModel extends ChangeNotifier {
           driverName: '',
           tripId: e.title.isNotEmpty ? e.title : 'Truck Load',
           quantityLoaded: totalQty,
-          targetQuantity: e.expectedTotal, // ← entry target → sheet target
+          targetQuantity: e.expectedTotal,
           startTime: start,
           finishTime: finish,
           durationMinutes: dur > 0 ? dur : 1,
@@ -87,7 +88,23 @@ class LoadingSheetViewModel extends ChangeNotifier {
 
   Future<void> addTruckLoad(LoadingSheetTrip trip) async {
     final dayEntries = await getDayEntries();
-    final primaryEntry = dayEntries.isNotEmpty ? dayEntries.first : null;
+
+    // Find the best-matching entry for this trip's preset instead of always using first.
+    // If a preset entry exists (by title or tag), use it; otherwise fall back to most-recent.
+    Entry? primaryEntry;
+    if (dayEntries.isNotEmpty) {
+      if (trip.presetKey != null && trip.presetKey != PresetKey.CUSTOM) {
+        final presetName = trip.presetKey!.name.toLowerCase();
+        primaryEntry = dayEntries.firstWhere(
+          (e) =>
+              e.title.toLowerCase().contains(presetName) ||
+              e.tags.any((t) => t.toLowerCase() == presetName),
+          orElse: () => dayEntries.first,
+        );
+      } else {
+        primaryEntry = dayEntries.first;
+      }
+    }
 
     if (primaryEntry != null) {
       final existingTrips = primaryEntry.loadingSheetTrips ?? [];
@@ -123,7 +140,18 @@ class LoadingSheetViewModel extends ChangeNotifier {
         if (idx >= 0) {
           final list = [...e.loadingSheetTrips!];
           list[idx] = updatedTrip;
-          await _repository.saveEntry(e.copyWith(loadingSheetTrips: list));
+          Entry updated = e.copyWith(loadingSheetTrips: list);
+
+          // Bidirectional sync: when a non-manual, non-IBT trip's target changes,
+          // update entry.expectedTotal so EntryDetail reflects the same target.
+          if (!updatedTrip.isManual &&
+              !updatedTrip.hasIbtDocuments &&
+              updatedTrip.targetQuantity != null &&
+              updatedTrip.targetQuantity != e.expectedTotal) {
+            updated = updated.copyWith(expectedTotal: updatedTrip.targetQuantity);
+          }
+
+          await _repository.saveEntry(updated);
           return;
         }
       }

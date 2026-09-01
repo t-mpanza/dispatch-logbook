@@ -26,7 +26,7 @@ class UpdateInfo {
     this.apkDownloadUrl,
     this.releaseUrl,
     this.publishedAt,
-    this.releaseChannel = 'IBT Edition',
+    this.releaseChannel = 'Dispatch Diary',
   });
 }
 
@@ -38,20 +38,19 @@ class UpdateService {
   static const String releasesPageUrl =
       'https://github.com/$repoOwner/$repoName/releases';
 
-  /// Release channel identifier for this standalone edition
-  static const String releaseChannel = 'IBT Edition';
+  static const String releaseChannel = 'Dispatch Diary';
 
-  /// Get current app version (e.g., 'v2.1.0-rc5')
+  /// Get current app version (e.g., 'v2.1.0')
   static Future<String> getCurrentVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
       return 'v${info.version}';
     } catch (_) {
-      return 'v2.1.0-rc5';
+      return 'v2.1.0';
     }
   }
 
-  /// Check GitHub releases specifically for newer IBT Edition candidates
+  /// Check GitHub releases for any newer published release with an APK asset.
   static Future<UpdateInfo> checkForUpdates({http.Client? client}) async {
     final currentVer = await getCurrentVersion();
     final httpClient = client ?? http.Client();
@@ -61,7 +60,7 @@ class UpdateService {
         Uri.parse(releasesApiUrl),
         headers: {
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'DispatchDiary-IBT-Edition',
+          'User-Agent': 'DispatchDiary-App',
         },
       ).timeout(const Duration(seconds: 10));
 
@@ -71,59 +70,52 @@ class UpdateService {
 
       final releases = jsonDecode(response.body) as List<dynamic>;
 
-      // Filter specifically for IBT-tagged releases, pick the newest one
-      Map<String, dynamic>? bestIbtRelease;
-
+      // Pick the newest non-draft release that has an APK asset
+      Map<String, dynamic>? bestRelease;
       for (final rel in releases) {
         final map = rel as Map<String, dynamic>;
-        final tag = (map['tag_name'] as String? ?? '').toLowerCase();
-        final name = (map['name'] as String? ?? '').toLowerCase();
-        final body = (map['body'] as String? ?? '').toLowerCase();
+        if (map['draft'] == true) continue;
 
-        final isIbtRelease =
-            tag.contains('ibt') || name.contains('ibt') || body.contains('ibt edition');
-        if (!isIbtRelease) continue;
+        final assets = map['assets'] as List<dynamic>? ?? [];
+        final hasApk = assets.any(
+          (a) => (a['name'] as String? ?? '').toLowerCase().endsWith('.apk'),
+        );
+        if (!hasApk) continue;
 
-        // Pick the first matching (GitHub API returns newest first)
-        bestIbtRelease ??= map;
-        break;
+        bestRelease = map;
+        break; // GitHub returns newest first
       }
 
-      if (bestIbtRelease == null) {
+      if (bestRelease == null) {
         return UpdateInfo(
           hasUpdate: false,
           currentVersion: currentVer,
           latestVersion: currentVer,
-          releaseTitle: 'Dispatch Diary (IBT Edition)',
-          releaseNotes: 'You are on the latest IBT release candidate ($currentVer).',
+          releaseTitle: 'Dispatch Diary',
+          releaseNotes: 'You are on the latest release ($currentVer).',
           releaseUrl: releasesPageUrl,
           releaseChannel: releaseChannel,
         );
       }
 
-      final latestTag = bestIbtRelease['tag_name'] as String? ?? '';
-      final title = bestIbtRelease['name'] as String? ?? latestTag;
-      final body = bestIbtRelease['body'] as String? ?? '';
-      final releaseHtmlUrl = bestIbtRelease['html_url'] as String? ?? releasesPageUrl;
-      final publishedAt = bestIbtRelease['published_at'] as String?;
+      final latestTag = bestRelease['tag_name'] as String? ?? '';
+      final title = bestRelease['name'] as String? ?? latestTag;
+      final body = bestRelease['body'] as String? ?? '';
+      final releaseHtmlUrl = bestRelease['html_url'] as String? ?? releasesPageUrl;
+      final publishedAt = bestRelease['published_at'] as String?;
 
-      // Find the IBT APK asset
+      // Find APK asset (prefer one named after the tag, fall back to first .apk)
       String? apkUrl;
-      final assets = bestIbtRelease['assets'] as List<dynamic>? ?? [];
+      final assets = bestRelease['assets'] as List<dynamic>? ?? [];
       for (final asset in assets) {
         final aName = (asset['name'] as String? ?? '').toLowerCase();
         if (aName.endsWith('.apk')) {
           apkUrl = asset['browser_download_url'] as String?;
-          if (aName.contains('ibt')) break;
+          break;
         }
       }
 
-      // Extract a clean version tag for comparison, stripping the -ibt suffix
-      // e.g. "v2.1.0-rc5-ibt" → "v2.1.0-rc5"
-      final cleanLatestTag = latestTag.replaceAll(RegExp(r'-ibt$', caseSensitive: false), '');
-      final cleanCurrentVer = currentVer.replaceAll(RegExp(r'-ibt$', caseSensitive: false), '');
-
-      final hasUpdate = isNewerVersion(cleanCurrentVer, cleanLatestTag);
+      final hasUpdate = isNewerVersion(currentVer, latestTag);
 
       return UpdateInfo(
         hasUpdate: hasUpdate,
@@ -137,7 +129,7 @@ class UpdateService {
         releaseChannel: releaseChannel,
       );
     } catch (e) {
-      debugPrint('Error checking for IBT release channel updates: $e');
+      debugPrint('Error checking for updates: $e');
       return UpdateInfo(
         hasUpdate: false,
         currentVersion: currentVer,
@@ -206,7 +198,7 @@ class UpdateService {
   static bool isNewerVersion(String current, String latest) {
     if (latest.isEmpty) return false;
 
-    // Strip -ibt suffix and any build metadata (+N)
+    // Strip any build metadata (+N) and known suffixes (-ibt)
     String clean(String s) => s
         .replaceAll(RegExp(r'-ibt$', caseSensitive: false), '')
         .replaceAll(RegExp(r'\+\d+$'), '')

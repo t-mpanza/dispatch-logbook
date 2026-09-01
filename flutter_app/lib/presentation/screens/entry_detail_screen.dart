@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -37,6 +38,9 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
   bool _isDetailsOpen = false;
   bool _isSaved = false;
   Entry? _cachedEntry;
+  String _regFromDb = '';
+  String _driverFromDb = '';
+  Timer? _titleSaveTimer;
 
   void _triggerSavedIndicator() {
     if (!mounted) return;
@@ -48,6 +52,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
 
   @override
   void dispose() {
+    _titleSaveTimer?.cancel();
     _audioService.dispose();
     _titleController.dispose();
     _regController.dispose();
@@ -68,12 +73,19 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ),
     );
-    if (_regController.text.isEmpty) {
-      _regController.text = sheetTrip?.reg ?? '';
+    final newReg = sheetTrip?.reg ?? '';
+    final newDriver = sheetTrip?.driverName ?? '';
+
+    // Update controller only if user hasn't manually deviated from the last DB value.
+    // Handles the case where reg/driver is changed via Loading Sheet and needs to appear here.
+    if (_regController.text == _regFromDb) {
+      _regController.text = newReg;
     }
-    if (_driverController.text.isEmpty) {
-      _driverController.text = sheetTrip?.driverName ?? '';
+    if (_driverController.text == _driverFromDb) {
+      _driverController.text = newDriver;
     }
+    _regFromDb = newReg;
+    _driverFromDb = newDriver;
   }
 
   List<LoadingSheetTrip> _syncTripsToLoadingSheet(Entry entry, List<Trip> newTrips) {
@@ -215,11 +227,25 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                                     isDense: true,
                                     contentPadding: EdgeInsets.zero,
                                   ),
+                                  onChanged: (newTitle) {
+                                    _titleSaveTimer?.cancel();
+                                    _titleSaveTimer = Timer(const Duration(milliseconds: 800), () {
+                                      if (mounted && newTitle.trim().isNotEmpty) {
+                                        final updated = currentEntry.copyWith(title: newTitle.trim());
+                                        setState(() => _cachedEntry = updated);
+                                        repo.saveEntry(updated);
+                                        _triggerSavedIndicator();
+                                      }
+                                    });
+                                  },
                                   onSubmitted: (newTitle) {
-                                    final updated = currentEntry.copyWith(title: newTitle.trim());
-                                    setState(() => _cachedEntry = updated);
-                                    repo.saveEntry(updated);
-                                    _triggerSavedIndicator();
+                                    _titleSaveTimer?.cancel();
+                                    if (newTitle.trim().isNotEmpty) {
+                                      final updated = currentEntry.copyWith(title: newTitle.trim());
+                                      setState(() => _cachedEntry = updated);
+                                      repo.saveEntry(updated);
+                                      _triggerSavedIndicator();
+                                    }
                                   },
                                 ),
                                 Row(

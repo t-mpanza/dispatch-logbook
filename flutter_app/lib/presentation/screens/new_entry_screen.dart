@@ -31,6 +31,16 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   final List<IbtDocument> _ibtDocuments = [];
   bool _isFetchingIbt = false;
 
+  static const _quickTemplates = [
+    (icon: Icons.tire_repair_outlined, label: 'Tyre Count', title: 'TYRE COUNT', tag: 'tyres'),
+    (icon: Icons.warning_amber_outlined, label: 'Tyre Issue', title: 'TYRE ISSUE', tag: 'issue'),
+    (icon: Icons.person_off_outlined, label: 'Driver Issue', title: 'DRIVER ISSUE', tag: 'driver'),
+    (icon: Icons.receipt_long_outlined, label: 'Invoice Mismatch', title: 'INVOICE MISMATCH', tag: 'invoice'),
+    (icon: Icons.inventory_2_outlined, label: 'Missing Stock', title: 'MISSING STOCK', tag: 'stock'),
+    (icon: Icons.schedule_outlined, label: 'Loading Delay', title: 'LOADING DELAY', tag: 'delay'),
+    (icon: Icons.broken_image_outlined, label: 'Damage Report', title: 'DAMAGE REPORT', tag: 'damage'),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -144,6 +154,20 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       _ibtDocuments.removeWhere(
         (d) => d.documentNo.toUpperCase() == docNo.toUpperCase(),
       );
+    });
+  }
+
+  void _applyQuickTemplate({
+    required String title,
+    required String tag,
+  }) {
+    AppHaptics.light();
+    setState(() {
+      _titleController.text = title;
+      _selectedPreset = PresetKey.CUSTOM;
+      if (!_tags.contains(tag)) {
+        _tags = [..._tags, tag];
+      }
     });
   }
 
@@ -308,6 +332,51 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                             color: isSelected
                                 ? AppColors.textPrimary
                                 : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Quick Entry Templates (non-delivery events)
+            const Text(
+              'QUICK TEMPLATES',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textMuted,
+                letterSpacing: 1.0,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _quickTemplates.map((tmpl) {
+                return GestureDetector(
+                  onTap: () => _applyQuickTemplate(title: tmpl.title, tag: tmpl.tag),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: AppColors.glassSurface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(tmpl.icon, size: 13, color: AppColors.textMuted),
+                        const SizedBox(width: 5),
+                        Text(
+                          tmpl.label,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -505,7 +574,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 'dbn',
                 'bloem',
                 'plk',
-                'tirepoint'
+                'tirepoint',
+                'issue',
+                'driver',
+                'invoice',
+                'delay',
+                'damage',
               ],
             ),
             const SizedBox(height: 20),

@@ -21,9 +21,9 @@ android {
             val keystoreFile = File(projectDir, "release-keystore.jks")
             if (keystoreFile.exists()) {
                 storeFile = keystoreFile
-                storePassword = "dispatchdiary123"
-                keyAlias = "dispatch_diary_key"
-                keyPassword = "dispatchdiary123"
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "dispatchdiary123"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "dispatch_diary_key"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "dispatchdiary123"
             } else {
                 // Fallback to debug keystore if release keystore is absent
                 val debugKeystore = signingConfigs.getByName("debug")

@@ -25,6 +25,10 @@ class LoadingSheetScreen extends StatefulWidget {
 }
 
 class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
+  // Cache trips to avoid spinner flash on IBT stepper updates or other re-renders.
+  // isLoading only shows a spinner when we have no data yet (first load for a date).
+  List<LoadingSheetTrip> _tripsCache = [];
+  String? _cacheDate;
 
   void _onSwipeUpdate(DragEndDetails details, LoadingSheetViewModel vm) {
     final velocity = details.primaryVelocity ?? 0;
@@ -62,8 +66,16 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
           child: FutureBuilder<List<LoadingSheetTrip>>(
             future: vm.getTripsForSelectedDate(),
             builder: (context, snapshot) {
-              final trips = snapshot.data ?? [];
-              final isLoading = snapshot.connectionState == ConnectionState.waiting;
+              // Update cache when data arrives so re-renders don't flash a spinner
+              if (snapshot.hasData) {
+                _tripsCache = snapshot.data!;
+                _cacheDate = vm.selectedDate;
+              }
+              // Show cached data while re-loading; spinner only on true first load for this date
+              final trips = snapshot.data ??
+                  (_cacheDate == vm.selectedDate ? _tripsCache : []);
+              final isLoading =
+                  snapshot.connectionState == ConnectionState.waiting && trips.isEmpty;
 
               int totalTyres = 0;
               int totalMinutes = 0;
