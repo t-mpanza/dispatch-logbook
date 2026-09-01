@@ -1,47 +1,43 @@
-# BRIEFING — 2026-08-13T20:09:45Z
+# BRIEFING — 2026-09-01T18:52:30Z
 
 ## Mission
-
-Investigate existing data models, types, and persistence layer for Milestone 1: Despatch Loading Sheet Compliance System.
+Investigate differences between `origin/feature/ibt-manifest-tracking` and `main` in `dispatch-logbook` for Milestone 1 (Data Models & Core Services).
 
 ## 🔒 My Identity
-
-- Archetype: Teamwork Explorer
-- Roles: Read-only investigator
+- Archetype: explorer
+- Roles: read-only investigation, synthesis
 - Working directory: /home/kiddow/Desktop/Work/Despatch Diary/.agents/explorer_m1_1
-- Original parent: ec0a910a-8eaf-4f59-928b-45156306fe9f
-- Milestone: Milestone 1 - Despatch Loading Sheet Compliance System
+- Original parent: 145dee95-3ffe-49e0-a5b4-a5226aa49fd5
+- Milestone: Milestone 1: Data Models & Core Services
 
 ## 🔒 Key Constraints
-
-- Read-only investigation — do NOT implement or edit project source files directly
-- Must write analysis.md and handoff.md in working directory
-- Send summary message back to parent orchestrator
+- Read-only investigation — do NOT implement
+- Investigate pubspec.yaml, ibt_manifest.dart, loading_sheet_trip.dart, appsync_manifest_service.dart
+- Produce comprehensive technical report in handoff.md
 
 ## Current Parent
-
-- Conversation ID: ec0a910a-8eaf-4f59-928b-45156306fe9f
-- Updated: 2026-08-13T20:09:45Z
+- Conversation ID: 145dee95-3ffe-49e0-a5b4-a5226aa49fd5
+- Updated: not yet
 
 ## Investigation State
-
-- **Explored paths**: `src/lib/types.ts`, `src/lib/db.ts`, `src/lib/sync.ts`, `src/lib/format.ts`, `src/components/CounterPanel.tsx`, `src/routes/entry.$id.tsx`, `src/routes/counter.tsx`, `PROJECT.md`, `SCOPE.md`, `.agents/ORIGINAL_REQUEST.md`
+- **Explored paths**:
+  - `flutter_app/pubspec.yaml`
+  - `flutter_app/lib/data/models/ibt_manifest.dart`
+  - `flutter_app/lib/data/models/loading_sheet_trip.dart`
+  - `flutter_app/lib/data/services/appsync_manifest_service.dart`
+  - `flutter_app/test/ibt_manifest_test.dart`
+  - `flutter_app/test/appsync_manifest_service_test.dart`
+  - `flutter_app/test/ibt_workflow_tdd_test.dart`
 - **Key findings**:
-  1. `LoadingSheetTrip` type and `PresetKey` union defined to support compliance requirements.
-  2. `src/lib/loading-presets.ts` specification written for presets DBN, NLS, BLOEM, PLK, STOCKS, NLH, TIREPOINT, CUSTOM.
-  3. `STOCKS [i]` algorithm defined with midnight reset (comparing dateKey) and dual inspection of sheet existing trips + localStorage state.
-  4. `NLH` shortcut auto-fills Driver `Neil` and Reg `MN05XNGP`.
-  5. Despatcher Name preference persistence specified with dual-tier storage (localStorage + IndexedDB `settings` store).
-- **Unexplored areas**: None for this task scope.
+  - `pubspec.yaml` added `flutter_secure_storage: ^11.0.0` and `webview_flutter: ^4.10.0`, removed `open_filex: ^4.7.0`, and bumped version to `2.1.0-rc7+7`.
+  - `ibt_manifest.dart` defines `IbtLineItem` and `IbtDocument` with full progress, remaining, overage, and shortage calculations, plus JSON/Map serialization.
+  - `loading_sheet_trip.dart` cleanly integrates `ibtDocuments`, helper getters (`hasIbtDocuments`, `ibtTargetTotal`, `ibtLoadedTotal`), and uses `effectiveTarget` to ensure 100% backward compatibility for existing trips and zero SQLite/Supabase schema changes.
+  - `appsync_manifest_service.dart` implements Cognito Hosted UI OAuth2 and `USER_PASSWORD_AUTH`, JWT decoding and auto-refresh, AppSync GraphQL `getDeliveryInfo` with empty-string VTL crash guards (`inv: ""`, `dibt: ""`, `amsInv: ""`), size/rubber master tables, and fallback regex extractors.
+- **Unexplored areas**: None for M1 scope.
 
 ## Key Decisions Made
-
-- Completed technical investigation report `analysis.md` and handoff report `handoff.md`.
+- Confirmed backward compatibility and zero DB migration requirements for SQLite and Supabase JSON storage.
+- Verified test suites pass (11/11 tests passing).
 
 ## Artifact Index
-
-- ORIGINAL_REQUEST.md — Original request prompt
-- BRIEFING.md — Working memory index
-- progress.md — Liveness log
-- analysis.md — Technical investigation report
-- handoff.md — 5-component handoff report
+- handoff.md — Comprehensive technical report for Milestone 1

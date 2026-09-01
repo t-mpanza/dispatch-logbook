@@ -1,50 +1,52 @@
-# BRIEFING — 2026-08-13T20:19:03Z
+# BRIEFING — 2026-09-01T19:16:00Z
 
 ## Mission
-
-Empirically challenge and verify correctness of Loading Sheet Compliance System components: calculateLoadingSheetTotals, formatWhatsAppShareText, and generatePDFReport.
+Adversarially verify ViewModel state synchronization and export services (IBT document handling, effectiveTarget calculations, non-IBT regression, WhatsApp and PDF export outputs).
 
 ## 🔒 My Identity
-
-- Archetype: EMPIRICAL CHALLENGER
+- Archetype: challenger
 - Roles: critic, specialist
 - Working directory: /home/kiddow/Desktop/Work/Despatch Diary/.agents/challenger_m1_2
-- Original parent: ec0a910a-8eaf-4f59-928b-45156306fe9f
-- Milestone: Milestone 1 - Despatch Loading Sheet Compliance System
+- Original parent: 145dee95-3ffe-49e0-a5b4-a5226aa49fd5
+- Milestone: milestone_1
 - Instance: 2 of 2
 
 ## 🔒 Key Constraints
-
-- Review-only — do NOT modify implementation code.
-- Write test harness and run empirical tests in working directory.
-- Document all findings in challenge_report.md and handoff.md.
+- Review-only / Empirical testing — write test harnesses / reproduction tests, run them, but do NOT modify implementation code directly unless reporting findings
+- Clean up any temporary test artifacts before finishing
 
 ## Current Parent
-
-- Conversation ID: ec0a910a-8eaf-4f59-928b-45156306fe9f
-- Updated: 2026-08-13T20:19:03Z
+- Conversation ID: 145dee95-3ffe-49e0-a5b4-a5226aa49fd5
+- Updated: 2026-09-01T19:10:38Z
 
 ## Review Scope
-
-- **Files to review**: `src/lib/export-pdf.ts`, `src/lib/export-whatsapp.ts`, `src/lib/loading-presets.ts` (and related utils/types)
-- **Interface contracts**: Despatch Loading Sheet Compliance specs
-- **Review criteria**: Empirical correctness, edge cases, error handling, layout compliance, requirement satisfaction.
+- **Files to review**: `LoadingSheetViewModel`, `WhatsAppExportService`, `PdfExportService`, `LoadingSheetTrip`, `IbtManifest`
+- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md, worker_m1/handoff.md
+- **Review criteria**: Empirical correctness, state synchronization, edge case robustness, no regressions
 
 ## Attack Surface
-
-- **Hypotheses tested**: [TBD]
-- **Vulnerabilities found**: [TBD]
-- **Untested angles**: [TBD]
+- **Hypotheses tested**:
+  1. Does `removeIbtDocument` cleanly remove all documents including the last one? (FAILED: `LoadingSheetTrip.copyWith` ignores null)
+  2. Does removing an IBT document resynchronize `targetQuantity` and `quantityLoaded`? (FAILED: stale target retained, corrupting `effectiveTarget`)
+  3. Does stepping down line item quantities to 0 reset `quantityLoaded` to 0? (FAILED: retains positive stale quantity)
+  4. Are overloaded IBT lines formatted with overload indicators `+N Over` in WhatsApp & PDF? (FAILED: marked as `[✓]` / `COMPLETE`)
+  5. Does adding a manual truck load on an entry with counter trips hide the counter trips? (Identified: `if/else if` mutual exclusion in `getTripsForSelectedDate`)
+- **Vulnerabilities found**: 4 confirmed functional/logic bugs in ViewModel & Export Services.
+- **Untested angles**: Full end-to-end Supabase remote sync round-trip.
 
 ## Loaded Skills
-
-- [None explicitly requested via skill path]
+- Source: /home/kiddow/.gemini/config/plugins/flutter/skills/dart-add-unit-test/SKILL.md
+- Local copy: /home/kiddow/Desktop/Work/Despatch Diary/.agents/challenger_m1_2/dart-add-unit-test-SKILL.md
+- Core methodology: Write and organize unit tests with package:test / flutter_test to stress test logic
 
 ## Key Decisions Made
-
-- Initializing empirical testing setup.
+- Executed empirical adversarial test suite.
+- Discovered and proved 4 critical defects.
+- Cleaned up temporary test artifacts.
+- Verdict: REQUEST_CHANGES.
 
 ## Artifact Index
-
-- `.agents/challenger_m1_2/ORIGINAL_REQUEST.md` — Original prompt record
-- `.agents/challenger_m1_2/BRIEFING.md` — Agent briefing and state tracking
+- DISPATCH.md — record of incoming dispatch
+- BRIEFING.md — situational awareness
+- progress.md — liveness heartbeat
+- handoff.md — final challenge report

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/id_generator.dart';
 import '../../data/models/entry.dart';
+import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/repositories/entry_repository.dart';
 
@@ -47,6 +48,7 @@ class LoadingSheetViewModel extends ChangeNotifier {
         // The entry is the single source of truth for the target; the sheet just reflects it.
         final trips = e.loadingSheetTrips!.map((t) {
           if (!t.isManual &&
+              !t.hasIbtDocuments &&
               e.expectedTotal != null &&
               e.expectedTotal! > 0 &&
               t.targetQuantity != e.expectedTotal) {
@@ -126,6 +128,108 @@ class LoadingSheetViewModel extends ChangeNotifier {
         }
       }
     }
+  }
+
+  /// Update quantity loaded on a specific IBT line item and sync overall trip quantity
+  Future<void> updateIbtLineQuantity({
+    required LoadingSheetTrip trip,
+    required String documentNo,
+    required String lineItemId,
+    required int newQuantity,
+  }) async {
+    if (trip.ibtDocuments == null || trip.ibtDocuments!.isEmpty) return;
+
+    final updatedDocs = <IbtDocument>[];
+    int totalLoadedAcrossAllIbts = 0;
+
+    for (final doc in trip.ibtDocuments!) {
+      if (doc.documentNo.toUpperCase() == documentNo.toUpperCase()) {
+        final updatedLines = <IbtLineItem>[];
+        for (final line in doc.lineItems) {
+          if (line.id == lineItemId) {
+            final clamped = newQuantity < 0 ? 0 : newQuantity;
+            updatedLines.add(line.copyWith(loadedQuantity: clamped));
+          } else {
+            updatedLines.add(line);
+          }
+        }
+        final updatedDoc = doc.copyWith(lineItems: updatedLines);
+        updatedDocs.add(updatedDoc);
+        totalLoadedAcrossAllIbts += updatedDoc.loadedTotal;
+      } else {
+        updatedDocs.add(doc);
+        totalLoadedAcrossAllIbts += doc.loadedTotal;
+      }
+    }
+
+    final updatedTrip = trip.copyWith(
+      ibtDocuments: updatedDocs,
+      quantityLoaded: totalLoadedAcrossAllIbts,
+    );
+
+    await updateTruckLoad(updatedTrip);
+  }
+
+  /// Attach or replace an IBT document on a trip
+  Future<void> attachIbtDocument({
+    required LoadingSheetTrip trip,
+    required IbtDocument ibtDoc,
+  }) async {
+    final currentDocs = <IbtDocument>[...(trip.ibtDocuments ?? [])];
+    final existingIdx = currentDocs.indexWhere(
+      (d) => d.documentNo.toUpperCase() == ibtDoc.documentNo.toUpperCase(),
+    );
+
+    if (existingIdx >= 0) {
+      currentDocs[existingIdx] = ibtDoc;
+    } else {
+      currentDocs.add(ibtDoc);
+    }
+
+    final int totalTarget = currentDocs.fold<int>(0, (int sum, IbtDocument d) => sum + d.total);
+    final int totalLoaded = currentDocs.fold<int>(0, (int sum, IbtDocument d) => sum + d.loadedTotal);
+
+    final updatedTrip = trip.copyWith(
+      ibtDocuments: currentDocs,
+      targetQuantity: totalTarget > 0 ? totalTarget : trip.targetQuantity,
+      quantityLoaded: totalLoaded > 0 ? totalLoaded : trip.quantityLoaded,
+    );
+
+    await updateTruckLoad(updatedTrip);
+  }
+
+  /// Remove an IBT document from a trip
+  Future<void> removeIbtDocument({
+    required LoadingSheetTrip trip,
+    required String documentNo,
+  }) async {
+    if (trip.ibtDocuments == null) return;
+    final filtered = trip.ibtDocuments!
+        .where((d) => d.documentNo.toUpperCase() != documentNo.toUpperCase())
+        .toList();
+
+    final LoadingSheetTrip updatedTrip;
+    if (filtered.isNotEmpty) {
+      final int totalTarget =
+          filtered.fold<int>(0, (int sum, IbtDocument d) => sum + d.total);
+      final int totalLoaded =
+          filtered.fold<int>(0, (int sum, IbtDocument d) => sum + d.loadedTotal);
+      updatedTrip = trip.copyWith(
+        ibtDocuments: filtered,
+        targetQuantity: totalTarget > 0 ? totalTarget : null,
+        clearTargetQuantity: totalTarget <= 0,
+        quantityLoaded: totalLoaded,
+      );
+    } else {
+      updatedTrip = trip.copyWith(
+        clearIbtDocuments: true,
+        clearTargetQuantity: true,
+        targetQuantity: null,
+        quantityLoaded: 0,
+      );
+    }
+
+    await updateTruckLoad(updatedTrip);
   }
 
   Future<void> deleteTruckLoad(String tripId) async {

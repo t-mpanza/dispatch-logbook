@@ -38,6 +38,7 @@ class EntriesViewModel extends ChangeNotifier {
     required String title,
     List<String> tags = const [],
     bool withCounter = false,
+    int? expectedTotal,
   }) async {
     final now = DateTime.now();
     final epoch = now.millisecondsSinceEpoch;
@@ -49,6 +50,7 @@ class EntriesViewModel extends ChangeNotifier {
       id: IdGenerator.generate(),
       title: title,
       tags: tags,
+      expectedTotal: expectedTotal,
       notes: [],
       attachments: [],
       trips: withCounter ? [] : null,

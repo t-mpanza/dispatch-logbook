@@ -1,9 +1,7 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,6 +15,7 @@ class UpdateInfo {
   final String? apkDownloadUrl;
   final String? releaseUrl;
   final String? publishedAt;
+  final String releaseChannel;
 
   UpdateInfo({
     required this.hasUpdate,
@@ -27,63 +26,104 @@ class UpdateInfo {
     this.apkDownloadUrl,
     this.releaseUrl,
     this.publishedAt,
+    this.releaseChannel = 'IBT Edition',
   });
 }
 
 class UpdateService {
   static const String repoOwner = 't-mpanza';
   static const String repoName = 'dispatch-logbook';
-  static const String latestReleaseApiUrl =
-      'https://api.github.com/repos/$repoOwner/$repoName/releases/latest';
+  static const String releasesApiUrl =
+      'https://api.github.com/repos/$repoOwner/$repoName/releases';
   static const String releasesPageUrl =
       'https://github.com/$repoOwner/$repoName/releases';
 
-  /// Get current app version (e.g., '1.0.0' or 'v1.0.0')
+  /// Release channel identifier for this standalone edition
+  static const String releaseChannel = 'IBT Edition';
+
+  /// Get current app version (e.g., 'v2.1.0-rc5')
   static Future<String> getCurrentVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
       return 'v${info.version}';
     } catch (_) {
-      return 'v2.0.0';
+      return 'v2.1.0-rc5';
     }
   }
 
-  /// Check GitHub releases for a newer version
-  static Future<UpdateInfo> checkForUpdates() async {
+  /// Check GitHub releases specifically for newer IBT Edition candidates
+  static Future<UpdateInfo> checkForUpdates({http.Client? client}) async {
     final currentVer = await getCurrentVersion();
+    final httpClient = client ?? http.Client();
 
     try {
-      final response = await http.get(
-        Uri.parse(latestReleaseApiUrl),
+      final response = await httpClient.get(
+        Uri.parse(releasesApiUrl),
         headers: {
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'DispatchDiary-App',
+          'User-Agent': 'DispatchDiary-IBT-Edition',
         },
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {
         throw Exception('GitHub API returned ${response.statusCode}');
       }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final latestTag = data['tag_name'] as String? ?? '';
-      final title = data['name'] as String? ?? latestTag;
-      final body = data['body'] as String? ?? '';
-      final releaseHtmlUrl = data['html_url'] as String? ?? releasesPageUrl;
-      final publishedAt = data['published_at'] as String?;
+      final releases = jsonDecode(response.body) as List<dynamic>;
 
-      // Find APK asset in release assets
+      // Filter specifically for IBT-tagged releases, pick the newest one
+      Map<String, dynamic>? bestIbtRelease;
+
+      for (final rel in releases) {
+        final map = rel as Map<String, dynamic>;
+        final tag = (map['tag_name'] as String? ?? '').toLowerCase();
+        final name = (map['name'] as String? ?? '').toLowerCase();
+        final body = (map['body'] as String? ?? '').toLowerCase();
+
+        final isIbtRelease =
+            tag.contains('ibt') || name.contains('ibt') || body.contains('ibt edition');
+        if (!isIbtRelease) continue;
+
+        // Pick the first matching (GitHub API returns newest first)
+        bestIbtRelease ??= map;
+        break;
+      }
+
+      if (bestIbtRelease == null) {
+        return UpdateInfo(
+          hasUpdate: false,
+          currentVersion: currentVer,
+          latestVersion: currentVer,
+          releaseTitle: 'Dispatch Diary (IBT Edition)',
+          releaseNotes: 'You are on the latest IBT release candidate ($currentVer).',
+          releaseUrl: releasesPageUrl,
+          releaseChannel: releaseChannel,
+        );
+      }
+
+      final latestTag = bestIbtRelease['tag_name'] as String? ?? '';
+      final title = bestIbtRelease['name'] as String? ?? latestTag;
+      final body = bestIbtRelease['body'] as String? ?? '';
+      final releaseHtmlUrl = bestIbtRelease['html_url'] as String? ?? releasesPageUrl;
+      final publishedAt = bestIbtRelease['published_at'] as String?;
+
+      // Find the IBT APK asset
       String? apkUrl;
-      final assets = data['assets'] as List<dynamic>? ?? [];
+      final assets = bestIbtRelease['assets'] as List<dynamic>? ?? [];
       for (final asset in assets) {
-        final name = (asset['name'] as String? ?? '').toLowerCase();
-        if (name.endsWith('.apk')) {
+        final aName = (asset['name'] as String? ?? '').toLowerCase();
+        if (aName.endsWith('.apk')) {
           apkUrl = asset['browser_download_url'] as String?;
-          break;
+          if (aName.contains('ibt')) break;
         }
       }
 
-      final hasUpdate = _isNewerVersion(currentVer, latestTag);
+      // Extract a clean version tag for comparison, stripping the -ibt suffix
+      // e.g. "v2.1.0-rc5-ibt" → "v2.1.0-rc5"
+      final cleanLatestTag = latestTag.replaceAll(RegExp(r'-ibt$', caseSensitive: false), '');
+      final cleanCurrentVer = currentVer.replaceAll(RegExp(r'-ibt$', caseSensitive: false), '');
+
+      final hasUpdate = isNewerVersion(cleanCurrentVer, cleanLatestTag);
 
       return UpdateInfo(
         hasUpdate: hasUpdate,
@@ -91,112 +131,114 @@ class UpdateService {
         latestVersion: latestTag.isNotEmpty ? latestTag : currentVer,
         releaseTitle: title,
         releaseNotes: body,
-        apkDownloadUrl: apkUrl ?? releaseHtmlUrl,
+        apkDownloadUrl: apkUrl,
         releaseUrl: releaseHtmlUrl,
         publishedAt: publishedAt,
+        releaseChannel: releaseChannel,
       );
     } catch (e) {
-      debugPrint('Error checking for updates: $e');
+      debugPrint('Error checking for IBT release channel updates: $e');
       return UpdateInfo(
         hasUpdate: false,
         currentVersion: currentVer,
         latestVersion: currentVer,
-        releaseNotes: 'Could not fetch updates ($e)',
+        releaseNotes: 'Could not fetch updates: $e',
         releaseUrl: releasesPageUrl,
+        releaseChannel: releaseChannel,
       );
+    } finally {
+      if (client == null) httpClient.close();
     }
   }
 
-  /// Direct in-app stream download and system package installer launch
-  static Future<bool> downloadAndInstallApk(
-    String apkUrl, {
-    void Function(double progress, int receivedBytes, int totalBytes)? onProgress,
-  }) async {
+  /// Download the APK in-app, streaming progress (0.0 – 1.0) via the returned stream.
+  /// Completes with the path to the downloaded file when finished.
+  static Stream<({double progress, String? filePath, String? error})> downloadApk(
+    String apkUrl,
+  ) async* {
+    final client = http.Client();
     try {
-      final client = http.Client();
       final request = http.Request('GET', Uri.parse(apkUrl));
-      request.headers['User-Agent'] = 'DispatchDiary-App';
-
       final response = await client.send(request);
+
       if (response.statusCode != 200) {
-        throw Exception('Download failed with HTTP ${response.statusCode}');
+        yield (progress: 0.0, filePath: null, error: 'Server error ${response.statusCode}');
+        return;
       }
 
-      final totalBytes = response.contentLength ?? 0;
+      final contentLength = response.contentLength ?? 0;
       final tempDir = await getTemporaryDirectory();
-      final apkFile = File('${tempDir.path}/dispatch-diary-update.apk');
+      final fileName = apkUrl.split('/').last.split('?').first;
+      final file = File('${tempDir.path}/$fileName');
 
-      if (await apkFile.exists()) {
-        await apkFile.delete();
-      }
-
-      final sink = apkFile.openWrite();
-      int receivedBytes = 0;
+      final sink = file.openWrite();
+      int received = 0;
 
       await for (final chunk in response.stream) {
         sink.add(chunk);
-        receivedBytes += chunk.length;
-        if (totalBytes > 0 && onProgress != null) {
-          final progress = (receivedBytes / totalBytes).clamp(0.0, 1.0);
-          onProgress(progress, receivedBytes, totalBytes);
-        }
+        received += chunk.length;
+        final progress = contentLength > 0 ? received / contentLength : -1.0;
+        yield (progress: progress.clamp(0.0, 1.0), filePath: null, error: null);
       }
 
       await sink.flush();
       await sink.close();
-      client.close();
 
-      // Launch the Android package installer directly
-      final result = await OpenFilex.open(
-        apkFile.path,
-        type: 'application/vnd.android.package-archive',
-      );
-
-      return result.type == ResultType.done;
+      yield (progress: 1.0, filePath: file.path, error: null);
     } catch (e) {
-      debugPrint('Error downloading and installing APK: $e');
-      return false;
+      yield (progress: 0.0, filePath: null, error: e.toString());
+    } finally {
+      client.close();
     }
   }
 
-  /// Launch APK download or release page in browser/installer fallback
-  static Future<bool> openDownload(String url) async {
+  /// Open the release page in browser as a fallback
+  static Future<bool> openReleasePage(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
-      return await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return launchUrl(uri, mode: LaunchMode.externalApplication);
     }
     return false;
   }
 
-  /// Helper to compare semver versions (e.g. 'v2.0.44' vs 'v2.0.0')
-  static bool _isNewerVersion(String current, String latest) {
+  /// Compare two version strings, returning true if [latest] > [current].
+  /// Handles formats: v2.1.0, v2.1.0-rc5, v2.1.0-rc5-ibt
+  static bool isNewerVersion(String current, String latest) {
     if (latest.isEmpty) return false;
-    final cleanCurrent = current.replaceAll(RegExp(r'[^0-9.]'), '');
-    final cleanLatest = latest.replaceAll(RegExp(r'[^0-9.]'), '');
 
-    if (cleanCurrent == cleanLatest) return false;
+    // Strip -ibt suffix and any build metadata (+N)
+    String clean(String s) => s
+        .replaceAll(RegExp(r'-ibt$', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\+\d+$'), '')
+        .replaceFirst('v', '');
 
-    final currParts =
-        cleanCurrent.split('.').map((p) => int.tryParse(p) ?? 0).toList();
-    final latestParts =
-        cleanLatest.split('.').map((p) => int.tryParse(p) ?? 0).toList();
+    final c = clean(current);
+    final l = clean(latest);
 
-    final maxLen = currParts.length > latestParts.length
-        ? currParts.length
-        : latestParts.length;
+    if (c == l) return false;
 
-    while (currParts.length < maxLen) {
-      currParts.add(0);
+    // Split into base (e.g. "2.1.0") and pre-release (e.g. "rc5")
+    String base(String s) => s.split('-').first;
+    String? pre(String s) => s.contains('-') ? s.split('-').last : null;
+
+    final cBase = base(c).split('.').map((p) => int.tryParse(p) ?? 0).toList();
+    final lBase = base(l).split('.').map((p) => int.tryParse(p) ?? 0).toList();
+
+    while (cBase.length < 3) { cBase.add(0); }
+    while (lBase.length < 3) { lBase.add(0); }
+
+    for (var i = 0; i < 3; i++) {
+      if (lBase[i] > cBase[i]) return true;
+      if (lBase[i] < cBase[i]) return false;
     }
-    while (latestParts.length < maxLen) {
-      latestParts.add(0);
+
+    // Same base version — compare RC numbers
+    int rcNum(String? p) {
+      if (p == null) return 999999; // stable > any RC
+      final m = RegExp(r'rc(\d+)', caseSensitive: false).firstMatch(p);
+      return m != null ? (int.tryParse(m.group(1)!) ?? 0) : 0;
     }
 
-    for (var i = 0; i < maxLen; i++) {
-      if (latestParts[i] > currParts[i]) return true;
-      if (latestParts[i] < currParts[i]) return false;
-    }
-
-    return false;
+    return rcNum(pre(l)) > rcNum(pre(c));
   }
 }

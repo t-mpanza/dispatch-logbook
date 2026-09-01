@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
@@ -36,12 +37,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
     return '${mb.toStringAsFixed(1)} MB';
   }
 
+  static const _installChannel =
+      MethodChannel('com.dispatchdiary.dispatch_diary/install');
+
   Future<void> _handleStartDownloadAndInstall() async {
     final apkUrl = widget.updateInfo.apkDownloadUrl;
-    if (apkUrl == null || !apkUrl.endsWith('.apk')) {
+    if (apkUrl == null) {
       // Fallback to browser if no direct APK asset found
       AppHaptics.light();
-      await UpdateService.openDownload(
+      await UpdateService.openReleasePage(
           widget.updateInfo.releaseUrl ?? UpdateService.releasesPageUrl);
       if (mounted) Navigator.pop(context);
       return;
@@ -57,32 +61,32 @@ class _UpdateDialogState extends State<UpdateDialog> {
       _isInstalling = false;
     });
 
-    final success = await UpdateService.downloadAndInstallApk(
-      apkUrl,
-      onProgress: (progress, received, total) {
-        if (mounted) {
-          setState(() {
-            _downloadProgress = progress;
-            _receivedBytes = received;
-            _totalBytes = total;
-          });
-        }
-      },
-    );
+    await for (final event in UpdateService.downloadApk(apkUrl)) {
+      if (!mounted) return;
 
-    if (mounted) {
-      if (success) {
-        AppHaptics.success();
-        setState(() {
-          _isInstalling = true;
-        });
-      } else {
+      if (event.error != null) {
         AppHaptics.error();
         setState(() {
           _isDownloading = false;
           _errorMessage =
-              'Could not launch installer automatically. Tap below to download manually via browser.';
+              'Could not complete download (${event.error}). Tap below to view on GitHub.';
         });
+        return;
+      }
+
+      setState(() => _downloadProgress = event.progress);
+
+      if (event.filePath != null) {
+        AppHaptics.success();
+        setState(() {
+          _isInstalling = true;
+        });
+        try {
+          await _installChannel.invokeMethod('installApk', {'path': event.filePath!});
+        } catch (e) {
+          debugPrint('Install APK channel invoke failed: $e');
+        }
+        return;
       }
     }
   }
@@ -411,7 +415,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 child: OutlinedButton.icon(
                   onPressed: () {
                     AppHaptics.light();
-                    UpdateService.openDownload(
+                    UpdateService.openReleasePage(
                         info.releaseUrl ?? UpdateService.releasesPageUrl);
                   },
                   style: OutlinedButton.styleFrom(

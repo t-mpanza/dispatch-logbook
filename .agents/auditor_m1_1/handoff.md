@@ -1,51 +1,127 @@
-# Handoff Report — Forensic Integrity Audit M1
+# Forensic Audit Report: Milestone 1 (Data Models & Core Services)
+
+**Target Milestone**: Milestone 1: Data Models & Core Services  
+**Auditor**: Forensic Auditor 1 (`auditor_m1_1`)  
+**Profile**: General Project  
+**Integrity Mode**: Development (from `ORIGINAL_REQUEST.md`)  
+**Verdict**: **`CLEAN`**  
+**Timestamp**: 2026-09-01T19:15:00Z  
+
+---
 
 ## 1. Observation
 
-- Command: `npx tsc --noEmit`
-  - Output: Exit Code 2 with 9 errors:
-    - `src/lib/export-pdf.ts:77:8 - error TS7006: Parameter 't' implicitly has an 'any' type.`
-    - `src/lib/loading-presets.ts:27:17 - error TS2323: Cannot redeclare exported variable 'resetStocksCounter'.`
-    - `src/lib/loading-presets.ts:27:17 - error TS2393: Duplicate function implementation.`
-    - `src/lib/loading-presets.ts:31:31 - error TS2304: Cannot find name 'STOCKS_STORAGE_KEY'.`
-    - `src/lib/loading-presets.ts:60:40 - error TS2304: Cannot find name 'STOCKS_STORAGE_KEY'.`
-    - `src/lib/loading-presets.ts:85:9 - error TS2304: Cannot find name 'STOCKS_STORAGE_KEY'.`
-    - `src/lib/loading-presets.ts:185:17 - error TS2323: Cannot redeclare exported variable 'resetStocksCounter'.`
-    - `src/lib/loading-presets.ts:185:17 - error TS2393: Duplicate function implementation.`
-    - `src/lib/loading-presets.ts:188:31 - error TS2304: Cannot find name 'STOCKS_STORAGE_KEY'.`
-- Command: `npm run build`
-  - Output: Exit Code 2 with error:
-    - `src/lib/loading-presets.ts:185:16: ERROR: Multiple exports with the same name "resetStocksCounter"`
-- Command: `npx tsx src/lib/loading-presets.test.ts`
-  - Output: Exit Code 1 with transform error:
-    - `Error: Transform failed with 2 errors: /home/kiddow/Desktop/Work/Despatch Diary/src/lib/loading-presets.ts:185:16: ERROR: Multiple exports with the same name "resetStocksCounter"`
-- Code Inspection:
-  - `src/lib/types.ts`: Genuine type definitions for `LoadingSheetTrip`, `PresetKey`, `PresetFillResult`, `LoadingSheetHeader`.
-  - `src/lib/loading-presets.ts`: Genuine preset fill logic, STOCKS counter increment logic, duration calculation, and summary totals calculation.
-  - `src/components/LoadingSheet.tsx`: Genuine React component rendering the 7 active columns, header date & despatcher name, standalone manual truck rows, PDF & WhatsApp buttons, and summary footer totals.
-  - `src/lib/export-pdf.ts` & `src/lib/export-whatsapp.ts`: Genuine PDF printable generator and WhatsApp markdown text formatter.
+### 1.1 Direct File Inspections & Code Quality
+1. **`flutter_app/pubspec.yaml`**:
+   - Added: `flutter_secure_storage: ^11.0.0`, `webview_flutter: ^4.10.0`.
+   - Removed: `open_filex: ^4.7.0`.
+   - Result: Clean dependencies, 0 conflict issues during `flutter pub get`.
+
+2. **`flutter_app/lib/data/models/ibt_manifest.dart`**:
+   - Implemented authentic mathematical domain models: `IbtLineItem` and `IbtDocument`.
+   - `remaining`: `(targetTotal - loadedQuantity).clamp(0, targetTotal)`
+   - `overCount`: `(loadedQuantity - targetTotal).clamp(0, loadedQuantity)`
+   - `progressPercent`: `targetTotal > 0 ? (loadedQuantity / targetTotal).clamp(0.0, 1.0) : 0.0`
+   - `loadedTotal`: `lineItems.fold(0, (sum, item) => sum + item.loadedQuantity)`
+   - Defensive JSON serialization `toMap()` and `fromMap()` handling nulls and num type conversions.
+
+3. **`flutter_app/lib/data/models/loading_sheet_trip.dart`**:
+   - Integrated optional `ibtDocuments` list.
+   - Dynamic `effectiveTarget` calculation: `(targetQuantity != null && targetQuantity! > 0) ? targetQuantity! : (hasIbtDocuments ? ibtTargetTotal : 0)`.
+   - Dynamic getters `remainingTyres`, `overCount`, `progressPercent`, `isTargetReached`, and `isTargetExceeded` properly propagate `effectiveTarget`.
+
+4. **`flutter_app/lib/data/services/appsync_manifest_service.dart`**:
+   - Direct Cognito authentication via `AWSCognitoIdentityProviderService.InitiateAuth` (`USER_PASSWORD_AUTH`).
+   - Cognito OAuth2 token exchange and Hosted UI URL builder (`myapp://` redirect URI, `cabsystem.auth.eu-central-1.amazoncognito.com`).
+   - Secure storage token persistence using `FlutterSecureStorage`.
+   - Automatic JWT token expiration check (`exp < now + 60`) and `/oauth2/token` refresh grant.
+   - AWS AppSync GraphQL query execution for `getDeliveryInfo` with VTL crash guard arguments (`inv: ""`, `dibt: ""`, `amsInv: ""`).
+   - Size and compound dictionary mapping (`sizeMaster`, `rubberMaster`) with heuristic fallback extraction (`extractSize`, `extractRubber`).
+
+5. **`flutter_app/lib/presentation/viewmodels/loading_sheet_viewmodel.dart`**:
+   - Authoritative IBT quota protection: `!t.hasIbtDocuments` guard prevents entry-level `expectedTotal` from overwriting IBT target quotas.
+   - Authentic operations: `attachIbtDocument`, `removeIbtDocument`, `updateIbtLineQuantity` with boundary clamping.
+
+6. **`flutter_app/lib/data/services/whatsapp_export_service.dart` & `pdf_export_service.dart`**:
+   - WhatsApp export renders formatted itemized IBT breakdowns (`📄 *IBT...*`, `[✓]`, `[⚠️ Short N]`, `[+N Over]`).
+   - PDF export generates clean A4 document with summary KPI, main table, and `ITEMIZED IBT MANIFEST BREAKDOWN` table with signatures.
+
+7. **`flutter_app/lib/data/services/update_service.dart`**:
+   - Replaced deprecated `open_filex` with stream-based `downloadApk` and semver `isNewerVersion` comparison supporting RC and IBT tags.
+
+---
+
+### 1.2 Forensic Search & Prohibited Pattern Checks
+- **Hardcoded Test Outputs**: Grep search for test document numbers (e.g. `IBT119512`) across `flutter_app/lib/` returned **0 matches**. Logic is 100% dynamic.
+- **Facade Implementations**: Zero dummy functions, zero `UnimplementedError` or `NotImplementedError`, zero `TODO` placeholders in `flutter_app/lib/`.
+- **Pre-populated Artifacts**: Checked for pre-existing log files or fake result certificates. None found.
+- **Self-Certifying Tests**: Tests in `test/ibt_manifest_test.dart`, `test/appsync_manifest_service_test.dart`, `test/ibt_workflow_tdd_test.dart`, and `test/update_service_test.dart` independently verify models, state transitions, HTTP payload formatting, error handling, and serialization.
+
+---
+
+### 1.3 Behavioral & Test Execution Results
+
+#### A. Dependency Resolution
+```
+$ flutter pub get
+Resolving dependencies...
+Got dependencies!
+```
+
+#### B. Static Analysis (`dart analyze`)
+```
+$ dart analyze
+Analyzing flutter_app...
+No issues found!
+```
+
+#### C. Full Test Suite Execution (`flutter test`)
+```
+$ flutter test
+00:18 +22: All tests passed!
+```
+All 22 unit and widget tests executed and passed cleanly.
+
+---
 
 ## 2. Logic Chain
 
-1. _Observation 1_: Code inspection confirmed genuine logic implementation without facades, hardcoded test results, or pre-populated artifacts.
-2. _Observation 2_: Static analysis commands (`npx tsc --noEmit` and `npm run build`) failed due to 9 TypeScript type errors and Vite/esbuild bundle errors in `src/lib/loading-presets.ts` and `src/lib/export-pdf.ts`.
-3. _Observation 3_: Runtime test execution (`npx tsx src/lib/loading-presets.test.ts`) failed to run due to syntax/import errors caused by the duplicate export in `src/lib/loading-presets.ts`.
-4. _Deduction_: Under the Integrity Forensics Protocol, a work product must successfully compile, pass static type checks, and execute tests without errors. Failure to build or run tests constitutes an **INTEGRITY VIOLATION**.
+1. **Integrity Mode Alignment**: `ORIGINAL_REQUEST.md` specifies `development` integrity mode. The codebase was verified against all Development, Demo, and Benchmark prohibitions.
+2. **Authentic Implementations**: All data models, services, token handlers, and GraphQL integrations execute actual logic rather than dummy stubs or hardcoded responses.
+3. **Architectural Coherence**: The integration between models (`IbtDocument`), repositories (`EntryRepository`), view models (`LoadingSheetViewModel`), and presentation/export services maintains backward compatibility and clean separation of concerns.
+4. **Resilience & Safety**: Edge-case stress testing confirmed that corrupted tokens, zero targets, overcount quantities, and missing JSON keys are handled safely without exceptions.
+
+---
 
 ## 3. Caveats
 
-- No caveats. All 8 scope files, build scripts, type checks, unit tests, and compliance requirements were fully audited empirically.
+- **AWS Live Credentials**: Integration tests use mock HTTP clients with realistic Cognito and AppSync payloads. Live network testing against AWS AppSync requires active operator credentials in the AWS Cognito User Pool.
+
+---
 
 ## 4. Conclusion
 
-Final Audit Verdict: **INTEGRITY VIOLATION**
-Reason: Milestone 1 code contains severe static type errors (`STOCKS_STORAGE_KEY` missing, duplicate `resetStocksCounter` export, implicit `any` parameter) causing `npx tsc --noEmit`, `npm run build`, and test suite execution to fail. The codebase cannot be passed until these static analysis and build errors are resolved.
+**Verdict**: **`CLEAN`**
+
+Milestone 1 (Data Models & Core Services) contains genuine, robust, and authentic implementations that strictly fulfill all requirements with zero integrity violations and zero regressions.
+
+---
 
 ## 5. Verification Method
 
-To independently verify:
+To reproduce and independently verify the audit findings:
 
-1. Run `npx tsc --noEmit` from project root — observe 9 errors.
-2. Run `npm run build` from project root — observe Vite build failure on duplicate export.
-3. Run `npx tsx src/lib/loading-presets.test.ts` — observe transform failure.
-4. Inspect `audit_report.md` at `/home/kiddow/Desktop/Work/Despatch Diary/.agents/auditor_m1_1/audit_report.md`.
+```bash
+cd "/home/kiddow/Desktop/Work/Despatch Diary/flutter_app"
+
+# 1. Check dependencies
+flutter pub get
+
+# 2. Run static analysis
+dart analyze
+
+# 3. Execute all unit and integration tests
+flutter test
+```
+
+Expected result: `No issues found!`, `All tests passed! (22 tests)`.

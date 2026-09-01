@@ -11,6 +11,8 @@ import '../../data/services/whatsapp_export_service.dart';
 import '../../data/repositories/entry_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../viewmodels/loading_sheet_viewmodel.dart';
+import '../widgets/aws_auth_dialog.dart';
+import '../widgets/ibt_line_items_sheet.dart';
 import '../widgets/truck_load_dialog.dart';
 import 'entry_detail_screen.dart';
 import 'pdf_preview_screen.dart';
@@ -120,25 +122,47 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                             ],
                           ),
 
-                          // Despatcher Name Pill
-                          GestureDetector(
-                            onTap: () {
-                              _showEditDespatcherDialog(context, settingsRepo);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: GlassDecorations.glassCard(context: context, borderRadius: 14),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.person_rounded, size: 14, color: isLight ? AppColors.primary : AppColors.primaryGlow),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    despatcherName,
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context)),
+                          Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () => AwsAuthDialog.show(context),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  decoration: GlassDecorations.glassCard(context: context, borderRadius: 14),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.cloud_sync_rounded, size: 14, color: isLight ? AppColors.primary : AppColors.primaryGlow),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'AWS Sync',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context)),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 6),
+                              // Despatcher Name Pill
+                              GestureDetector(
+                                onTap: () {
+                                  _showEditDespatcherDialog(context, settingsRepo);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: GlassDecorations.glassCard(context: context, borderRadius: 14),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.person_rounded, size: 14, color: isLight ? AppColors.primary : AppColors.primaryGlow),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        despatcherName,
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -670,6 +694,61 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                 ],
               ],
             ),
+            if (trip.hasIbtDocuments) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurfaceElevated,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: (isLight ? AppColors.primary : AppColors.primaryGlow).withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.receipt_long_outlined, size: 13, color: isLight ? AppColors.primary : AppColors.primaryGlow),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        trip.ibtDocuments!.map((d) => '${d.documentNo} (${d.loadedTotal}/${d.total})').join(' • '),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.dynamicTextPrimary(context),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        AppHaptics.medium();
+                        IbtLineItemsSheet.show(context, trip: trip);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (isLight ? AppColors.primary : AppColors.primaryGlow).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Breakdown',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                              ),
+                            ),
+                            Icon(Icons.chevron_right, size: 12, color: isLight ? AppColors.primary : AppColors.primaryGlow),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

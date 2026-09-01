@@ -1,17 +1,13 @@
-# Progress Log — Explorer 2
+# Progress: Explorer M1-2
 
-Last visited: 2026-08-13T20:09:59Z
+Last visited: 2026-09-01T18:54:30Z
 
-- [x] Initialized agent working directory, ORIGINAL_REQUEST.md, BRIEFING.md, progress.md.
-- [x] Read PROJECT.md and .agents/sub_orch_milestone_1/SCOPE.md.
-- [x] Inspected existing codebase files (`src/routes/entry.$id.tsx`, `src/routes/counter.tsx`, `src/routes/day.$date.tsx`, `src/components/CounterPanel.tsx`, `src/components/EventLog.tsx`, `src/components/AppShell.tsx`, `src/lib/types.ts`, `src/lib/db.ts`).
-- [x] Analyzed 5 key investigation areas:
-  1. Header: Date, Despatcher Name (editable + saved preference in `localStorage`)
-  2. Active Columns: Reg, Driver Name, Trip ID (preset selector + custom + `STOCKS` auto-increment + `NLH` auto-fill), Loading Start Time, Loading Finished Time, Minutes calculation, Quantity Loaded
-  3. Explicit omission of fields: Arrival Time, Departure Time, Pressure Check, PSI footer warning banner
-  4. Summary footer: `TOTAL TYRES LOADED` and `TOTAL LOADING TIME` auto-summing math and layout
-  5. Standalone manual truck rows on daily sheet (`isManual: true`)
-- [x] Written detailed investigation report (`analysis.md`).
-- [x] Written 5-component handoff report (`handoff.md`).
-- [x] Updated BRIEFING.md and progress.md.
-- [x] Sent summary message to parent orchestrator.
+- [x] Initialized DISPATCH.md, BRIEFING.md, and progress.md
+- [x] Read ORIGINAL_REQUEST.md and PROJECT.md
+- [x] Investigate git status, branch details, diffs between origin/feature/ibt-manifest-tracking and main
+- [x] Deep dive on `flutter_app/lib/presentation/viewmodels/loading_sheet_viewmodel.dart`
+- [x] Deep dive on `flutter_app/lib/data/services/whatsapp_export_service.dart` and `flutter_app/lib/data/services/pdf_export_service.dart`
+- [x] Deep dive on unit test coverage (existing vs required in feature branch)
+- [x] Synthesize findings, update BRIEFING.md, and write handoff.md
+- [x] Finalize handoff report at `.agents/explorer_m1_2/handoff.md`
+- [ ] Send completion message to orchestrator

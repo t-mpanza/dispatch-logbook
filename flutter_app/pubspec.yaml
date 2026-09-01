@@ -53,7 +53,8 @@ dependencies:
   photo_view: ^0.15.0
   http: ^1.2.0
   package_info_plus: ^10.2.1
-  open_filex: ^4.7.0
+  flutter_secure_storage: ^11.0.0
+  webview_flutter: ^4.10.0
 
 dev_dependencies:
   flutter_test:

@@ -12,12 +12,16 @@ class CounterPanel extends StatefulWidget {
   final List<Trip> trips;
   final Function(List<Trip>) onChange;
   final Function(Attachment)? onAttachment;
+  final int currentTotal;
+  final int? targetTotal;
 
   const CounterPanel({
     super.key,
     required this.trips,
     required this.onChange,
     this.onAttachment,
+    this.currentTotal = 0,
+    this.targetTotal,
   });
 
   @override
@@ -67,8 +71,48 @@ class _CounterPanelState extends State<CounterPanel> {
     });
   }
 
-  void _logScanned() {
+  Future<bool> _warnIfOver(BuildContext context, int adding) async {
+    final target = widget.targetTotal;
+    if (target == null || target <= 0) return true;
+    final afterAdd = widget.currentTotal + adding;
+    if (afterAdd <= target) return true;
+
+    final over = afterAdd - target;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.backgroundSecondary,
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
+            SizedBox(width: 8),
+            Text('Over IBT Target', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          ],
+        ),
+        content: Text(
+          'Adding $adding tyres will put you $over over the target of $target.\n\nAre you sure you want to continue?',
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning),
+            child: Text('Log +$over over anyway', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  void _logScanned() async {
     if (_count <= 0) return;
+    final ok = await _warnIfOver(context, _count);
+    if (!ok) return;
     AppHaptics.success();
     final newTrip = Trip(
       id: IdGenerator.generate(),
@@ -82,8 +126,10 @@ class _CounterPanelState extends State<CounterPanel> {
     });
   }
 
-  void _logManual({String? noteOverride}) {
+  void _logManual({String? noteOverride}) async {
     if (_manualCount <= 0) return;
+    final ok = await _warnIfOver(context, _manualCount);
+    if (!ok) return;
     AppHaptics.success();
     final slip = _slipController.text.trim();
     final note = noteOverride ?? (slip.isNotEmpty ? 'slip:text:$slip' : null);

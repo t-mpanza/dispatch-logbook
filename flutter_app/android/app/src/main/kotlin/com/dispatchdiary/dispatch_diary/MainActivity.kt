@@ -11,7 +11,7 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
 
-    private val INSTALL_CHANNEL = "com.dispatchdiary.ibt_edition/install"
+    private val INSTALL_CHANNEL = "com.dispatchdiary.dispatch_diary/install"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
