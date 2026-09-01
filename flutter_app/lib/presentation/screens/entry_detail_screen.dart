@@ -6,6 +6,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
 import '../../core/utils/id_generator.dart';
 import '../../data/models/entry.dart';
+import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/note_block.dart';
 import '../../data/models/trip.dart';
@@ -142,6 +143,24 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
           final totalManual = trips.fold<int>(0, (s, t) => s + (t.rejected ?? 0));
           final grandTotal = totalScanned + totalManual;
 
+          // Resolve IBT documents from the primary (non-manual) sheet trip
+          final sheetTrip = currentEntry.loadingSheetTrips?.firstWhere(
+            (t) => !t.isManual,
+            orElse: () => LoadingSheetTrip(
+              id: '', entryId: '', reg: '', driverName: '',
+              tripId: '', quantityLoaded: 0,
+              createdAt: DateTime.now().millisecondsSinceEpoch,
+            ),
+          );
+          final ibtDocs = sheetTrip?.ibtDocuments ?? [];
+          final hasIbt = ibtDocs.isNotEmpty;
+
+          // Effective target: entry.expectedTotal ?? IBT total from sheet trip
+          final ibtTarget = hasIbt
+              ? ibtDocs.fold<int>(0, (s, d) => s + d.total)
+              : null;
+          final effectiveTarget = currentEntry.expectedTotal ?? ibtTarget;
+
           return SafeArea(
             bottom: false,
             child: Column(
@@ -257,7 +276,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                         CounterProgress(
                           total: grandTotal,
                           tripCount: trips.length,
-                          expectedTotal: currentEntry.expectedTotal,
+                          expectedTotal: effectiveTarget,
                           truckReg: _regController.text.trim(),
                           driverName: _driverController.text.trim(),
                           tripTitle: currentEntry.title,
@@ -277,6 +296,8 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                         const SizedBox(height: 12),
                         CounterPanel(
                           trips: trips,
+                          currentTotal: grandTotal,
+                          targetTotal: effectiveTarget,
                           onChange: (nextTrips) {
                             final sheetTrips = _syncTripsToLoadingSheet(currentEntry, nextTrips);
                             repo.saveEntry(currentEntry.copyWith(
@@ -291,6 +312,49 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                           },
                         ),
                         const SizedBox(height: 12),
+
+                        // IBT Manifest Breakdown
+                        if (hasIbt) ...[
+                          for (final doc in ibtDocs) ...[
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.all(14),
+                              decoration: GlassDecorations.glassCard(borderRadius: 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primaryGlow.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+                                        ),
+                                        child: Text(
+                                          doc.documentNo,
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primaryGlow, fontFamily: 'monospace'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '${doc.total} tyres total',
+                                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  for (final line in doc.lineItems) ...[
+                                    _IbtLineRow(line: line, grandTotal: grandTotal, ibtTarget: doc.total),
+                                    const SizedBox(height: 6),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 4),
+                        ],
 
                         // Trip Details (Reg & Driver)
                         Container(
@@ -436,6 +500,95 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Compact row showing one IBT line item's loaded progress vs its target
+class _IbtLineRow extends StatelessWidget {
+  final IbtLineItem line;
+  final int grandTotal;
+  final int ibtTarget;
+
+  const _IbtLineRow({
+    required this.line,
+    required this.grandTotal,
+    required this.ibtTarget,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final target = line.targetTotal;
+    final loaded = line.loadedQuantity;
+    final pct = target > 0 ? (loaded / target).clamp(0.0, 1.0) : 0.0;
+    final isOver = loaded > target && target > 0;
+    final isDone = target > 0 && loaded >= target;
+
+    final Color barColor = isOver
+        ? AppColors.warning
+        : (isDone ? AppColors.success : AppColors.primaryGlow);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  if (line.size != null)
+                    Text(
+                      line.size!,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  if (line.size != null && line.rubber != null)
+                    const Text(' · ', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  if (line.rubber != null)
+                    Text(
+                      line.rubber!,
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                  if (line.size == null && line.rubber == null)
+                    Expanded(
+                      child: Text(
+                        line.description,
+                        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 5,
+                  backgroundColor: Colors.white.withValues(alpha: 0.07),
+                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          '$loaded / $target',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: isOver
+                ? AppColors.warning
+                : (isDone ? AppColors.success : AppColors.textPrimary),
+            fontFamily: 'monospace',
+          ),
+        ),
+      ],
     );
   }
 }

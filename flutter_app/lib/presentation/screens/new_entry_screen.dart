@@ -201,6 +201,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       title: title,
       tags: _tags,
       withCounter: _withCounter,
+      // Pre-fill the expected total from IBT documents so the counter shows a target immediately
+      expectedTotal: (isStocks && totalIbtTyres > 0) ? totalIbtTyres : null,
     );
 
     if (initialTrip != null) {
