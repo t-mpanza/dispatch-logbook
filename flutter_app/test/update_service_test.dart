@@ -6,21 +6,21 @@ import 'package:dispatch_diary/data/services/update_service.dart';
 
 void main() {
   group('UpdateService Tests', () {
-    test('UpdateInfo model initialization on IBT Edition channel', () {
+    test('UpdateInfo model initialization on Dispatch Diary channel', () {
       final info = UpdateInfo(
         hasUpdate: true,
         currentVersion: 'v2.1.0-rc1',
         latestVersion: 'v2.1.0-rc2',
-        releaseTitle: 'Dispatch Diary IBT v2.1.0-rc2',
+        releaseTitle: 'Dispatch Diary v2.1.0-rc2',
         releaseNotes: '- In-app AWS Web Sign-In\n- Automated OAuth credential storage',
-        apkDownloadUrl: 'https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.1.0-rc2-ibt/DispatchDiary_IBT_v2.1.0-rc2.apk',
-        releaseUrl: 'https://github.com/t-mpanza/dispatch-logbook/releases/tag/v2.1.0-rc2-ibt',
+        apkDownloadUrl: 'https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.1.0-rc2/DispatchDiary_v2.1.0-rc2.apk',
+        releaseUrl: 'https://github.com/t-mpanza/dispatch-logbook/releases/tag/v2.1.0-rc2',
       );
 
       expect(info.hasUpdate, isTrue);
       expect(info.currentVersion, equals('v2.1.0-rc1'));
       expect(info.latestVersion, equals('v2.1.0-rc2'));
-      expect(info.releaseChannel, equals('IBT Edition'));
+      expect(info.releaseChannel, equals('Dispatch Diary'));
       expect(info.apkDownloadUrl, contains('.apk'));
     });
 
@@ -32,7 +32,7 @@ void main() {
       expect(UpdateService.isNewerVersion('v2.1.0-rc1', 'v2.0.55'), isFalse);
     });
 
-    test('Filters out non-IBT mainline releases and stays on IBT track', () async {
+    test('Accepts any release with APK asset without tag filtering', () async {
       final mockHttpClient = MockClient((request) async {
         final mockReleases = [
           {
@@ -52,20 +52,20 @@ void main() {
 
       final updateInfo = await UpdateService.checkForUpdates(client: mockHttpClient);
       expect(updateInfo.hasUpdate, isFalse);
-      expect(updateInfo.releaseChannel, equals('IBT Edition'));
+      expect(updateInfo.releaseChannel, equals('Dispatch Diary'));
     });
 
-    test('Identifies and prompts when newer IBT candidate is released', () async {
+    test('Identifies and prompts when newer release is published', () async {
       final mockHttpClient = MockClient((request) async {
         final mockReleases = [
           {
-            "tag_name": "v2.1.0-rc2-ibt",
-            "name": "Dispatch Diary (IBT Edition) v2.1.0-rc2",
-            "body": "New AWS Web Sign-In and automated credential storage",
+            "tag_name": "v2.2.0",
+            "name": "Dispatch Diary v2.2.0",
+            "body": "New features and bug fixes",
             "assets": [
               {
-                "name": "DispatchDiary_IBT_v2.1.0-rc2.apk",
-                "browser_download_url": "https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.1.0-rc2-ibt/DispatchDiary_IBT_v2.1.0-rc2.apk"
+                "name": "DispatchDiary-v2.2.0.apk",
+                "browser_download_url": "https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.2.0/DispatchDiary-v2.2.0.apk"
               }
             ]
           }
@@ -74,8 +74,9 @@ void main() {
       });
 
       final updateInfo = await UpdateService.checkForUpdates(client: mockHttpClient);
-      expect(updateInfo.latestVersion, equals('v2.1.0-rc2-ibt'));
-      expect(updateInfo.apkDownloadUrl, contains('DispatchDiary_IBT_v2.1.0-rc2.apk'));
+      expect(updateInfo.latestVersion, equals('v2.2.0'));
+      expect(updateInfo.apkDownloadUrl, contains('DispatchDiary-v2.2.0.apk'));
+      expect(updateInfo.hasUpdate, isTrue);
     });
   });
 }
