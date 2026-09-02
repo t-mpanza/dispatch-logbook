@@ -80,3 +80,30 @@ Integrity mode: development
 - [ ] Event log uses a chat-bubble layout with distinct visual styling for notes, trips, photos, and voice notes.
 - [ ] Lightbox opens smoothly and supports full-size image viewing across devices.
 - [ ] Counter buttons provide haptic feedback (`navigator.vibrate`) on supported mobile devices.
+
+## 2026-09-02T04:43:53Z
+
+Finish the Dispatch Diary IBT integration, ensure all tests pass, and monitor the automated GitHub Actions CI release until a stable canonical release APK is published.
+
+Working directory: /home/kiddow/Desktop/Work/Despatch Diary
+Integrity mode: development
+
+## Requirements
+
+### R1. Ensure Codebase Integrity
+The main branch has just received the final pieces of the IBT manifest tracking features (StocksEntryDetailScreen, In-App Updater). You must ensure `flutter analyze` and `flutter test` pass with zero issues. Do not rewrite existing architecture; only fix any remaining compilation or test errors. 
+
+### R2. Commit and Trigger Release
+Once the codebase is 100% passing, commit all tracked and untracked files with a descriptive message ("feat: Canonical IBT merge and updater fixes") and push to the `main` branch to trigger the `.github/workflows/release.yml` workflow.
+
+### R3. Monitor CI and Verify Release
+Wait for the GitHub Actions workflow to finish. If the CI fails (e.g. keystore base64 decoding issues), fix the repository secrets or workflow as needed, commit, and push again. Do not stop until a new GitHub release is successfully published and the APK is available.
+
+## Acceptance Criteria
+
+### Verification
+- [ ] `flutter analyze` returns 0 issues.
+- [ ] `flutter test` passes 100% of test suites.
+- [ ] `git push origin main` completes successfully.
+- [ ] A new GitHub Release is successfully published by the CI workflow, containing the signed APK asset.
+

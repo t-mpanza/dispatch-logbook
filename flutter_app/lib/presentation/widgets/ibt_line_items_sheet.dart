@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
@@ -11,10 +10,7 @@ import '../viewmodels/loading_sheet_viewmodel.dart';
 class IbtLineItemsSheet extends StatefulWidget {
   final LoadingSheetTrip trip;
 
-  const IbtLineItemsSheet({
-    super.key,
-    required this.trip,
-  });
+  const IbtLineItemsSheet({super.key, required this.trip});
 
   static Future<void> show(
     BuildContext context, {
@@ -34,19 +30,11 @@ class IbtLineItemsSheet extends StatefulWidget {
 
 class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
   late LoadingSheetTrip _currentTrip;
-  String? _editingLineId;
-  final TextEditingController _editController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _currentTrip = widget.trip;
-  }
-
-  @override
-  void dispose() {
-    _editController.dispose();
-    super.dispose();
   }
 
   void _onStepQuantity({
@@ -65,6 +53,7 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
       newQuantity: newQty,
     );
 
+    // If quota just reached, trigger medium haptic
     if (newQty == line.targetTotal && line.targetTotal > 0) {
       AppHaptics.medium();
     }
@@ -79,40 +68,6 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
     if (mounted) {
       setState(() {
         _currentTrip = updated;
-      });
-    }
-  }
-
-  void _onSetExactQuantity({
-    required IbtDocument doc,
-    required IbtLineItem line,
-    required int newQty,
-  }) async {
-    AppHaptics.light();
-    final clamped = newQty.clamp(0, 9999);
-
-    final vm = context.read<LoadingSheetViewModel>();
-    await vm.updateIbtLineQuantity(
-      trip: _currentTrip,
-      documentNo: doc.documentNo,
-      lineItemId: line.id,
-      newQuantity: clamped,
-    );
-
-    if (clamped == line.targetTotal && line.targetTotal > 0) {
-      AppHaptics.medium();
-    }
-
-    final trips = await vm.getTripsForSelectedDate();
-    final updated = trips.firstWhere(
-      (t) => t.id == _currentTrip.id,
-      orElse: () => _currentTrip,
-    );
-
-    if (mounted) {
-      setState(() {
-        _currentTrip = updated;
-        _editingLineId = null;
       });
     }
   }
@@ -220,7 +175,9 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                 _buildKpiItem(
                   'Remaining',
                   '$totalRemaining',
-                  totalRemaining == 0 ? Colors.greenAccent : Colors.orangeAccent,
+                  totalRemaining == 0
+                      ? Colors.greenAccent
+                      : Colors.orangeAccent,
                 ),
               ],
             ),
@@ -252,7 +209,9 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: AppColors.backgroundSecondary.withValues(alpha: 0.6),
+                      color: AppColors.backgroundSecondary.withValues(
+                        alpha: 0.6,
+                      ),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: doc.isComplete
@@ -304,8 +263,12 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: doc.isComplete
-                                      ? Colors.greenAccent.withValues(alpha: 0.15)
-                                      : Colors.orangeAccent.withValues(alpha: 0.15),
+                                      ? Colors.greenAccent.withValues(
+                                          alpha: 0.15,
+                                        )
+                                      : Colors.orangeAccent.withValues(
+                                          alpha: 0.15,
+                                        ),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -374,7 +337,6 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
     final isDone = line.isComplete;
     final isOver = line.isOverloaded;
     final remaining = line.remaining;
-    final isEditing = _editingLineId == line.id;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -446,16 +408,16 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                       color: isDone
                           ? Colors.greenAccent.withValues(alpha: 0.15)
                           : (isOver
-                              ? Colors.redAccent.withValues(alpha: 0.15)
-                              : Colors.orangeAccent.withValues(alpha: 0.15)),
+                                ? Colors.redAccent.withValues(alpha: 0.15)
+                                : Colors.orangeAccent.withValues(alpha: 0.15)),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       isDone
                           ? 'Complete ✓'
                           : (isOver
-                              ? '+${line.overCount} Over'
-                              : '$remaining left'),
+                                ? '+${line.overCount} Over'
+                                : '$remaining left'),
                       style: TextStyle(
                         color: isDone
                             ? Colors.greenAccent
@@ -474,84 +436,27 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
         // Count Stepper & Quota
         Row(
           children: [
-            // Count Display: tap to edit exact value, or tap-and-hold for steppers
-            GestureDetector(
-              onTap: () {
-                AppHaptics.light();
-                setState(() {
-                  _editingLineId = line.id;
-                  _editController.text = '${line.loadedQuantity}';
-                });
-              },
-              child: isEditing
-                  ? SizedBox(
-                      width: 72,
-                      height: 32,
-                      child: TextField(
-                        controller: _editController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        autofocus: true,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.primaryGlow,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'monospace',
-                        ),
-                        decoration: InputDecoration(
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          filled: true,
-                          fillColor: Colors.black.withValues(alpha: 0.4),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide(color: AppColors.primaryGlow.withValues(alpha: 0.5)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: const BorderSide(color: AppColors.primaryGlow),
-                          ),
-                        ),
-                        onSubmitted: (val) {
-                          final n = int.tryParse(val);
-                          if (n != null) {
-                            _onSetExactQuantity(doc: doc, line: line, newQty: n);
-                          } else {
-                            setState(() => _editingLineId = null);
-                          }
-                        },
-                        onTapOutside: (_) {
-                          final n = int.tryParse(_editController.text);
-                          if (n != null && n != line.loadedQuantity) {
-                            _onSetExactQuantity(doc: doc, line: line, newQty: n);
-                          } else {
-                            setState(() => _editingLineId = null);
-                          }
-                        },
-                      ),
-                    )
-                  : Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: isDone
-                              ? Colors.greenAccent.withValues(alpha: 0.4)
-                              : Colors.white12,
-                        ),
-                      ),
-                      child: Text(
-                        '${line.loadedQuantity} / ${line.targetTotal}',
-                        style: TextStyle(
-                          color: isDone ? Colors.greenAccent : Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ),
+            // Count Display: [loaded / target]
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isDone
+                      ? Colors.greenAccent.withValues(alpha: 0.4)
+                      : Colors.white12,
+                ),
+              ),
+              child: Text(
+                '${line.loadedQuantity} / ${line.targetTotal}',
+                style: TextStyle(
+                  color: isDone ? Colors.greenAccent : Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                ),
+              ),
             ),
             const SizedBox(width: 6),
 

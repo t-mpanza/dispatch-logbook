@@ -56,13 +56,15 @@ class UpdateService {
     final httpClient = client ?? http.Client();
 
     try {
-      final response = await httpClient.get(
-        Uri.parse(releasesApiUrl),
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'DispatchDiary-App',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await httpClient
+          .get(
+            Uri.parse(releasesApiUrl),
+            headers: {
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'DispatchDiary-App',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {
         throw Exception('GitHub API returned ${response.statusCode}');
@@ -75,6 +77,10 @@ class UpdateService {
       for (final rel in releases) {
         final map = rel as Map<String, dynamic>;
         if (map['draft'] == true) continue;
+
+        // Skip release candidates since we are strictly looking for stable main releases
+        final tagName = map['tag_name'] as String? ?? '';
+        if (tagName.toLowerCase().contains('-rc')) continue;
 
         final assets = map['assets'] as List<dynamic>? ?? [];
         final hasApk = assets.any(
@@ -101,7 +107,8 @@ class UpdateService {
       final latestTag = bestRelease['tag_name'] as String? ?? '';
       final title = bestRelease['name'] as String? ?? latestTag;
       final body = bestRelease['body'] as String? ?? '';
-      final releaseHtmlUrl = bestRelease['html_url'] as String? ?? releasesPageUrl;
+      final releaseHtmlUrl =
+          bestRelease['html_url'] as String? ?? releasesPageUrl;
       final publishedAt = bestRelease['published_at'] as String?;
 
       // Find APK asset (prefer one named after the tag, fall back to first .apk)
@@ -145,16 +152,19 @@ class UpdateService {
 
   /// Download the APK in-app, streaming progress (0.0 – 1.0) via the returned stream.
   /// Completes with the path to the downloaded file when finished.
-  static Stream<({double progress, String? filePath, String? error})> downloadApk(
-    String apkUrl,
-  ) async* {
+  static Stream<({double progress, String? filePath, String? error})>
+  downloadApk(String apkUrl) async* {
     final client = http.Client();
     try {
       final request = http.Request('GET', Uri.parse(apkUrl));
       final response = await client.send(request);
 
       if (response.statusCode != 200) {
-        yield (progress: 0.0, filePath: null, error: 'Server error ${response.statusCode}');
+        yield (
+          progress: 0.0,
+          filePath: null,
+          error: 'Server error ${response.statusCode}',
+        );
         return;
       }
 
@@ -216,8 +226,12 @@ class UpdateService {
     final cBase = base(c).split('.').map((p) => int.tryParse(p) ?? 0).toList();
     final lBase = base(l).split('.').map((p) => int.tryParse(p) ?? 0).toList();
 
-    while (cBase.length < 3) { cBase.add(0); }
-    while (lBase.length < 3) { lBase.add(0); }
+    while (cBase.length < 3) {
+      cBase.add(0);
+    }
+    while (lBase.length < 3) {
+      lBase.add(0);
+    }
 
     for (var i = 0; i < 3; i++) {
       if (lBase[i] > cBase[i]) return true;

@@ -13,6 +13,7 @@ import '../viewmodels/entries_viewmodel.dart';
 import '../widgets/aws_auth_dialog.dart';
 import '../widgets/tags_input.dart';
 import 'entry_detail_screen.dart';
+import 'stocks_entry_detail_screen.dart';
 
 class NewEntryScreen extends StatefulWidget {
   const NewEntryScreen({super.key});
@@ -32,13 +33,48 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   bool _isFetchingIbt = false;
 
   static const _quickTemplates = [
-    (icon: Icons.tire_repair_outlined, label: 'Tyre Count', title: 'TYRE COUNT', tag: 'tyres'),
-    (icon: Icons.warning_amber_outlined, label: 'Tyre Issue', title: 'TYRE ISSUE', tag: 'issue'),
-    (icon: Icons.person_off_outlined, label: 'Driver Issue', title: 'DRIVER ISSUE', tag: 'driver'),
-    (icon: Icons.receipt_long_outlined, label: 'Invoice Mismatch', title: 'INVOICE MISMATCH', tag: 'invoice'),
-    (icon: Icons.inventory_2_outlined, label: 'Missing Stock', title: 'MISSING STOCK', tag: 'stock'),
-    (icon: Icons.schedule_outlined, label: 'Loading Delay', title: 'LOADING DELAY', tag: 'delay'),
-    (icon: Icons.broken_image_outlined, label: 'Damage Report', title: 'DAMAGE REPORT', tag: 'damage'),
+    (
+      icon: Icons.tire_repair_outlined,
+      label: 'Tyre Count',
+      title: 'TYRE COUNT',
+      tag: 'tyres',
+    ),
+    (
+      icon: Icons.warning_amber_outlined,
+      label: 'Tyre Issue',
+      title: 'TYRE ISSUE',
+      tag: 'issue',
+    ),
+    (
+      icon: Icons.person_off_outlined,
+      label: 'Driver Issue',
+      title: 'DRIVER ISSUE',
+      tag: 'driver',
+    ),
+    (
+      icon: Icons.receipt_long_outlined,
+      label: 'Invoice Mismatch',
+      title: 'INVOICE MISMATCH',
+      tag: 'invoice',
+    ),
+    (
+      icon: Icons.inventory_2_outlined,
+      label: 'Missing Stock',
+      title: 'MISSING STOCK',
+      tag: 'stock',
+    ),
+    (
+      icon: Icons.schedule_outlined,
+      label: 'Loading Delay',
+      title: 'LOADING DELAY',
+      tag: 'delay',
+    ),
+    (
+      icon: Icons.broken_image_outlined,
+      label: 'Damage Report',
+      title: 'DAMAGE REPORT',
+      tag: 'damage',
+    ),
   ];
 
   @override
@@ -157,10 +193,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     });
   }
 
-  void _applyQuickTemplate({
-    required String title,
-    required String tag,
-  }) {
+  void _applyQuickTemplate({required String title, required String tag}) {
     AppHaptics.light();
     setState(() {
       _titleController.text = title;
@@ -200,8 +233,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     final vm = context.read<EntriesViewModel>();
 
     final isStocks = _selectedPreset == PresetKey.STOCKS;
-    final totalIbtTyres =
-        _ibtDocuments.fold<int>(0, (s, d) => s + d.total);
+    final totalIbtTyres = _ibtDocuments.fold<int>(0, (s, d) => s + d.total);
 
     LoadingSheetTrip? initialTrip;
     if (isStocks && _ibtDocuments.isNotEmpty) {
@@ -229,18 +261,27 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
     if (initialTrip != null) {
       final updatedEntry = entry.copyWith(
-        loadingSheetTrips: [
-          initialTrip.copyWith(entryId: entry.id),
-        ],
+        loadingSheetTrips: [initialTrip.copyWith(entryId: entry.id)],
       );
       await vm.updateEntry(updatedEntry);
     }
 
     if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
-      );
+      if (isStocks) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StocksEntryDetailScreen(entryId: entry.id),
+          ),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EntryDetailScreen(entryId: entry.id),
+          ),
+        );
+      }
     }
   }
 
@@ -264,9 +305,10 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         title: const Text(
           'New Trip Entry',
           style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary),
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -297,7 +339,9 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? color.withValues(alpha: 0.25)
@@ -358,13 +402,19 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               runSpacing: 8,
               children: _quickTemplates.map((tmpl) {
                 return GestureDetector(
-                  onTap: () => _applyQuickTemplate(title: tmpl.title, tag: tmpl.tag),
+                  onTap: () =>
+                      _applyQuickTemplate(title: tmpl.title, tag: tmpl.tag),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.glassSurface,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -405,7 +455,11 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.receipt_long_rounded, color: AppColors.primaryGlow, size: 18),
+                            Icon(
+                              Icons.receipt_long_rounded,
+                              color: AppColors.primaryGlow,
+                              size: 18,
+                            ),
                             SizedBox(width: 6),
                             Text(
                               'Attach IBT Documents (Stocks)',
@@ -420,18 +474,29 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                         InkWell(
                           onTap: () => AwsAuthDialog.show(context),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Row(
                               children: [
-                                Icon(Icons.vpn_key_outlined, size: 10, color: AppColors.primaryGlow),
+                                Icon(
+                                  Icons.vpn_key_outlined,
+                                  size: 10,
+                                  color: AppColors.primaryGlow,
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'AWS Auth',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGlow),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryGlow,
+                                  ),
                                 ),
                               ],
                             ),
@@ -446,14 +511,23 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                           child: TextField(
                             controller: _ibtInputController,
                             textCapitalization: TextCapitalization.characters,
-                            style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 13,
+                            ),
                             decoration: InputDecoration(
                               hintText: 'e.g. IBT119512 or 119512',
-                              hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                              hintStyle: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 12,
+                              ),
                               filled: true,
                               fillColor: Colors.black.withValues(alpha: 0.2),
                               isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide.none,
@@ -468,16 +542,30 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primaryGlow,
                             foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           child: _isFetchingIbt
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
                                 )
-                              : const Text('Fetch IBT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              : const Text(
+                                  'Fetch IBT',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
                         ),
                       ],
                     ),
@@ -489,11 +577,20 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                         runSpacing: 8,
                         children: _ibtDocuments.map((doc) {
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: AppColors.primaryGlow.withValues(alpha: 0.12),
+                              color: AppColors.primaryGlow.withValues(
+                                alpha: 0.12,
+                              ),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                color: AppColors.primaryGlow.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -509,7 +606,11 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                                 const SizedBox(width: 4),
                                 InkWell(
                                   onTap: () => _onRemoveIbt(doc.documentNo),
-                                  child: const Icon(Icons.close, size: 14, color: AppColors.textMuted),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: AppColors.textMuted,
+                                  ),
                                 ),
                               ],
                             ),
@@ -540,9 +641,10 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               child: TextField(
                 controller: _titleController,
                 style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
                 decoration: const InputDecoration(
                   hintText: 'e.g. NLS or STOCKS 1',
                   hintStyle: TextStyle(color: AppColors.textMuted),
@@ -597,14 +699,17 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                       Text(
                         'Include Tyre Counter',
                         style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       Text(
                         'Enables trip counting & digital loading sheet',
                         style: TextStyle(
-                            fontSize: 11, color: AppColors.textMuted),
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ],
                   ),
@@ -630,15 +735,17 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   elevation: 8,
                 ),
                 child: const Text(
                   'Create Trip Entry',
                   style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
