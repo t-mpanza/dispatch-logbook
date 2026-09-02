@@ -16,7 +16,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('IBT UI & Auth Widget Tests', () {
-    testWidgets('CounterPanel shows overshoot warning dialog when exceeding targetTotal', (WidgetTester tester) async {
+    testWidgets('CounterPanel hard-clamps overshoot to the manifest target (no over-logging)', (WidgetTester tester) async {
       List<Trip> currentTrips = [];
 
       await tester.pumpWidget(
@@ -50,20 +50,15 @@ void main() {
       final logBtn = find.text('LOG 4 SCANNED');
       expect(logBtn, findsOneWidget);
       await tester.tap(logBtn);
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      // Verify that the Overshoot warning dialog is displayed
-      expect(find.text('Over IBT Target'), findsOneWidget);
-      expect(find.textContaining('Adding 4 tyres will put you 2 over the target of 20'), findsOneWidget);
-      expect(find.text('Log +2 over anyway'), findsOneWidget);
+      // No "log over anyway" dialog — the count is hard-clamped to remaining 2.
+      expect(find.text('Over IBT Target'), findsNothing);
+      expect(find.text('Log +2 over anyway'), findsNothing);
 
-      // Tap 'Log +2 over anyway'
-      await tester.tap(find.text('Log +2 over anyway'));
-      await tester.pumpAndSettle();
-
-      // Verify trip was logged
+      // Verify trip was logged with the clamped count of 2 (18 + 2 = 20).
       expect(currentTrips.length, 1);
-      expect(currentTrips.first.count, 4);
+      expect(currentTrips.first.count, 2);
     });
 
     testWidgets('IbtLineItemsSheet renders line items and progress correctly', (WidgetTester tester) async {

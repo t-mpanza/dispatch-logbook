@@ -6,7 +6,7 @@ import '../../core/utils/haptics.dart';
 import '../../data/models/entry.dart';
 import '../viewmodels/entries_viewmodel.dart';
 import '../widgets/swipeable_entry_card.dart';
-import 'entry_detail_screen.dart';
+import '../entry_route.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -177,16 +177,12 @@ class _SearchScreenState extends State<SearchScreen> {
                         SwipeableEntryCard(
                           entry: e,
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id)),
-                            );
+                            AppHaptics.light();
+                            openEntryDetail(context, e);
                           },
                           onEdit: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id)),
-                            );
+                            AppHaptics.light();
+                            openEntryDetail(context, e);
                           },
                           onDelete: () async {
                             await vm.deleteEntry(e.id);

@@ -18,7 +18,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -35,7 +35,8 @@ class DatabaseService {
             updated_at INTEGER NOT NULL,
             day_key TEXT NOT NULL,
             month_key TEXT NOT NULL,
-            year_key TEXT NOT NULL
+            year_key TEXT NOT NULL,
+            deleted_at INTEGER
           )
         ''');
 
@@ -60,6 +61,16 @@ class DatabaseService {
             'CREATE INDEX idx_entries_day_key ON entries(day_key)');
         await db.execute(
             'CREATE INDEX idx_entries_updated_at ON entries(updated_at)');
+        await db.execute(
+            'CREATE INDEX idx_entries_deleted_at ON entries(deleted_at)');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+              'ALTER TABLE entries ADD COLUMN deleted_at INTEGER');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_entries_deleted_at ON entries(deleted_at)');
+        }
       },
     );
   }
@@ -70,7 +81,26 @@ class DatabaseService {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'entries',
+      where: 'deleted_at IS NULL',
       orderBy: 'created_at DESC',
+    );
+    return maps.map((m) => Entry.fromMap(m)).toList();
+  }
+
+  static Future<List<Entry>> getAllEntriesIncludingDeleted() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'entries',
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((m) => Entry.fromMap(m)).toList();
+  }
+
+  static Future<List<Entry>> getAllTombstonedEntries() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'entries',
+      where: 'deleted_at IS NOT NULL',
     );
     return maps.map((m) => Entry.fromMap(m)).toList();
   }
@@ -79,7 +109,7 @@ class DatabaseService {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'entries',
-      where: 'day_key = ?',
+      where: 'day_key = ? AND deleted_at IS NULL',
       whereArgs: [dayKey],
       orderBy: 'created_at DESC',
     );
@@ -90,7 +120,7 @@ class DatabaseService {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'entries',
-      where: 'id = ?',
+      where: 'id = ? AND deleted_at IS NULL',
       whereArgs: [id],
       limit: 1,
     );
@@ -121,6 +151,19 @@ class DatabaseService {
     await batch.commit(noResult: true);
   }
 
+  /// Mark an entry as deleted locally (soft-delete tombstone).
+  /// The tombstone is later pushed to the cloud so other devices converge.
+  static Future<void> softDeleteEntry(String id) async {
+    final db = await database;
+    await db.update(
+      'entries',
+      {'deleted_at': DateTime.now().millisecondsSinceEpoch},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Hard delete — used only for tombstone pruning after remote confirmation.
   static Future<void> deleteEntry(String id) async {
     final db = await database;
     await db.delete('entries', where: 'id = ?', whereArgs: [id]);
@@ -132,7 +175,7 @@ class DatabaseService {
     final List<Map<String, dynamic>> maps = await db.query(
       'entries',
       where:
-          'LOWER(title) LIKE ? OR LOWER(tags) LIKE ? OR LOWER(notes) LIKE ? OR LOWER(loading_sheet_trips) LIKE ?',
+          '(LOWER(title) LIKE ? OR LOWER(tags) LIKE ? OR LOWER(notes) LIKE ? OR LOWER(loading_sheet_trips) LIKE ?) AND deleted_at IS NULL',
       whereArgs: [q, q, q, q],
       orderBy: 'created_at DESC',
     );

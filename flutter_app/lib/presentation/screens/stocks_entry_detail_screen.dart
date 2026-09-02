@@ -9,16 +9,15 @@ import '../../data/models/entry.dart';
 import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/note_block.dart';
-import '../../data/models/trip.dart';
 import '../../data/services/audio_service.dart';
 import '../../data/repositories/entry_repository.dart';
 import '../widgets/event_log_view.dart';
 import '../widgets/floating_note_bar.dart';
+import '../widgets/ibt_picker.dart';
+import '../widgets/number_pad.dart';
 import '../widgets/photo_lightbox.dart';
 import '../widgets/tags_input.dart';
 import '../widgets/voice_recorder_sheet.dart';
-import '../../data/services/appsync_manifest_service.dart';
-import '../widgets/aws_auth_dialog.dart';
 
 class StocksEntryDetailScreen extends StatefulWidget {
   final String entryId;
@@ -36,9 +35,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
   final TextEditingController _regController = TextEditingController();
   final TextEditingController _driverController = TextEditingController();
 
-    bool _isDetailsOpen = false;
-  final TextEditingController _ibtInputController = TextEditingController();
-  bool _isFetchingIbt = false;
+  bool _isDetailsOpen = false;
 
   Entry? _cachedEntry;
 
@@ -47,88 +44,9 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     _audioService.dispose();
     _titleController.dispose();
     _regController.dispose();
-        _driverController.dispose();
-    _ibtInputController.dispose();
+    _driverController.dispose();
 
     super.dispose();
-  }
-
-    Future<void> _onFetchIbt(Entry currentEntry, EntryRepository repo) async {
-    final text = _ibtInputController.text.trim();
-    if (text.isEmpty) return;
-
-    AppHaptics.light();
-    setState(() => _isFetchingIbt = true);
-
-    final regex = RegExp(r'\d+');
-    final matches = regex.allMatches(text);
-    final docNumbers = matches.map((m) => m.group(0)!).toList();
-    if (docNumbers.isEmpty) docNumbers.add(text);
-
-    try {
-      final sheetTrips = <LoadingSheetTrip>[...?currentEntry.loadingSheetTrips];
-      final sheetTripIdx = sheetTrips.indexWhere((t) => !t.isManual);
-      if (sheetTripIdx < 0) return;
-      
-      final primarySheetTrip = sheetTrips[sheetTripIdx];
-      final docs = <IbtDocument>[...?primarySheetTrip.ibtDocuments];
-
-      for (final docNo in docNumbers) {
-        final doc = await AppSyncManifestService.fetchIbtDocument(docNo);
-        AppHaptics.medium();
-
-        final existingIdx = docs.indexWhere(
-          (d) => d.documentNo.toUpperCase() == doc.documentNo.toUpperCase(),
-        );
-
-        if (existingIdx >= 0) {
-          docs[existingIdx] = doc;
-        } else {
-          docs.add(doc);
-        }
-      }
-
-      int totalTarget = 0;
-      int totalLoaded = 0;
-      for (final d in docs) {
-        totalTarget += d.total;
-        totalLoaded += d.loadedTotal;
-      }
-
-      final updatedSheetTrip = primarySheetTrip.copyWith(
-        ibtDocuments: docs,
-        targetQuantity: totalTarget,
-        quantityLoaded: totalLoaded,
-      );
-      sheetTrips[sheetTripIdx] = updatedSheetTrip;
-
-      final updatedEntry = currentEntry.copyWith(
-        loadingSheetTrips: sheetTrips,
-        expectedTotal: totalTarget,
-      );
-
-      await repo.saveEntry(updatedEntry);
-      setState(() => _ibtInputController.clear());
-      
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to fetch IBT: $e'),
-            backgroundColor: Colors.redAccent,
-            action: SnackBarAction(
-              label: 'AWS Login',
-              textColor: Colors.white,
-              onPressed: () => AwsAuthDialog.show(context),
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isFetchingIbt = false);
-      }
-    }
   }
 
   void _syncTripDetailsToEntry(Entry entry) {
@@ -203,32 +121,27 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
       totalLoadedAcrossAllIbts += d.loadedTotal;
     }
 
+    // Timestamp persistence: first load stamps startTime, every change
+    // refreshes finishTime so the Sheet never shows "No timestamps".
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
     final updatedSheetTrip = primarySheetTrip.copyWith(
       ibtDocuments: docs,
       quantityLoaded: totalLoadedAcrossAllIbts,
-      finishTime: DateTime.now().millisecondsSinceEpoch,
+      startTime: primarySheetTrip.startTime ?? nowMs,
+      finishTime: nowMs,
     );
     sheetTrips[sheetTripIdx] = updatedSheetTrip;
 
-    // Synchronize trips log for report consistency
-    final updatedTrips = <Trip>[
-      Trip(
-        id: IdGenerator.generate(),
-        count: totalLoadedAcrossAllIbts,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-      ),
-    ];
-
     final updatedEntry = currentEntry.copyWith(
       loadingSheetTrips: sheetTrips,
-      trips: updatedTrips,
       expectedTotal: primarySheetTrip.ibtTargetTotal,
     );
 
     await repo.saveEntry(updatedEntry);
   }
 
-  /// Show direct number edit dialog for a line item
+  /// Show precise numeric entry for a line item using the in-app keypad.
+  /// The keypad hard-clamps input at the manifest target (overshoot cap).
   Future<void> _showEditCountDialog({
     required BuildContext context,
     required Entry currentEntry,
@@ -236,220 +149,64 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     required String docNo,
     required IbtLineItem line,
   }) async {
-    final controller = TextEditingController(text: '${line.loadedQuantity}');
+    final value = await NumberPad.show(
+      context,
+      initial: line.loadedQuantity,
+      maxValue: line.targetTotal,
+      title: 'TYRES LOADED — ${line.size ?? line.description}',
+    );
+    if (value == null || !mounted) return;
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.backgroundSecondary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.presetStocks.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.inventory_2_rounded,
-                color: AppColors.presetStocks,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                line.size ?? line.description,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                  fontFamily: 'monospace',
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (line.rubber != null) ...[
-              Text(
-                line.rubber!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            Text(
-              'Target: ${line.targetTotal} tyres',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textMuted,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 24,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w900,
-              ),
-              decoration: InputDecoration(
-                labelText: 'TYRES LOADED',
-                labelStyle: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
-                filled: true,
-                fillColor: AppColors.glassSurface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                    color: AppColors.glassBorderLight,
-                  ),
-                ),
-                suffixText: '/ ${line.targetTotal}',
-                suffixStyle: const TextStyle(
-                  color: AppColors.textMuted,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ActionChip(
-                  label: const Text('0'),
-                  backgroundColor: AppColors.glassSurfaceElevated,
-                  labelStyle: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textMuted,
-                  ),
-                  onPressed: () => controller.text = '0',
-                ),
-                ActionChip(
-                  label: Text('Target (${line.targetTotal})'),
-                  backgroundColor: AppColors.presetStocks.withValues(
-                    alpha: 0.2,
-                  ),
-                  labelStyle: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.presetStocks,
-                  ),
-                  onPressed: () => controller.text = '${line.targetTotal}',
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textMuted),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final val = int.tryParse(controller.text.trim()) ?? 0;
-              Navigator.pop(ctx);
-              _updateLineQuantity(
-                currentEntry: currentEntry,
-                repo: repo,
-                docNo: docNo,
-                lineId: line.id,
-                newQuantity: val,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.presetStocks,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              'Set Count',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
+    await _updateLineQuantity(
+      currentEntry: currentEntry,
+      repo: repo,
+      docNo: docNo,
+      lineId: line.id,
+      newQuantity: value,
     );
   }
 
 
-    Widget _buildAddIbtSection(Entry currentEntry, EntryRepository repo) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: TextField(
-        controller: _ibtInputController,
-        keyboardType: TextInputType.number,
-        style: TextStyle(
-          color: AppColors.dynamicTextPrimary(context),
-          fontSize: 14,
-          fontFamily: 'monospace',
-          letterSpacing: 1.2,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Type to attach more IBTs...',
-          hintStyle: TextStyle(
-            color: AppColors.dynamicTextMuted(context),
-            fontSize: 13,
-            fontFamily: 'sans-serif',
-            letterSpacing: 0.0,
-          ),
-          filled: true,
-          fillColor: AppColors.glassSurfaceElevated,
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.glassBorder),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.glassBorder),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.presetStocks, width: 1.5),
-          ),
-          suffixIcon: _isFetchingIbt 
-              ? const Padding(
-                  padding: EdgeInsets.all(12.0),
-                  child: SizedBox(
-                    width: 14, height: 14, 
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.presetStocks),
-                  ),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.add_circle_rounded, color: AppColors.presetStocks),
-                  onPressed: () => _onFetchIbt(currentEntry, repo),
-                ),
-        ),
-        onSubmitted: (_) => _onFetchIbt(currentEntry, repo),
+  Widget _buildAddIbtSection(Entry currentEntry, EntryRepository repo) {
+    final sheetTrips = <LoadingSheetTrip>[...?currentEntry.loadingSheetTrips];
+    final sheetTripIdx = sheetTrips.indexWhere((t) => !t.isManual);
+    if (sheetTripIdx < 0) return const SizedBox.shrink();
+    final primary = sheetTrips[sheetTripIdx];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: IbtPicker(
+        documents: primary.ibtDocuments ?? [],
+        onChanged: (docs) {
+          final totalTarget = docs.fold<int>(0, (s, d) => s + d.total);
+          final totalLoaded = docs.fold<int>(0, (s, d) => s + d.loadedTotal);
+          final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+          final updatedTrip = primary.copyWith(
+            ibtDocuments: docs,
+            targetQuantity: totalTarget > 0 ? totalTarget : null,
+            quantityLoaded:
+                docs.isNotEmpty ? totalLoaded : primary.quantityLoaded,
+            startTime: primary.startTime ?? nowMs,
+            finishTime: nowMs,
+          );
+
+          final updatedSheetTrips = <LoadingSheetTrip>[
+            ...?currentEntry.loadingSheetTrips,
+          ];
+          final idx = updatedSheetTrips.indexWhere((t) => !t.isManual);
+          if (idx >= 0) {
+            updatedSheetTrips[idx] = updatedTrip;
+          }
+
+          repo.saveEntry(
+            currentEntry.copyWith(
+              loadingSheetTrips: updatedSheetTrips,
+              expectedTotal:
+                  totalTarget > 0 ? totalTarget : currentEntry.expectedTotal,
+            ),
+          );
+        },
       ),
     );
   }
@@ -459,7 +216,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     final repo = context.watch<EntryRepository>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.dynamicBackground(context),
       body: FutureBuilder<Entry?>(
         future: repo.getEntryById(widget.entryId),
         builder: (context, snapshot) {
@@ -506,11 +263,16 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
           );
 
           final ibtDocs = sheetTrip?.ibtDocuments ?? [];
-          final totalTarget = ibtDocs.isNotEmpty 
-              ? (sheetTrip?.ibtTargetTotal ?? 0) 
-              : (sheetTrip?.targetQuantity ?? 0);
-          final totalLoaded = ibtDocs.isNotEmpty 
-              ? (sheetTrip?.ibtLoadedTotal ?? 0) 
+          // When no IBT is attached yet, fall back to the base Loading Sheet
+          // target (trip.targetQuantity -> entry.expectedTotal) so the header
+          // never shows a misleading "0 / 0".
+          final totalTarget = ibtDocs.isNotEmpty
+              ? (sheetTrip?.ibtTargetTotal ?? 0)
+              : (sheetTrip?.targetQuantity ??
+                  currentEntry.expectedTotal ??
+                  0);
+          final totalLoaded = ibtDocs.isNotEmpty
+              ? (sheetTrip?.ibtLoadedTotal ?? 0)
               : (sheetTrip?.quantityLoaded ?? 0);
           final totalRemaining = totalTarget > 0 
               ? (totalTarget - totalLoaded).clamp(0, totalTarget) 
@@ -531,15 +293,18 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                     horizontal: 14,
                     vertical: 8,
                   ),
-                  decoration: GlassDecorations.glassCard(borderRadius: 0),
+                  decoration: GlassDecorations.glassCard(
+                    context: context,
+                    borderRadius: 0,
+                  ),
                   child: Column(
                     children: [
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.arrow_back_rounded,
-                              color: AppColors.textPrimary,
+                              color: AppColors.dynamicTextPrimary(context),
                             ),
                             onPressed: () {
                               AppHaptics.light();
@@ -555,10 +320,12 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                     Expanded(
                                       child: TextField(
                                         controller: _titleController,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w900,
-                                          color: AppColors.textPrimary,
+                                          color: AppColors.dynamicTextPrimary(
+                                            context,
+                                          ),
                                         ),
                                         decoration: const InputDecoration(
                                           isDense: true,
@@ -606,9 +373,11 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                   AppFormatters.formatDayLabel(
                                     currentEntry.createdAt,
                                   ),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
-                                    color: AppColors.textMuted,
+                                    color: AppColors.dynamicTextMuted(
+                                      context,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -618,9 +387,9 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                             icon: AnimatedRotation(
                               turns: _isDetailsOpen ? 0.5 : 0.0,
                               duration: const Duration(milliseconds: 200),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.keyboard_arrow_down_rounded,
-                                color: AppColors.textSecondary,
+                                color: AppColors.dynamicTextSecondary(context),
                               ),
                             ),
                             onPressed: () {
@@ -637,18 +406,21 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                               final confirm = await showDialog<bool>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
-                                  backgroundColor:
-                                      AppColors.backgroundSecondary,
-                                  title: const Text(
+                                  backgroundColor: AppColors.isLight(ctx)
+                                      ? Colors.white
+                                      : AppColors.backgroundSecondary,
+                                  title: Text(
                                     'Delete Stocks Entry',
                                     style: TextStyle(
-                                      color: AppColors.textPrimary,
+                                      color: AppColors.dynamicTextPrimary(ctx),
                                     ),
                                   ),
-                                  content: const Text(
+                                  content: Text(
                                     'Are you sure you want to delete this stocks entry?',
                                     style: TextStyle(
-                                      color: AppColors.textSecondary,
+                                      color: AppColors.dynamicTextSecondary(
+                                        ctx,
+                                      ),
                                     ),
                                   ),
                                   actions: [
@@ -711,6 +483,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: GlassDecorations.glassElevated(
+                          context: context,
                           borderRadius: 22,
                         ),
                         child: Column(
@@ -743,17 +516,21 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                         currentEntry.title.isNotEmpty
                                             ? currentEntry.title
                                             : 'STOCKS MANIFEST',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w900,
-                                          color: AppColors.textPrimary,
+                                          color: AppColors.dynamicTextPrimary(
+                                            context,
+                                          ),
                                         ),
                                       ),
                                       Text(
                                         '${ibtDocs.map((d) => d.documentNo).join(", ")} · ${ibtDocs.fold(0, (s, d) => s + d.lineItems.length)} items',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11,
-                                          color: AppColors.textSecondary,
+                                          color: AppColors.dynamicTextSecondary(
+                                            context,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -807,12 +584,14 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'TOTAL TYRES LOADED',
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
-                                        color: AppColors.textMuted,
+                                        color: AppColors.dynamicTextMuted(
+                                          context,
+                                        ),
                                         letterSpacing: 1.0,
                                       ),
                                     ),
@@ -834,20 +613,24 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                         ),
                                         Text(
                                           ' / $totalTarget',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
-                                            color: AppColors.textMuted,
+                                            color: AppColors.dynamicTextMuted(
+                                              context,
+                                            ),
                                             fontFamily: 'monospace',
                                           ),
                                         ),
                                         const SizedBox(width: 6),
-                                        const Text(
+                                        Text(
                                           'tyres',
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
-                                            color: AppColors.textMuted,
+                                            color: AppColors.dynamicTextMuted(
+                                              context,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -981,9 +764,9 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                               child: LinearProgressIndicator(
                                 value: totalPct,
                                 minHeight: 8,
-                                backgroundColor: Colors.white.withValues(
-                                  alpha: 0.08,
-                                ),
+                                backgroundColor: AppColors.isLight(context)
+                                    ? Colors.black.withValues(alpha: 0.07)
+                                    : Colors.white.withValues(alpha: 0.08),
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   isComplete
                                       ? AppColors.success
@@ -999,26 +782,27 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
 
                       const SizedBox(height: 16),
 
-                                            _buildAddIbtSection(currentEntry, repo),
+                      _buildAddIbtSection(currentEntry, repo),
                       // SECTION HEADER: SPECIFIC RCS / IBT LINE ITEMS
 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'IBT LINE ITEMS (RCS)',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
-                              color: AppColors.textMuted,
+                              color: AppColors.dynamicTextMuted(context),
                               letterSpacing: 1.5,
                             ),
                           ),
                           Text(
-                            'Tap line or steppers to update',
+                            'Tap count to enter exact quantity',
                             style: TextStyle(
                               fontSize: 10,
-                              color: AppColors.textMuted.withValues(alpha: 0.8),
+                              color: AppColors.dynamicTextMuted(context)
+                                  .withValues(alpha: 0.8),
                             ),
                           ),
                         ],
@@ -1030,12 +814,16 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: GlassDecorations.glassCard(
+                            context: context,
                             borderRadius: 16,
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Text(
-                              'No IBT documents attached to this Stocks trip.',
-                              style: TextStyle(color: AppColors.textMuted),
+                              'No IBT documents attached yet. Type a number above (e.g. 119512) to fetch the manifest.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.dynamicTextMuted(context),
+                              ),
                             ),
                           ),
                         )
@@ -1094,17 +882,18 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: GlassDecorations.glassCard(
+                          context: context,
                           borderRadius: 18,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'TRUCK ASSIGNMENT',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.textMuted,
+                                color: AppColors.dynamicTextMuted(context),
                                 letterSpacing: 1.0,
                               ),
                             ),
@@ -1116,22 +905,26 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                     controller: _regController,
                                     textCapitalization:
                                         TextCapitalization.characters,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
+                                      color: AppColors.dynamicTextPrimary(
+                                        context,
+                                      ),
                                       fontFamily: 'monospace',
                                     ),
                                     decoration: InputDecoration(
                                       labelText: 'REG NO',
-                                      labelStyle: const TextStyle(
+                                      labelStyle: TextStyle(
                                         fontSize: 10,
-                                        color: AppColors.textMuted,
+                                        color: AppColors.dynamicTextMuted(
+                                          context,
+                                        ),
                                       ),
                                       filled: true,
-                                      fillColor: Colors.black.withValues(
-                                        alpha: 0.3,
-                                      ),
+                                      fillColor: AppColors.isLight(context)
+                                          ? const Color(0xFFF8FAFC)
+                                          : Colors.black.withValues(alpha: 0.3),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -1158,21 +951,25 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                 Expanded(
                                   child: TextField(
                                     controller: _driverController,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
+                                      color: AppColors.dynamicTextPrimary(
+                                        context,
+                                      ),
                                     ),
                                     decoration: InputDecoration(
                                       labelText: 'DRIVER NAME',
-                                      labelStyle: const TextStyle(
+                                      labelStyle: TextStyle(
                                         fontSize: 10,
-                                        color: AppColors.textMuted,
+                                        color: AppColors.dynamicTextMuted(
+                                          context,
+                                        ),
                                       ),
                                       filled: true,
-                                      fillColor: Colors.black.withValues(
-                                        alpha: 0.3,
-                                      ),
+                                      fillColor: AppColors.isLight(context)
+                                          ? const Color(0xFFF8FAFC)
+                                          : Colors.black.withValues(alpha: 0.3),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -1204,12 +1001,12 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                       const SizedBox(height: 16),
 
                       // EVENT LOG
-                      const Text(
+                      Text(
                         'EVENT LOG',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textMuted,
+                          color: AppColors.dynamicTextMuted(context),
                           letterSpacing: 1.5,
                         ),
                       ),
@@ -1315,6 +1112,7 @@ class _InteractiveIbtLineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = AppColors.isLight(context);
     final target = line.targetTotal;
     final loaded = line.loadedQuantity;
     final pct = target > 0 ? (loaded / target).clamp(0.0, 1.0) : 0.0;
@@ -1331,17 +1129,19 @@ class _InteractiveIbtLineCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDone
-            ? AppColors.success.withValues(alpha: 0.06)
+            ? AppColors.success.withValues(alpha: isLight ? 0.08 : 0.06)
             : (isOver
-                  ? AppColors.warning.withValues(alpha: 0.06)
-                  : AppColors.glassSurfaceElevated),
+                  ? AppColors.warning.withValues(alpha: isLight ? 0.1 : 0.06)
+                  : (isLight
+                      ? const Color(0xFFFFFFFF)
+                      : AppColors.glassSurfaceElevated)),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isDone
               ? AppColors.success.withValues(alpha: 0.4)
               : (isOver
                     ? AppColors.warning.withValues(alpha: 0.5)
-                    : AppColors.glassBorder),
+                    : AppColors.dynamicBorder(context)),
           width: isDone || isOver ? 1.5 : 1.0,
         ),
       ),
@@ -1359,10 +1159,10 @@ class _InteractiveIbtLineCard extends StatelessWidget {
                     // Size Header
                     Text(
                       line.size ?? line.description,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.textPrimary,
+                        color: AppColors.dynamicTextPrimary(context),
                         fontFamily: 'monospace',
                         letterSpacing: 0.3,
                       ),
@@ -1372,9 +1172,9 @@ class _InteractiveIbtLineCard extends StatelessWidget {
                     if (line.rubber != null)
                       Text(
                         line.rubber!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: AppColors.textSecondary,
+                          color: AppColors.dynamicTextSecondary(context),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1386,15 +1186,17 @@ class _InteractiveIbtLineCard extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
+                          color: isLight
+                              ? const Color(0xFFE2E8F0)
+                              : Colors.white.withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           'RCS: ${line.rcsCode}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textMuted,
+                            color: AppColors.dynamicTextMuted(context),
                             fontFamily: 'monospace',
                           ),
                         ),
@@ -1438,10 +1240,10 @@ class _InteractiveIbtLineCard extends StatelessWidget {
                           ),
                           Text(
                             ' / $target',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textMuted,
+                              color: AppColors.dynamicTextMuted(context),
                               fontFamily: 'monospace',
                             ),
                           ),
@@ -1472,7 +1274,9 @@ class _InteractiveIbtLineCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: pct,
               minHeight: 6,
-              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              backgroundColor: isLight
+                  ? Colors.black.withValues(alpha: 0.07)
+                  : Colors.white.withValues(alpha: 0.08),
               valueColor: AlwaysStoppedAnimation<Color>(statusColor),
             ),
           ),
@@ -1484,47 +1288,3 @@ class _InteractiveIbtLineCard extends StatelessWidget {
   }
 }
 
-class _QuickPill extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  final bool isAccent;
-
-  const _QuickPill({
-    required this.label,
-    required this.onTap,
-    this.isAccent = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        AppHaptics.light();
-        onTap();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-        decoration: BoxDecoration(
-          color: isAccent
-              ? AppColors.presetStocks.withValues(alpha: 0.25)
-              : Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isAccent
-                ? AppColors.presetStocks.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.1),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: isAccent ? AppColors.presetStocks : AppColors.textSecondary,
-            fontFamily: 'monospace',
-          ),
-        ),
-      ),
-    );
-  }
-}

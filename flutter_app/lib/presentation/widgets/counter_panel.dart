@@ -7,6 +7,7 @@ import '../../core/utils/id_generator.dart';
 import '../../data/models/attachment.dart';
 import '../../data/models/trip.dart';
 import '../../data/services/camera_service.dart';
+import 'number_pad.dart';
 
 class CounterPanel extends StatefulWidget {
   final List<Trip> trips;
@@ -71,52 +72,72 @@ class _CounterPanelState extends State<CounterPanel> {
     });
   }
 
-  Future<bool> _warnIfOver(BuildContext context, int adding) async {
+  /// Strict overshoot cap: the manifest target is a hard limit. Any amount
+  /// that would push the session over the target is clamped down and the
+  /// operator gets a heavy haptic warning.
+  int _clampToRemaining(int adding) {
     final target = widget.targetTotal;
-    if (target == null || target <= 0) return true;
-    final afterAdd = widget.currentTotal + adding;
-    if (afterAdd <= target) return true;
+    if (target == null || target <= 0) return adding;
 
-    final over = afterAdd - target;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.backgroundSecondary,
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
-            SizedBox(width: 8),
-            Text('Over IBT Target', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-          ],
+    final remaining = (target - widget.currentTotal).clamp(0, target);
+    if (adding <= remaining) return adding;
+
+    AppHaptics.error();
+    if (remaining <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Manifest target already reached — nothing to log.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
         ),
+      );
+      return 0;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
         content: Text(
-          'Adding $adding tyres will put you $over over the target of $target.\n\nAre you sure you want to continue?',
-          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          'Capped at manifest target — logged $remaining of $adding tyres.',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning),
-            child: Text('Log +$over over anyway', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-        ],
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 2),
       ),
     );
-    return confirmed == true;
+    return remaining;
+  }
+
+  Future<void> _openNumberPad() async {
+    AppHaptics.light();
+    final target = widget.targetTotal;
+    final remaining = (target != null && target > 0)
+        ? (target - widget.currentTotal).clamp(0, target)
+        : null;
+    final value = await NumberPad.show(
+      context,
+      initial: _tabIndex == 0 ? _count : _manualCount,
+      maxValue: (remaining != null && remaining > 0) ? remaining : null,
+      title: _tabIndex == 0 ? 'SCANNED TYRES' : 'MANUAL TYRES',
+    );
+    if (value == null || !mounted) return;
+
+    setState(() {
+      if (_tabIndex == 0) {
+        _count = value.clamp(0, 9999);
+      } else {
+        _manualCount = value.clamp(1, 9999);
+      }
+      _updateDisplay();
+    });
   }
 
   void _logScanned() async {
     if (_count <= 0) return;
-    final ok = await _warnIfOver(context, _count);
-    if (!ok) return;
+    final loggedCount = _clampToRemaining(_count);
+    if (loggedCount <= 0) return;
     AppHaptics.success();
     final newTrip = Trip(
       id: IdGenerator.generate(),
-      count: _count,
+      count: loggedCount,
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
     widget.onChange([...widget.trips, newTrip]);
@@ -128,8 +149,8 @@ class _CounterPanelState extends State<CounterPanel> {
 
   void _logManual({String? noteOverride}) async {
     if (_manualCount <= 0) return;
-    final ok = await _warnIfOver(context, _manualCount);
-    if (!ok) return;
+    final loggedCount = _clampToRemaining(_manualCount);
+    if (loggedCount <= 0) return;
     AppHaptics.success();
     final slip = _slipController.text.trim();
     final note = noteOverride ?? (slip.isNotEmpty ? 'slip:text:$slip' : null);
@@ -137,7 +158,7 @@ class _CounterPanelState extends State<CounterPanel> {
     final newTrip = Trip(
       id: IdGenerator.generate(),
       count: 0,
-      rejected: _manualCount,
+      rejected: loggedCount,
       note: note,
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
@@ -250,7 +271,7 @@ class _CounterPanelState extends State<CounterPanel> {
               ),
               SizedBox(width: 6),
 
-              // Number Display / Input
+              // Number Display / Input (tap to open the precise keypad)
               SizedBox(
                 width: 52,
                 height: 40,
@@ -258,6 +279,8 @@ class _CounterPanelState extends State<CounterPanel> {
                   controller: _numberController,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
+                  readOnly: true,
+                  onTap: _openNumberPad,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
@@ -277,14 +300,6 @@ class _CounterPanelState extends State<CounterPanel> {
                       borderSide: const BorderSide(color: AppColors.primaryGlow, width: 1.5),
                     ),
                   ),
-                  onChanged: (val) {
-                    final n = int.tryParse(val) ?? 0;
-                    if (_tabIndex == 0) {
-                      _count = n.clamp(0, 9999);
-                    } else {
-                      _manualCount = n.clamp(1, 9999);
-                    }
-                  },
                 ),
               ),
               SizedBox(width: 6),

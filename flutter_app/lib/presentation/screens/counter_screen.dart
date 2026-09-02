@@ -6,7 +6,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/models/entry.dart';
 import '../viewmodels/entries_viewmodel.dart';
-import 'entry_detail_screen.dart';
+import '../entry_route.dart';
 
 class CounterScreen extends StatelessWidget {
   const CounterScreen({super.key});
@@ -74,10 +74,7 @@ class CounterScreen extends StatelessWidget {
                         );
 
                         if (context.mounted) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
-                          );
+                          openEntryDetail(context, entry);
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -148,10 +145,7 @@ class CounterScreen extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         AppHaptics.light();
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
-        );
+        openEntryDetail(context, entry);
       },
       child: Container(
         padding: const EdgeInsets.all(16),

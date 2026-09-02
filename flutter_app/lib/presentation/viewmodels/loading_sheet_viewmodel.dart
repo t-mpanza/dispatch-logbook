@@ -4,7 +4,6 @@ import '../../core/utils/id_generator.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
-import '../../data/models/preset.dart';
 import '../../data/repositories/entry_repository.dart';
 
 class LoadingSheetViewModel extends ChangeNotifier {
@@ -86,55 +85,36 @@ class LoadingSheetViewModel extends ChangeNotifier {
     return result;
   }
 
-    Future<void> addTruckLoad(LoadingSheetTrip trip) async {
-    final dayEntries = await getDayEntries();
-
-    // Look for a pristine, completely empty entry that matches this preset/truck
-    // to avoid squashing unrelated trucks into an active entry.
-    Entry? pristineEntry;
-    try {
-      pristineEntry = dayEntries.firstWhere((e) {
-        final isEmpty = (e.loadingSheetTrips == null || e.loadingSheetTrips!.isEmpty) && 
-                        (e.trips == null || e.trips!.isEmpty);
-        if (!isEmpty) return false;
-        
-        if (trip.presetKey != null && trip.presetKey != PresetKey.CUSTOM) {
-          final presetName = trip.presetKey!.name.toLowerCase();
-          return e.title.toLowerCase().contains(presetName) || e.tags.any((t) => t.toLowerCase() == presetName);
-        } else {
-          return e.title.toLowerCase() == trip.tripId.toLowerCase();
-        }
-      });
-    } catch (_) {}
-
-    if (pristineEntry != null) {
-      final updated = pristineEntry.copyWith(loadingSheetTrips: [trip]);
-      await _repository.saveEntry(updated);
-      return;
-    }
-
-    // Otherwise, create a discrete entry per truck
+  /// Every truck load becomes its own discrete Entry (1 Entry = 1 Truck).
+  /// This keeps the Home/Today tab and the Sheet tab perfectly in sync —
+  /// Home renders one card per entry, Sheet renders one row per trip.
+  Future<void> addTruckLoad(LoadingSheetTrip trip) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final presetName = trip.presetKey?.name.toLowerCase();
-    
+    final newEntryId = IdGenerator.generate();
+
     final newEntry = Entry(
-      id: IdGenerator.generate(),
+      id: newEntryId,
       title: trip.tripId.isNotEmpty ? trip.tripId : 'Truck Load',
-            dayKey: _selectedDate,
+      tags: [
+        'despatch',
+        if (presetName != null && presetName != 'custom') presetName,
+      ],
+      expectedTotal: (trip.targetQuantity != null && trip.targetQuantity! > 0)
+          ? trip.targetQuantity
+          : null,
+      notes: const [],
+      attachments: const [],
+      trips: const [],
+      loadingSheetTrips: [trip.copyWith(entryId: newEntryId)],
+      createdAt: now,
+      updatedAt: now,
+      dayKey: _selectedDate,
       monthKey: _selectedDate.substring(0, 7),
       yearKey: _selectedDate.substring(0, 4),
-      attachments: const [],
-      notes: const [],
-      updatedAt: now,
-
-      tags: ['despatch', if (presetName != null && presetName != 'custom') presetName],
-      createdAt: now,
-      trips: const [],
-      loadingSheetTrips: [trip],
     );
     await _repository.saveEntry(newEntry);
   }
-
 
   Future<void> updateTruckLoad(LoadingSheetTrip updatedTrip) async {
     final dayEntries = await getDayEntries();
@@ -142,17 +122,30 @@ class LoadingSheetViewModel extends ChangeNotifier {
       if (e.loadingSheetTrips != null) {
         final idx = e.loadingSheetTrips!.indexWhere((t) => t.id == updatedTrip.id);
         if (idx >= 0) {
+          final previous = e.loadingSheetTrips![idx];
+          final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+          var trip = updatedTrip;
+
+          // Timestamp persistence: never leave a loaded truck "timestampless".
+          if (trip.quantityLoaded > 0 && trip.startTime == null) {
+            trip = trip.copyWith(startTime: previous.startTime ?? nowMs);
+          }
+          if (trip.quantityLoaded != previous.quantityLoaded) {
+            trip = trip.copyWith(finishTime: nowMs);
+          }
+
           final list = [...e.loadingSheetTrips!];
-          list[idx] = updatedTrip;
+          list[idx] = trip;
           Entry updated = e.copyWith(loadingSheetTrips: list);
 
           // Bidirectional sync: when a non-manual, non-IBT trip's target changes,
           // update entry.expectedTotal so EntryDetail reflects the same target.
-          if (!updatedTrip.isManual &&
-              !updatedTrip.hasIbtDocuments &&
-              updatedTrip.targetQuantity != null &&
-              updatedTrip.targetQuantity != e.expectedTotal) {
-            updated = updated.copyWith(expectedTotal: updatedTrip.targetQuantity);
+          if (!trip.isManual &&
+              !trip.hasIbtDocuments &&
+              trip.targetQuantity != null &&
+              trip.targetQuantity != e.expectedTotal) {
+            updated = updated.copyWith(expectedTotal: trip.targetQuantity);
           }
 
           await _repository.saveEntry(updated);

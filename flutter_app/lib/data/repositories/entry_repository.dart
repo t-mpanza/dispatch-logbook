@@ -45,9 +45,15 @@ class EntryRepository extends ChangeNotifier {
   }
 
   Future<void> deleteEntry(String id) async {
-    await DatabaseService.deleteEntry(id);
+    // Soft-delete locally (tombstone), then propagate the tombstone to the
+    // cloud so the entry never resurrects on other devices.
+    await DatabaseService.softDeleteEntry(id);
     notifyListeners();
-    SupabaseService.deleteRemoteEntry(id);
+    try {
+      await SupabaseService.deleteRemoteEntry(id);
+    } catch (e) {
+      debugPrint('Remote tombstone push failed for $id: $e');
+    }
   }
 
   Future<List<Entry>> search(String query) async {
@@ -69,13 +75,16 @@ class EntryRepository extends ChangeNotifier {
     ));
 
     try {
-      // 1. Push all local entries
+      // 1. Push all live local entries
       final local = await DatabaseService.getAllEntries();
       if (local.isNotEmpty) {
         await SupabaseService.pushEntriesBatch(local);
       }
 
-      // 2. Pull remote entries
+      // 2. Push local delete-tombstones so deletions propagate cross-device
+      await SupabaseService.pushTombstones();
+
+      // 3. Pull remote entries & merge (tombstone-aware)
       final success = await SupabaseService.pullAndMerge();
 
       if (success) {

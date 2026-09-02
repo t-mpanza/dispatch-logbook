@@ -6,6 +6,7 @@ import '../../core/utils/haptics.dart';
 import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../viewmodels/loading_sheet_viewmodel.dart';
+import 'number_pad.dart';
 
 class IbtLineItemsSheet extends StatefulWidget {
   final LoadingSheetTrip trip;
@@ -37,28 +38,33 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
     _currentTrip = widget.trip;
   }
 
-  void _onStepQuantity({
+  /// Tap-to-edit: precise numeric entry via the in-app keypad, hard-clamped
+  /// to the manifest target.
+  Future<void> _editLineQuantity({
     required IbtDocument doc,
     required IbtLineItem line,
-    required int delta,
   }) async {
     AppHaptics.light();
-    final newQty = (line.loadedQuantity + delta).clamp(0, 9999);
+    final value = await NumberPad.show(
+      context,
+      initial: line.loadedQuantity,
+      maxValue: line.targetTotal,
+      title: 'TYRES LOADED — ${line.size ?? line.description}',
+    );
+    if (value == null || !mounted) return;
 
     final vm = context.read<LoadingSheetViewModel>();
     await vm.updateIbtLineQuantity(
       trip: _currentTrip,
       documentNo: doc.documentNo,
       lineItemId: line.id,
-      newQuantity: newQty,
+      newQuantity: value,
     );
 
-    // If quota just reached, trigger medium haptic
-    if (newQty == line.targetTotal && line.targetTotal > 0) {
+    if (value == line.targetTotal && line.targetTotal > 0) {
       AppHaptics.medium();
     }
 
-    // Refresh trips in local state
     final trips = await vm.getTripsForSelectedDate();
     final updated = trips.firstWhere(
       (t) => t.id == _currentTrip.id,
@@ -433,90 +439,47 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
           ),
         ),
 
-        // Count Stepper & Quota
-        Row(
-          children: [
-            // Count Display: [loaded / target]
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isDone
-                      ? Colors.greenAccent.withValues(alpha: 0.4)
-                      : AppColors.dynamicBorder(context),
-                ),
-              ),
-              child: Text(
-                '${line.loadedQuantity} / ${line.targetTotal}',
-                style: TextStyle(
-                  color: isDone ? Colors.greenAccent : AppColors.dynamicTextPrimary(context),
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
-                ),
+        // Count Display (tap to edit) — [loaded / target]
+        GestureDetector(
+          onTap: () => _editLineQuantity(doc: doc, line: line),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.isLight(context)
+                  ? const Color(0xFFF1F5F9)
+                  : Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isDone
+                    ? Colors.greenAccent.withValues(alpha: 0.4)
+                    : AppColors.dynamicBorder(context),
               ),
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${line.loadedQuantity} / ${line.targetTotal}',
+                  style: TextStyle(
+                    color: isDone
+                        ? Colors.greenAccent
+                        : AppColors.dynamicTextPrimary(context),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.edit_outlined,
+                  size: 12,
+                  color: AppColors.dynamicTextMuted(context),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
-    );
-  }
-
-  Widget _buildStepperButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    bool isHighlight = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: isHighlight
-              ? AppColors.primaryGlow.withValues(alpha: 0.2)
-              : AppColors.dynamicBorder(context),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isHighlight
-                ? AppColors.primaryGlow.withValues(alpha: 0.4)
-                : AppColors.dynamicBorder(context),
-          ),
-        ),
-        child: Icon(
-          icon,
-          size: 16,
-          color: isHighlight ? AppColors.primaryGlow : AppColors.dynamicTextSecondary(context),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickButton({
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.dynamicBorder(context),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppColors.dynamicBorder(context)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: AppColors.dynamicTextSecondary(context),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
     );
   }
 }

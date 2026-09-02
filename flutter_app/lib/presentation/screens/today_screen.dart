@@ -11,8 +11,8 @@ import '../../data/repositories/settings_repository.dart';
 import '../viewmodels/entries_viewmodel.dart';
 import '../widgets/swipeable_entry_card.dart';
 import '../widgets/update_dialog.dart';
+import '../entry_route.dart';
 import 'day_screen.dart';
-import 'entry_detail_screen.dart';
 import 'new_entry_screen.dart';
 
 class TodayScreen extends StatefulWidget {
@@ -449,21 +449,11 @@ class _TodayScreenState extends State<TodayScreen> {
                                   entry: entry,
                                   onTap: () {
                                     AppHaptics.light();
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => EntryDetailScreen(entryId: entry.id),
-                                      ),
-                                    );
+                                    openEntryDetail(context, entry);
                                   },
                                   onEdit: () {
                                     AppHaptics.light();
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => EntryDetailScreen(entryId: entry.id),
-                                      ),
-                                    );
+                                    openEntryDetail(context, entry);
                                   },
                                   onDelete: () async {
                                     AppHaptics.error();

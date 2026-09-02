@@ -6,6 +6,7 @@ import '../../core/utils/haptics.dart';
 import '../../core/utils/id_generator.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/preset.dart';
+import 'number_pad.dart';
 
 class TruckLoadDialog extends StatefulWidget {
   final LoadingSheetTrip? existingTrip;
@@ -132,6 +133,33 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
     });
   }
 
+  Future<void> _openTargetPad() async {
+    AppHaptics.light();
+    final value = await NumberPad.show(
+      context,
+      initial: _targetQuantity,
+      title: 'TARGET TYRES',
+    );
+    if (value == null || !mounted) return;
+    setState(() {
+      _targetQuantity = value.clamp(0, 9999);
+      _targetController.text = _targetQuantity > 0 ? '$_targetQuantity' : '';
+    });
+  }
+
+  Future<void> _openLoadedPad() async {
+    AppHaptics.light();
+    final target = _targetQuantity > 0 ? _targetQuantity : null;
+    final value = await NumberPad.show(
+      context,
+      initial: _quantityLoaded,
+      maxValue: target,
+      title: 'LOADED TYRES',
+    );
+    if (value == null || !mounted) return;
+    setState(() => _quantityLoaded = value.clamp(0, 9999));
+  }
+
   void _onPresetChanged(PresetKey key) {
     AppHaptics.light();
     setState(() {
@@ -152,8 +180,16 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
     final baseDateMs = widget.existingTrip?.createdAt ??
         (DateTime.tryParse(widget.dayKey)?.millisecondsSinceEpoch ?? now);
 
-    final startMs = AppFormatters.timeStringToMs(_startController.text, baseDateMs);
-    final finishMs = AppFormatters.timeStringToMs(_finishController.text, baseDateMs);
+    var startMs = AppFormatters.timeStringToMs(_startController.text, baseDateMs);
+    var finishMs = AppFormatters.timeStringToMs(_finishController.text, baseDateMs);
+
+    // Timestamp persistence: a truck with a loaded quantity must never show
+    // "No timestamps" on the Sheet.
+    if (_quantityLoaded > 0) {
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      startMs ??= nowMs;
+      finishMs ??= nowMs;
+    }
 
     int? duration;
     if (startMs != null && finishMs != null) {
@@ -403,10 +439,8 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                                 controller: _targetController,
                                 keyboardType: TextInputType.number,
                                 textAlign: TextAlign.center,
-                                onChanged: (val) {
-                                  final n = int.tryParse(val) ?? 0;
-                                  setState(() => _targetQuantity = n.clamp(0, 9999));
-                                },
+                                readOnly: true,
+                                onTap: _openTargetPad,
                                 style: TextStyle(
                                   fontSize: 15,
                                   color: isLight ? AppColors.primary : AppColors.primaryGlow,
@@ -467,13 +501,16 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                                 child: Icon(Icons.remove_rounded, size: 18, color: AppColors.dynamicTextPrimary(context)),
                               ),
                             ),
-                            Text(
-                              '$_quantityLoaded',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: isLight ? AppColors.primary : AppColors.primaryGlow,
-                                fontFamily: 'monospace',
+                            GestureDetector(
+                              onTap: _openLoadedPad,
+                              child: Text(
+                                '$_quantityLoaded',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                                  fontFamily: 'monospace',
+                                ),
                               ),
                             ),
                             GestureDetector(

@@ -97,6 +97,7 @@ class SupabaseService {
       'year_key': entry.yearKey,
       'created_at': entry.createdAt,
       'updated_at': entry.updatedAt,
+      'deleted_at': entry.deletedAt,
     };
   }
 
@@ -131,6 +132,30 @@ class SupabaseService {
     } catch (e) {
       debugPrint('Supabase push batch error: $e');
       return false;
+    }
+  }
+
+  /// Push local soft-delete tombstones to the cloud so deletions made while
+  /// offline still propagate to every other device.
+  static Future<void> pushTombstones() async {
+    try {
+      final tombstones = await DatabaseService.getAllTombstonedEntries();
+      if (tombstones.isEmpty) return;
+
+      final userId = await getUserId();
+      if (userId == null) return;
+
+      final payloads =
+          tombstones.map((e) => _formatEntryPayload(e, userId)).toList();
+      for (var i = 0; i < payloads.length; i += 50) {
+        final chunk = payloads.sublist(
+          i,
+          (i + 50 > payloads.length) ? payloads.length : i + 50,
+        );
+        await client.from('entries').upsert(chunk, onConflict: 'id');
+      }
+    } catch (e) {
+      debugPrint('Supabase tombstone push error: $e');
     }
   }
 
@@ -203,13 +228,29 @@ class SupabaseService {
         }
       }
 
-      final localEntries = await DatabaseService.getAllEntries();
+      final localEntries = await DatabaseService.getAllEntriesIncludingDeleted();
       final localMap = {for (final e in localEntries) e.id: e};
       final List<Entry> toUpdate = [];
+      final List<String> tombstoneIds = [];
 
       for (final remote in remoteEntries) {
         final id = remote['id'] as String;
         final local = localMap[id];
+
+        // ── Tombstone propagation ──────────────────────────────────────────
+        // A remote tombstone always wins: soft-delete the local copy.
+        final remoteDeletedAt = (remote['deleted_at'] as num?)?.toInt();
+        if (remoteDeletedAt != null) {
+          if (local != null && local.deletedAt == null) {
+            tombstoneIds.add(id);
+          }
+          continue;
+        }
+        // A local tombstone must never be resurrected by a stale remote copy.
+        if (local != null && local.deletedAt != null) {
+          continue;
+        }
+
         final remoteUpdatedAt =
             (remote['updated_at'] as num?)?.toInt() ?? 0;
 
@@ -325,6 +366,10 @@ class SupabaseService {
         await DatabaseService.insertOrUpdateBatch(toUpdate);
       }
 
+      for (final id in tombstoneIds) {
+        await DatabaseService.softDeleteEntry(id);
+      }
+
       return true;
     } catch (e) {
       debugPrint('Supabase pull error: $e');
@@ -368,9 +413,12 @@ class SupabaseService {
     if (userId == null) return false;
 
     try {
+      // Soft-delete on the server (tombstone) instead of a hard delete so
+      // offline devices converge on the deletion instead of re-pushing a
+      // stale copy.
       await client
           .from('entries')
-          .delete()
+          .update({'deleted_at': DateTime.now().millisecondsSinceEpoch})
           .eq('id', entryId)
           .eq('user_id', userId);
 

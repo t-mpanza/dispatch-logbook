@@ -19,6 +19,7 @@ class Entry {
   final String dayKey;
   final String monthKey;
   final String yearKey;
+  final int? deletedAt;
 
   const Entry({
     required this.id,
@@ -35,6 +36,7 @@ class Entry {
     required this.dayKey,
     required this.monthKey,
     required this.yearKey,
+    this.deletedAt,
   });
 
   Entry copyWith({
@@ -52,6 +54,7 @@ class Entry {
     String? dayKey,
     String? monthKey,
     String? yearKey,
+    int? deletedAt,
   }) {
     return Entry(
       id: id ?? this.id,
@@ -68,6 +71,7 @@ class Entry {
       dayKey: dayKey ?? this.dayKey,
       monthKey: monthKey ?? this.monthKey,
       yearKey: yearKey ?? this.yearKey,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 
@@ -89,6 +93,7 @@ class Entry {
       'day_key': dayKey,
       'month_key': monthKey,
       'year_key': yearKey,
+      'deleted_at': deletedAt,
     };
   }
 
@@ -195,6 +200,7 @@ class Entry {
       dayKey: map['day_key'] as String? ?? '',
       monthKey: map['month_key'] as String? ?? '',
       yearKey: map['year_key'] as String? ?? '',
+      deletedAt: (map['deleted_at'] as num?)?.toInt(),
     );
   }
 }

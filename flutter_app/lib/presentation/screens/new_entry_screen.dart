@@ -8,9 +8,8 @@ import '../../core/utils/id_generator.dart';
 import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/preset.dart';
-import '../../data/services/appsync_manifest_service.dart';
 import '../viewmodels/entries_viewmodel.dart';
-import '../widgets/aws_auth_dialog.dart';
+import '../widgets/ibt_picker.dart';
 import '../widgets/tags_input.dart';
 import 'entry_detail_screen.dart';
 import 'stocks_entry_detail_screen.dart';
@@ -24,13 +23,11 @@ class NewEntryScreen extends StatefulWidget {
 
 class _NewEntryScreenState extends State<NewEntryScreen> {
   final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _ibtInputController = TextEditingController();
   List<String> _tags = ['despatch'];
   bool _withCounter = true;
   PresetKey _selectedPreset = PresetKey.CUSTOM;
 
   final List<IbtDocument> _ibtDocuments = [];
-  bool _isFetchingIbt = false;
 
   static const _quickTemplates = [
     (
@@ -86,116 +83,66 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
   Future<void> _selectPreset(PresetKey key) async {
     AppHaptics.light();
-    setState(() => _selectedPreset = key);
 
     final vm = context.read<EntriesViewModel>();
 
+    String title;
+    final List<String> extraTags = [];
+
     switch (key) {
       case PresetKey.DBN:
-        _titleController.text = 'DBN';
-        _ensureTag('dbn');
+        title = 'DBN';
+        extraTags.add('dbn');
         break;
       case PresetKey.NLS:
-        _titleController.text = 'NLS';
-        _ensureTag('nls');
+        title = 'NLS';
+        extraTags.add('nls');
         break;
       case PresetKey.BLOEM:
-        _titleController.text = 'BLOEM';
-        _ensureTag('bloem');
+        title = 'BLOEM';
+        extraTags.add('bloem');
         break;
       case PresetKey.PLK:
-        _titleController.text = 'PLK';
-        _ensureTag('plk');
+        title = 'PLK';
+        extraTags.add('plk');
         break;
       case PresetKey.STOCKS:
         final todayEntries = await vm.getTodayEntries();
         final titles = todayEntries.map((e) => e.title).toList();
-        final stocksId = PresetEngine.getNextStocksTripId(titles);
-        _titleController.text = stocksId;
-        _ensureTag('stocks');
+        title = PresetEngine.getNextStocksTripId(titles);
+        extraTags.add('stocks');
         break;
       case PresetKey.NLH:
-        _titleController.text = 'NLH';
-        _ensureTag('nlh');
-        _ensureTag('Neil');
-        _ensureTag('MN05XNGP');
+        title = 'NLH';
+        extraTags.addAll(['nlh', 'Neil', 'MN05XNGP']);
         break;
       case PresetKey.TIREPOINT:
-        _titleController.text = 'TIREPOINT';
-        _ensureTag('tirepoint');
+        title = 'TIREPOINT';
+        extraTags.add('tirepoint');
         break;
       case PresetKey.CUSTOM:
-        _titleController.text =
-            'TRIP - ${AppFormatters.formatTimeHHmm(DateTime.now().millisecondsSinceEpoch)}';
+        title = 'TRIP - ${AppFormatters.formatTimeHHmm(DateTime.now().millisecondsSinceEpoch)}';
         break;
     }
-  }
 
-  void _ensureTag(String tag) {
-    if (!_tags.contains(tag.toLowerCase()) && !_tags.contains(tag)) {
-      setState(() {
-        _tags = [..._tags, tag];
-      });
-    }
-  }
+    if (!mounted) return;
 
-  Future<void> _onFetchIbt() async {
-    final text = _ibtInputController.text.trim();
-    if (text.isEmpty) return;
-
-    AppHaptics.light();
-    setState(() => _isFetchingIbt = true);
-
-    final regex = RegExp(r'\d+');
-    final matches = regex.allMatches(text);
-    final docNumbers = matches.map((m) => m.group(0)!).toList();
-    if (docNumbers.isEmpty) docNumbers.add(text);
-
-    try {
-      for (final docNo in docNumbers) {
-        final doc = await AppSyncManifestService.fetchIbtDocument(docNo);
-        AppHaptics.medium();
-
-        setState(() {
-          final existingIdx = _ibtDocuments.indexWhere(
-            (d) => d.documentNo.toUpperCase() == doc.documentNo.toUpperCase(),
-          );
-          if (existingIdx >= 0) {
-            _ibtDocuments[existingIdx] = doc;
-          } else {
-            _ibtDocuments.add(doc);
-          }
-        });
-      }
-      setState(() => _ibtInputController.clear());
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to fetch IBT: $e'),
-            backgroundColor: Colors.redAccent,
-            action: SnackBarAction(
-              label: 'AWS Login',
-              textColor: Colors.white,
-              onPressed: () => AwsAuthDialog.show(context),
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isFetchingIbt = false);
-      }
-    }
-  }
-
-  void _onRemoveIbt(String docNo) {
-    AppHaptics.light();
     setState(() {
-      _ibtDocuments.removeWhere(
-        (d) => d.documentNo.toUpperCase() == docNo.toUpperCase(),
-      );
+      _selectedPreset = key;
+      _titleController.text = title;
+      for (final tag in extraTags) {
+        if (!_tags.any((t) => t.toLowerCase() == tag.toLowerCase())) {
+          _tags = [..._tags, tag];
+        }
+      }
     });
+  }
+
+  List<String> _withTag(List<String> current, String tag) {
+    if (current.any((t) => t.toLowerCase() == tag.toLowerCase())) {
+      return current;
+    }
+    return [...current, tag];
   }
 
   void _applyQuickTemplate({required String title, required String tag}) {
@@ -203,9 +150,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     setState(() {
       _titleController.text = title;
       _selectedPreset = PresetKey.CUSTOM;
-      if (!_tags.contains(tag)) {
-        _tags = [..._tags, tag];
-      }
+      _tags = _withTag(_tags, tag);
     });
   }
 
@@ -293,26 +238,28 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   @override
   void dispose() {
     _titleController.dispose();
-    _ibtInputController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.dynamicBackground(context),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary),
+          icon: Icon(
+            Icons.close_rounded,
+            color: AppColors.dynamicTextPrimary(context),
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'New Trip Entry',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+            color: AppColors.dynamicTextPrimary(context),
           ),
         ),
       ),
@@ -322,12 +269,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Quick Route Presets Selector
-            const Text(
+            Text(
               'ROUTE PRESETS',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textMuted,
+                color: AppColors.dynamicTextMuted(context),
                 letterSpacing: 1.0,
               ),
             ),
@@ -350,12 +297,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? color.withValues(alpha: 0.25)
-                          : AppColors.glassSurface,
+                          : AppColors.dynamicCardSurface(context),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
                             ? color
-                            : Colors.white.withValues(alpha: 0.08),
+                            : AppColors.dynamicBorder(context),
                         width: isSelected ? 1.5 : 1.0,
                       ),
                     ),
@@ -379,8 +326,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                                 ? FontWeight.bold
                                 : FontWeight.w600,
                             color: isSelected
-                                ? AppColors.textPrimary
-                                : AppColors.textSecondary,
+                                ? AppColors.dynamicTextPrimary(context)
+                                : AppColors.dynamicTextSecondary(context),
                           ),
                         ),
                       ],
@@ -392,12 +339,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             const SizedBox(height: 16),
 
             // Quick Entry Templates (non-delivery events)
-            const Text(
+            Text(
               'QUICK TEMPLATES',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textMuted,
+                color: AppColors.dynamicTextMuted(context),
                 letterSpacing: 1.0,
               ),
             ),
@@ -415,23 +362,27 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.glassSurface,
+                      color: AppColors.dynamicCardSurface(context),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AppColors.dynamicBorder(context),
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(tmpl.icon, size: 13, color: AppColors.textMuted),
+                        Icon(
+                          tmpl.icon,
+                          size: 13,
+                          color: AppColors.dynamicTextMuted(context),
+                        ),
                         const SizedBox(width: 5),
                         Text(
                           tmpl.label,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
+                            color: AppColors.dynamicTextSecondary(context),
                           ),
                         ),
                       ],
@@ -447,6 +398,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: GlassDecorations.glassCard(
+                  context: context,
                   borderRadius: 16,
                   borderColor: _ibtDocuments.isNotEmpty
                       ? AppColors.primaryGlow.withValues(alpha: 0.35)
@@ -456,175 +408,42 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.receipt_long_rounded,
-                              color: AppColors.primaryGlow,
-                              size: 18,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              'Attach IBT Documents (Stocks)',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ],
+                        Icon(
+                          Icons.receipt_long_rounded,
+                          color: AppColors.isLight(context)
+                              ? AppColors.primary
+                              : AppColors.primaryGlow,
+                          size: 18,
                         ),
-                        InkWell(
-                          onTap: () => AwsAuthDialog.show(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.vpn_key_outlined,
-                                  size: 10,
-                                  color: AppColors.primaryGlow,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'AWS Auth',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryGlow,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Attach IBT Documents (Stocks)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.dynamicTextPrimary(context),
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Paste or type one or many IBT numbers — comma or space separated.',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.dynamicTextMuted(context),
+                      ),
                     ),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _ibtInputController,
-keyboardType: TextInputType.number,
-
-                            textCapitalization: TextCapitalization.characters,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 13,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'e.g. IBT119512 or 119512',
-                              hintStyle: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                              ),
-                              filled: true,
-                              fillColor: Colors.black.withValues(alpha: 0.2),
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                            onSubmitted: (_) => _onFetchIbt(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: _isFetchingIbt ? null : _onFetchIbt,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryGlow,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: _isFetchingIbt
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.black,
-                                  ),
-                                )
-                              : const Text(
-                                  'Fetch IBT',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                        ),
-                      ],
+                    IbtPicker(
+                      documents: _ibtDocuments,
+                      onChanged: (docs) {
+                        setState(() => _ibtDocuments
+                          ..clear()
+                          ..addAll(docs));
+                      },
                     ),
-
-                    if (_ibtDocuments.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _ibtDocuments.map((doc) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryGlow.withValues(
-                                alpha: 0.12,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: AppColors.primaryGlow.withValues(
-                                  alpha: 0.3,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '${doc.documentNo} (${doc.total} tyres • ${doc.lineItems.length} lines)',
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                InkWell(
-                                  onTap: () => _onRemoveIbt(doc.documentNo),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: AppColors.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -632,29 +451,34 @@ keyboardType: TextInputType.number,
             ],
 
             // Title input
-            const Text(
+            Text(
               'ENTRY TITLE',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textMuted,
+                color: AppColors.dynamicTextMuted(context),
                 letterSpacing: 1.0,
               ),
             ),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: GlassDecorations.glassCard(borderRadius: 16),
+              decoration: GlassDecorations.glassCard(
+                context: context,
+                borderRadius: 16,
+              ),
               child: TextField(
                 controller: _titleController,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color: AppColors.dynamicTextPrimary(context),
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'e.g. NLS or STOCKS 1',
-                  hintStyle: TextStyle(color: AppColors.textMuted),
+                  hintStyle: TextStyle(
+                    color: AppColors.dynamicTextMuted(context),
+                  ),
                   border: InputBorder.none,
                 ),
               ),
@@ -662,12 +486,12 @@ keyboardType: TextInputType.number,
             const SizedBox(height: 18),
 
             // Tags input
-            const Text(
+            Text(
               'TAGS',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textMuted,
+                color: AppColors.dynamicTextMuted(context),
                 letterSpacing: 1.0,
               ),
             ),
@@ -696,11 +520,14 @@ keyboardType: TextInputType.number,
             // With Counter Switch
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: GlassDecorations.glassCard(borderRadius: 16),
+              decoration: GlassDecorations.glassCard(
+                context: context,
+                borderRadius: 16,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -708,14 +535,14 @@ keyboardType: TextInputType.number,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: AppColors.dynamicTextPrimary(context),
                         ),
                       ),
                       Text(
                         'Enables trip counting & digital loading sheet',
                         style: TextStyle(
                           fontSize: 11,
-                          color: AppColors.textMuted,
+                          color: AppColors.dynamicTextMuted(context),
                         ),
                       ),
                     ],

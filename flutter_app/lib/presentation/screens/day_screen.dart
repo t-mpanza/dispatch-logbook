@@ -8,7 +8,7 @@ import '../../data/models/entry.dart';
 import '../../data/repositories/entry_repository.dart';
 import '../viewmodels/entries_viewmodel.dart';
 import '../widgets/swipeable_entry_card.dart';
-import 'entry_detail_screen.dart';
+import '../entry_route.dart';
 import 'new_entry_screen.dart';
 
 class DayScreen extends StatefulWidget {
@@ -161,16 +161,12 @@ class _DayScreenState extends State<DayScreen> {
                                     return SwipeableEntryCard(
                                       entry: entry,
                                       onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
-                                        );
+                                        AppHaptics.light();
+                                        openEntryDetail(context, entry);
                                       },
                                       onEdit: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
-                                        );
+                                        AppHaptics.light();
+                                        openEntryDetail(context, entry);
                                       },
                                       onDelete: () async {
                                         await vm.deleteEntry(entry.id);
