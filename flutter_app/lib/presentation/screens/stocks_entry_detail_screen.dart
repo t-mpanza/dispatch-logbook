@@ -17,6 +17,8 @@ import '../widgets/floating_note_bar.dart';
 import '../widgets/photo_lightbox.dart';
 import '../widgets/tags_input.dart';
 import '../widgets/voice_recorder_sheet.dart';
+import '../../data/services/appsync_manifest_service.dart';
+import '../widgets/aws_auth_dialog.dart';
 
 class StocksEntryDetailScreen extends StatefulWidget {
   final String entryId;
@@ -34,7 +36,10 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
   final TextEditingController _regController = TextEditingController();
   final TextEditingController _driverController = TextEditingController();
 
-  bool _isDetailsOpen = false;
+    bool _isDetailsOpen = false;
+  final TextEditingController _ibtInputController = TextEditingController();
+  bool _isFetchingIbt = false;
+
   Entry? _cachedEntry;
 
   @override
@@ -42,8 +47,88 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     _audioService.dispose();
     _titleController.dispose();
     _regController.dispose();
-    _driverController.dispose();
+        _driverController.dispose();
+    _ibtInputController.dispose();
+
     super.dispose();
+  }
+
+    Future<void> _onFetchIbt(Entry currentEntry, EntryRepository repo) async {
+    final text = _ibtInputController.text.trim();
+    if (text.isEmpty) return;
+
+    AppHaptics.light();
+    setState(() => _isFetchingIbt = true);
+
+    final regex = RegExp(r'\d+');
+    final matches = regex.allMatches(text);
+    final docNumbers = matches.map((m) => m.group(0)!).toList();
+    if (docNumbers.isEmpty) docNumbers.add(text);
+
+    try {
+      final sheetTrips = <LoadingSheetTrip>[...?currentEntry.loadingSheetTrips];
+      final sheetTripIdx = sheetTrips.indexWhere((t) => !t.isManual);
+      if (sheetTripIdx < 0) return;
+      
+      final primarySheetTrip = sheetTrips[sheetTripIdx];
+      final docs = <IbtDocument>[...?primarySheetTrip.ibtDocuments];
+
+      for (final docNo in docNumbers) {
+        final doc = await AppSyncManifestService.fetchIbtDocument(docNo);
+        AppHaptics.medium();
+
+        final existingIdx = docs.indexWhere(
+          (d) => d.documentNo.toUpperCase() == doc.documentNo.toUpperCase(),
+        );
+
+        if (existingIdx >= 0) {
+          docs[existingIdx] = doc;
+        } else {
+          docs.add(doc);
+        }
+      }
+
+      int totalTarget = 0;
+      int totalLoaded = 0;
+      for (final d in docs) {
+        totalTarget += d.total;
+        totalLoaded += d.loadedTotal;
+      }
+
+      final updatedSheetTrip = primarySheetTrip.copyWith(
+        ibtDocuments: docs,
+        targetQuantity: totalTarget,
+        quantityLoaded: totalLoaded,
+      );
+      sheetTrips[sheetTripIdx] = updatedSheetTrip;
+
+      final updatedEntry = currentEntry.copyWith(
+        loadingSheetTrips: sheetTrips,
+        expectedTotal: totalTarget,
+      );
+
+      await repo.saveEntry(updatedEntry);
+      setState(() => _ibtInputController.clear());
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to fetch IBT: $e'),
+            backgroundColor: Colors.redAccent,
+            action: SnackBarAction(
+              label: 'AWS Login',
+              textColor: Colors.white,
+              onPressed: () => AwsAuthDialog.show(context),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isFetchingIbt = false);
+      }
+    }
   }
 
   void _syncTripDetailsToEntry(Entry entry) {
@@ -71,11 +156,8 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     required String lineId,
     required int newQuantity,
   }) async {
-    final clampedQty = newQuantity < 0 ? 0 : newQuantity;
-
     final sheetTrips = <LoadingSheetTrip>[...?currentEntry.loadingSheetTrips];
     final sheetTripIdx = sheetTrips.indexWhere((t) => !t.isManual);
-
     if (sheetTripIdx < 0) return;
 
     final primarySheetTrip = sheetTrips[sheetTripIdx];
@@ -90,6 +172,23 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     final lines = <IbtLineItem>[...doc.lineItems];
     final lineIdx = lines.indexWhere((l) => l.id == lineId);
     if (lineIdx < 0) return;
+    
+    final target = lines[lineIdx].targetTotal;
+    int clampedQty = newQuantity < 0 ? 0 : newQuantity;
+    
+    if (clampedQty > target) {
+      AppHaptics.heavy();
+      clampedQty = target;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot exceed manifest target.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    }
 
     lines[lineIdx] = lines[lineIdx].copyWith(loadedQuantity: clampedQty);
     docs[docIdx] = IbtDocument(
@@ -297,6 +396,64 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     );
   }
 
+
+    Widget _buildAddIbtSection(Entry currentEntry, EntryRepository repo) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: TextField(
+        controller: _ibtInputController,
+        keyboardType: TextInputType.number,
+        style: TextStyle(
+          color: AppColors.dynamicTextPrimary(context),
+          fontSize: 14,
+          fontFamily: 'monospace',
+          letterSpacing: 1.2,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Type to attach more IBTs...',
+          hintStyle: TextStyle(
+            color: AppColors.dynamicTextMuted(context),
+            fontSize: 13,
+            fontFamily: 'sans-serif',
+            letterSpacing: 0.0,
+          ),
+          filled: true,
+          fillColor: AppColors.glassSurfaceElevated,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.glassBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.glassBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.presetStocks, width: 1.5),
+          ),
+          suffixIcon: _isFetchingIbt 
+              ? const Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: SizedBox(
+                    width: 14, height: 14, 
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.presetStocks),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.add_circle_rounded, color: AppColors.presetStocks),
+                  onPressed: () => _onFetchIbt(currentEntry, repo),
+                ),
+        ),
+        onSubmitted: (_) => _onFetchIbt(currentEntry, repo),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<EntryRepository>();
@@ -349,12 +506,15 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
           );
 
           final ibtDocs = sheetTrip?.ibtDocuments ?? [];
-          final totalTarget = sheetTrip?.ibtTargetTotal ?? 0;
-          final totalLoaded = sheetTrip?.ibtLoadedTotal ?? 0;
-          final totalRemaining = (totalTarget - totalLoaded).clamp(
-            0,
-            totalTarget,
-          );
+          final totalTarget = ibtDocs.isNotEmpty 
+              ? (sheetTrip?.ibtTargetTotal ?? 0) 
+              : (sheetTrip?.targetQuantity ?? 0);
+          final totalLoaded = ibtDocs.isNotEmpty 
+              ? (sheetTrip?.ibtLoadedTotal ?? 0) 
+              : (sheetTrip?.quantityLoaded ?? 0);
+          final totalRemaining = totalTarget > 0 
+              ? (totalTarget - totalLoaded).clamp(0, totalTarget) 
+              : 0;
           final isComplete = totalTarget > 0 && totalLoaded >= totalTarget;
           final isOver = totalTarget > 0 && totalLoaded > totalTarget;
           final totalPct = totalTarget > 0
@@ -839,7 +999,9 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
 
                       const SizedBox(height: 16),
 
+                                            _buildAddIbtSection(currentEntry, repo),
                       // SECTION HEADER: SPECIFIC RCS / IBT LINE ITEMS
+
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1315,64 +1477,7 @@ class _InteractiveIbtLineCard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 12),
 
-          // Quick Interactive Steppers & Fill Button Row
-          Row(
-            children: [
-              // Stepper Minus (-)
-              IconButton.filledTonal(
-                icon: const Icon(Icons.remove_rounded, size: 18),
-                style: IconButton.styleFrom(
-                  backgroundColor: AppColors.glassSurface,
-                  foregroundColor: AppColors.textPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.all(8),
-                ),
-                onPressed: loaded > 0 ? () => onDecrement(1) : null,
-              ),
-
-              const SizedBox(width: 6),
-
-              // Stepper Plus (+)
-              IconButton.filledTonal(
-                icon: const Icon(Icons.add_rounded, size: 18),
-                style: IconButton.styleFrom(
-                  backgroundColor: AppColors.presetStocks.withValues(
-                    alpha: 0.2,
-                  ),
-                  foregroundColor: AppColors.presetStocks,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.all(8),
-                ),
-                onPressed: () => onIncrement(1),
-              ),
-
-              const SizedBox(width: 8),
-
-              // Quick Increment Pills
-              Wrap(
-                spacing: 6,
-                children: [
-                  _QuickPill(label: '+2', onTap: () => onIncrement(2)),
-                  _QuickPill(label: '+5', onTap: () => onIncrement(5)),
-                  if (remaining > 0 &&
-                      remaining != 1 &&
-                      remaining != 2 &&
-                      remaining != 5)
-                    _QuickPill(
-                      label: 'Fill ($remaining)',
-                      isAccent: true,
-                      onTap: onFillTarget,
-                    ),
-                ],
-              ),
-            ],
-          ),
         ],
       ),
     );

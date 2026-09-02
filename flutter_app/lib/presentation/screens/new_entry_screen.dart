@@ -146,23 +146,28 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     AppHaptics.light();
     setState(() => _isFetchingIbt = true);
 
+    final regex = RegExp(r'\d+');
+    final matches = regex.allMatches(text);
+    final docNumbers = matches.map((m) => m.group(0)!).toList();
+    if (docNumbers.isEmpty) docNumbers.add(text);
+
     try {
-      final doc = await AppSyncManifestService.fetchIbtDocument(text);
-      AppHaptics.medium();
+      for (final docNo in docNumbers) {
+        final doc = await AppSyncManifestService.fetchIbtDocument(docNo);
+        AppHaptics.medium();
 
-      setState(() {
-        final existingIdx = _ibtDocuments.indexWhere(
-          (d) => d.documentNo.toUpperCase() == doc.documentNo.toUpperCase(),
-        );
-
-        if (existingIdx >= 0) {
-          _ibtDocuments[existingIdx] = doc;
-        } else {
-          _ibtDocuments.add(doc);
-        }
-
-        _ibtInputController.clear();
-      });
+        setState(() {
+          final existingIdx = _ibtDocuments.indexWhere(
+            (d) => d.documentNo.toUpperCase() == doc.documentNo.toUpperCase(),
+          );
+          if (existingIdx >= 0) {
+            _ibtDocuments[existingIdx] = doc;
+          } else {
+            _ibtDocuments.add(doc);
+          }
+        });
+      }
+      setState(() => _ibtInputController.clear());
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -510,6 +515,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                         Expanded(
                           child: TextField(
                             controller: _ibtInputController,
+keyboardType: TextInputType.number,
+
                             textCapitalization: TextCapitalization.characters,
                             style: const TextStyle(
                               color: AppColors.textPrimary,

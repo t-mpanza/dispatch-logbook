@@ -86,51 +86,55 @@ class LoadingSheetViewModel extends ChangeNotifier {
     return result;
   }
 
-  Future<void> addTruckLoad(LoadingSheetTrip trip) async {
+    Future<void> addTruckLoad(LoadingSheetTrip trip) async {
     final dayEntries = await getDayEntries();
 
-    // Find the best-matching entry for this trip's preset instead of always using first.
-    // If a preset entry exists (by title or tag), use it; otherwise fall back to most-recent.
-    Entry? primaryEntry;
-    if (dayEntries.isNotEmpty) {
-      if (trip.presetKey != null && trip.presetKey != PresetKey.CUSTOM) {
-        final presetName = trip.presetKey!.name.toLowerCase();
-        primaryEntry = dayEntries.firstWhere(
-          (e) =>
-              e.title.toLowerCase().contains(presetName) ||
-              e.tags.any((t) => t.toLowerCase() == presetName),
-          orElse: () => dayEntries.first,
-        );
-      } else {
-        primaryEntry = dayEntries.first;
-      }
+    // Look for a pristine, completely empty entry that matches this preset/truck
+    // to avoid squashing unrelated trucks into an active entry.
+    Entry? pristineEntry;
+    try {
+      pristineEntry = dayEntries.firstWhere((e) {
+        final isEmpty = (e.loadingSheetTrips == null || e.loadingSheetTrips!.isEmpty) && 
+                        (e.trips == null || e.trips!.isEmpty);
+        if (!isEmpty) return false;
+        
+        if (trip.presetKey != null && trip.presetKey != PresetKey.CUSTOM) {
+          final presetName = trip.presetKey!.name.toLowerCase();
+          return e.title.toLowerCase().contains(presetName) || e.tags.any((t) => t.toLowerCase() == presetName);
+        } else {
+          return e.title.toLowerCase() == trip.tripId.toLowerCase();
+        }
+      });
+    } catch (_) {}
+
+    if (pristineEntry != null) {
+      final updated = pristineEntry.copyWith(loadingSheetTrips: [trip]);
+      await _repository.saveEntry(updated);
+      return;
     }
 
-    if (primaryEntry != null) {
-      final existingTrips = primaryEntry.loadingSheetTrips ?? [];
-      final updated = primaryEntry.copyWith(
-        loadingSheetTrips: [...existingTrips, trip],
-      );
-      await _repository.saveEntry(updated);
-    } else {
-      // Create new daily container entry
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final newEntry = Entry(
-        id: IdGenerator.generate(),
-        title: trip.tripId.isNotEmpty ? trip.tripId : 'Truck Load',
-        tags: ['truck-load', trip.presetKey?.name.toLowerCase() ?? 'custom'],
-        notes: [],
-        attachments: [],
-        loadingSheetTrips: [trip],
-        createdAt: trip.startTime ?? now,
-        updatedAt: now,
-        dayKey: _selectedDate,
-        monthKey: _selectedDate.substring(0, 7),
-        yearKey: _selectedDate.substring(0, 4),
-      );
-      await _repository.saveEntry(newEntry);
-    }
+    // Otherwise, create a discrete entry per truck
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final presetName = trip.presetKey?.name.toLowerCase();
+    
+    final newEntry = Entry(
+      id: IdGenerator.generate(),
+      title: trip.tripId.isNotEmpty ? trip.tripId : 'Truck Load',
+            dayKey: _selectedDate,
+      monthKey: _selectedDate.substring(0, 7),
+      yearKey: _selectedDate.substring(0, 4),
+      attachments: const [],
+      notes: const [],
+      updatedAt: now,
+
+      tags: ['despatch', if (presetName != null && presetName != 'custom') presetName],
+      createdAt: now,
+      trips: const [],
+      loadingSheetTrips: [trip],
+    );
+    await _repository.saveEntry(newEntry);
   }
+
 
   Future<void> updateTruckLoad(LoadingSheetTrip updatedTrip) async {
     final dayEntries = await getDayEntries();

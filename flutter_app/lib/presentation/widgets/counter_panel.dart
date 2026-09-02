@@ -216,7 +216,7 @@ class _CounterPanelState extends State<CounterPanel> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
 
           // Steppers & Numeric Row
           Row(
@@ -243,12 +243,12 @@ class _CounterPanelState extends State<CounterPanel> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.glassBorder),
                   ),
-                  child: const Center(
-                    child: Icon(Icons.remove_rounded, color: AppColors.textPrimary, size: 20),
+                  child: Center(
+                    child: Icon(Icons.remove_rounded, color: AppColors.dynamicTextPrimary(context), size: 20),
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
 
               // Number Display / Input
               SizedBox(
@@ -258,16 +258,16 @@ class _CounterPanelState extends State<CounterPanel> {
                   controller: _numberController,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.textPrimary,
+                    color: AppColors.dynamicTextPrimary(context),
                     fontFamily: 'monospace',
                   ),
                   decoration: InputDecoration(
                     contentPadding: EdgeInsets.zero,
                     filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.4),
+                    fillColor: AppColors.glassSurfaceElevated,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: AppColors.glassBorder),
@@ -287,7 +287,7 @@ class _CounterPanelState extends State<CounterPanel> {
                   },
                 ),
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
 
               // Stepper Plus
               GestureDetector(
@@ -311,8 +311,8 @@ class _CounterPanelState extends State<CounterPanel> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.glassBorder),
                   ),
-                  child: const Center(
-                    child: Icon(Icons.add_rounded, color: AppColors.textPrimary, size: 20),
+                  child: Center(
+                    child: Icon(Icons.add_rounded, color: AppColors.dynamicTextPrimary(context), size: 20),
                   ),
                 ),
               ),
@@ -326,7 +326,7 @@ class _CounterPanelState extends State<CounterPanel> {
                       for (final n in _quickAdds)
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.only(left: 4),
+                            padding: EdgeInsets.only(left: 4),
                             child: GestureDetector(
                               onTapDown: (_) => _startRepeat(() {
                                 setState(() {
@@ -370,17 +370,17 @@ class _CounterPanelState extends State<CounterPanel> {
                           height: 40,
                           child: TextField(
                             controller: _slipController,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textPrimary,
+                              color: AppColors.dynamicTextPrimary(context),
                               fontFamily: 'monospace',
                             ),
                             decoration: InputDecoration(
                               hintText: 'Slip #',
                               hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10),
                               filled: true,
-                              fillColor: Colors.black.withValues(alpha: 0.4),
+                              fillColor: AppColors.glassSurfaceElevated,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: const BorderSide(color: AppColors.glassBorder),
@@ -459,7 +459,7 @@ class _CounterPanelState extends State<CounterPanel> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? AppColors.glassSurfaceElevated : Colors.transparent,
           borderRadius: BorderRadius.circular(8),

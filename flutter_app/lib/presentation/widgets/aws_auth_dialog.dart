@@ -53,6 +53,18 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
   }
 
   Future<void> _handleWebSignIn() async {
+    final isDesktop = Theme.of(context).platform == TargetPlatform.linux || Theme.of(context).platform == TargetPlatform.windows;
+    if (isDesktop) {
+      // Fallback to opening system browser on Desktop
+      _tabController.animateTo(1);
+      setState(() {
+        _successMessage = 'Web view unsupported on Desktop. Opening your system browser... Please log in and paste the token here.';
+        _errorMessage = null;
+      });
+      await _openHostedUI();
+      return;
+    }
+
     AppHaptics.light();
     final result = await AwsLoginWebViewScreen.push(context);
     if (result == true) {
@@ -200,6 +212,7 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
   }
 
   Future<void> _openHostedUI() async {
+
     final hostedUrl = AppSyncManifestService.getHostedUiAuthorizeUrl(tokenFlow: true);
     final uri = Uri.parse(hostedUrl);
     if (await canLaunchUrl(uri)) {
@@ -444,7 +457,7 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
 
             // Tab Views
             SizedBox(
-              height: 230,
+              height: 270,
               child: TabBarView(
                 controller: _tabController,
                 children: [
