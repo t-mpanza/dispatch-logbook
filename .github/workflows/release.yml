@@ -55,11 +55,12 @@ jobs:
           echo "APK_NAME=DispatchDiary-${TAG}.apk" >> $GITHUB_OUTPUT
 
       - name: Decode Release Keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_B64" | base64 -d > flutter_app/android/app/release-keystore.jks
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > flutter_app/android/app/release-keystore.jks
+          fi
 
       - name: Build Android Release APK
         working-directory: ./flutter_app
