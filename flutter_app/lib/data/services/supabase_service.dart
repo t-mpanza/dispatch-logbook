@@ -62,7 +62,9 @@ class SupabaseService {
 
   // ── Push Engine (Batch Upsert) ──────────────────────────────────────────────
 
-  static Map<String, dynamic> _formatEntryPayload(Entry entry, String userId) {
+  /// Build the wire payload for an entry. Exposed (instead of private) so the
+  /// tombstone-omit invariant is unit-testable.
+  static Map<String, dynamic> formatEntryPayload(Entry entry, String userId) {
     final cleanNotes =
         entry.notes.where((n) => n.id != '__meta_sheet__').toList();
     final hasMeta = (entry.loadingSheetTrips != null &&
@@ -84,7 +86,7 @@ class SupabaseService {
           ]
         : cleanNotes.map((n) => n.toMap()).toList();
 
-    return {
+    final payload = <String, dynamic>{
       'id': entry.id,
       'user_id': userId,
       'title': entry.title,
@@ -97,8 +99,16 @@ class SupabaseService {
       'year_key': entry.yearKey,
       'created_at': entry.createdAt,
       'updated_at': entry.updatedAt,
-      'deleted_at': entry.deletedAt,
     };
+
+    // Omit deleted_at for live rows: a stale offline device re-pushing its
+    // live copy must never clear an existing tombstone via upsert.
+    // Tombstoned rows always carry their deleted_at.
+    if (entry.deletedAt != null) {
+      payload['deleted_at'] = entry.deletedAt;
+    }
+
+    return payload;
   }
 
   static Future<bool> pushEntriesBatch(List<Entry> entries) async {
@@ -109,7 +119,7 @@ class SupabaseService {
 
     try {
       final payloads =
-          entries.map((e) => _formatEntryPayload(e, userId)).toList();
+          entries.map((e) => formatEntryPayload(e, userId)).toList();
 
       for (var i = 0; i < payloads.length; i += 50) {
         final chunk = payloads.sublist(
@@ -146,7 +156,7 @@ class SupabaseService {
       if (userId == null) return;
 
       final payloads =
-          tombstones.map((e) => _formatEntryPayload(e, userId)).toList();
+          tombstones.map((e) => formatEntryPayload(e, userId)).toList();
       for (var i = 0; i < payloads.length; i += 50) {
         final chunk = payloads.sublist(
           i,

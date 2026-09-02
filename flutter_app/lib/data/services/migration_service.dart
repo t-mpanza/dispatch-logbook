@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'package:sqflite/sqflite.dart';
 
 import '../../core/utils/id_generator.dart';
 import '../models/entry.dart';
@@ -12,8 +12,12 @@ import 'database_service.dart';
 ///    discrete entry per truck — enforcing the 1 Entry = 1 Truck invariant.
 /// 2. Reconciles quantityLoaded / targetQuantity against counter trips and
 ///    IBT manifest totals (fixes inflated counts like "177 / 78").
-/// 3. De-duplicates entries that represent the same truck (same tripId),
-///    keeping the latest/richest record and tombstoning the stale copies.
+/// 3. De-duplicates entries that represent the same truck (same tripId, same
+///    day), keeping the latest/richest record and tombstoning stale copies.
+///
+/// Only live (non-tombstoned) entries are touched, so previously deleted
+/// data can never be resurrected by the migration. Everything is computed
+/// first and then written in a single transaction.
 class MigrationService {
   static const String _flagKey = 'migration_ungroup_dedupe_v1';
 
@@ -22,9 +26,7 @@ class MigrationService {
     if (done == '1') return;
 
     try {
-      await _splitSquashedEntries();
-      await _reconcileCounts();
-      await _dedupeByTripId();
+      await _migrate();
     } catch (e) {
       // Migration must never brick the app; surface and continue.
       debugPrintMigration('migration failed (continuing): $e');
@@ -36,90 +38,146 @@ class MigrationService {
 
   static String _normTripId(String? s) => (s ?? '').trim().toUpperCase();
 
+  static String _groupKey(String dayKey, String tripId) =>
+      '${dayKey.toUpperCase()}|${_normTripId(tripId)}';
+
   static void debugPrintMigration(String msg) {
     // ignore: avoid_print
     print('[MigrationService] $msg');
   }
 
-  /// Entries that contain more than one loading-sheet trip get split:
-  /// the original entry keeps the first trip, and each remaining trip
-  /// becomes its own entry.
-  static Future<void> _splitSquashedEntries() async {
+  static Future<void> _migrate() async {
     final db = await DatabaseService.database;
-    final maps = await db.query('entries');
 
-    var splitCount = 0;
-    for (final map in maps) {
-      final loadingJson = map['loading_sheet_trips'] as String?;
-      if (loadingJson == null ||
-          loadingJson.isEmpty ||
-          loadingJson == '[]' ||
-          loadingJson == 'null') {
-        continue;
-      }
+    // Step 0: read ALL live entries with their raw rows (we need raw maps
+    // for row-level writes and models for the pure logic).
+    final rawMaps = await db.query('entries', where: 'deleted_at IS NULL');
+    final liveEntries = rawMaps.map((m) => Entry.fromMap(m)).toList();
 
-      final List<dynamic> list;
-      try {
-        final decoded = jsonDecode(loadingJson);
-        if (decoded is! List) continue;
-        list = decoded;
-      } catch (_) {
-        continue;
-      }
-      if (list.length <= 1) continue;
+    // ── Phase 1: split squashed entries ────────────────────────────────────
+    final splits = _planSplits(liveEntries);
+    // ── Phase 2: reconcile counts ──────────────────────────────────────────
+    final reconciled = _planReconcile(liveEntries);
+    // ── Phase 3: dedupe by day+tripId ──────────────────────────────────────
+    final dedupe = _planDedupe(liveEntries);
 
-      final entryId = map['id'] as String;
+    if (splits.isEmpty && reconciled.isEmpty && dedupe.isEmpty) return;
+
+    await db.transaction((txn) async {
       final nowMs = DateTime.now().millisecondsSinceEpoch;
 
-      // Original entry keeps the first trip.
-      final firstTrip = list.first;
-      final updatedMap = Map<String, dynamic>.from(map);
-      updatedMap['loading_sheet_trips'] = jsonEncode([firstTrip]);
-      updatedMap['updated_at'] = nowMs;
-      await db.update('entries', updatedMap,
-          where: 'id = ?', whereArgs: [entryId]);
-
-      for (var i = 1; i < list.length; i++) {
-        final tripMap = Map<String, dynamic>.from(list[i] as Map);
-        final tripId = (tripMap['tripId'] as String?) ?? '';
-        final presetKey = (tripMap['presetKey'] as String?)?.toLowerCase();
-
-        final newMap = Map<String, dynamic>.from(map);
-        newMap['id'] = IdGenerator.generate();
-        newMap['title'] = tripId.isNotEmpty ? tripId : 'Truck Load';
-        newMap['loading_sheet_trips'] = jsonEncode([tripMap]);
-        newMap['trips'] = jsonEncode(<dynamic>[]);
-        newMap['notes'] = jsonEncode(<dynamic>[]);
-        newMap['attachments'] = jsonEncode(<dynamic>[]);
-        newMap['tags'] = jsonEncode([
-          'despatch',
-          if (presetKey != null && presetKey != 'custom') presetKey,
-        ]);
-        newMap['expected_total'] = (tripMap['targetQuantity'] as num?)?.toInt();
-        final tripCreatedAt = (tripMap['createdAt'] as num?)?.toInt();
-        if (tripCreatedAt != null && tripCreatedAt > 0) {
-          newMap['created_at'] = tripCreatedAt;
+      for (final s in splits) {
+        await txn.update(
+          'entries',
+          s.original.toMap(),
+          where: 'id = ?',
+          whereArgs: [s.original.id],
+        );
+        for (final fresh in s.freshEntries) {
+          await txn.insert('entries', fresh.toMap());
         }
-        newMap['updated_at'] = nowMs;
-        newMap['deleted_at'] = null;
-        await db.insert('entries', newMap);
-        splitCount++;
       }
-    }
 
-    if (splitCount > 0) {
-      debugPrintMigration('split $splitCount squashed trips into own entries');
-    }
+      for (final entry in reconciled) {
+        await txn.update(
+          'entries',
+          entry.toMap(),
+          where: 'id = ?',
+          whereArgs: [entry.id],
+        );
+      }
+
+      for (final d in dedupe) {
+        await txn.update(
+          'entries',
+          d.winner.copyWith(
+            loadingSheetTrips: d.mergedTrips,
+            updatedAt: nowMs,
+          ).toMap(),
+          where: 'id = ?',
+          whereArgs: [d.winner.id],
+        );
+        for (final loser in d.losers) {
+          await txn.update(
+            'entries',
+            {'deleted_at': nowMs},
+            where: 'id = ?',
+            whereArgs: [loser.id],
+          );
+        }
+      }
+
+      await txn.insert(
+        'settings',
+        {'key': _flagKey, 'value': '1'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+
+    debugPrintMigration(
+      'migrated: ${splits.length} splits, ${reconciled.length} reconciles, '
+      '${dedupe.fold<int>(0, (s, d) => s + d.losers.length)} tombstones',
+    );
   }
 
-  /// Reconcile per-trip counters against the actual data:
-  /// - IBT trips: quantityLoaded must equal the sum of IBT loaded totals.
-  /// - Counter trips: quantityLoaded must equal the sum of trip counts.
-  static Future<void> _reconcileCounts() async {
-    final all = await DatabaseService.getAllEntries();
-    var fixedCount = 0;
+  // ── Phase 1 plan ──────────────────────────────────────────────────────────
 
-    for (final e in all) {
+  static List<_Split> _planSplits(List<Entry> liveEntries) {
+    final splits = <_Split>[];
+    for (final e in liveEntries) {
+      final trips = e.loadingSheetTrips ?? [];
+      if (trips.length <= 1) continue;
+
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final freshEntries = <Entry>[];
+
+      for (var i = 1; i < trips.length; i++) {
+        final trip = trips[i];
+        final presetName = trip.presetKey?.name.toLowerCase();
+        final newId = IdGenerator.generate();
+        freshEntries.add(
+          Entry(
+            id: newId,
+            title: trip.tripId.isNotEmpty ? trip.tripId : 'Truck Load',
+            tags: [
+              'despatch',
+              if (presetName != null && presetName != 'custom') presetName,
+            ],
+            expectedTotal:
+                (trip.targetQuantity != null && trip.targetQuantity! > 0)
+                    ? trip.targetQuantity
+                    : null,
+            notes: const [],
+            attachments: const [],
+            trips: const [],
+            loadingSheetTrips: [trip.copyWith(entryId: newId)],
+            createdAt: trip.createdAt > 0 ? trip.createdAt : e.createdAt,
+            updatedAt: nowMs,
+            dayKey: e.dayKey,
+            monthKey: e.monthKey,
+            yearKey: e.yearKey,
+          ),
+        );
+      }
+
+      splits.add(
+        _Split(
+          original: e.copyWith(
+            loadingSheetTrips: [trips.first],
+            updatedAt: nowMs,
+          ),
+          freshEntries: freshEntries,
+        ),
+      );
+    }
+    return splits;
+  }
+
+  // ── Phase 2 plan ──────────────────────────────────────────────────────────
+
+  static List<Entry> _planReconcile(List<Entry> liveEntries) {
+    final reconciled = <Entry>[];
+    for (final e in liveEntries) {
       final sheetTrips = e.loadingSheetTrips ?? [];
       if (sheetTrips.isEmpty) continue;
 
@@ -127,10 +185,12 @@ class MigrationService {
       final counterTotal =
           trips.fold<int>(0, (s, t) => s + t.count + (t.rejected ?? 0));
 
+      var changed = false;
       final updated = sheetTrips.map((t) {
         if (t.hasIbtDocuments) {
           final ibtLoaded = t.ibtLoadedTotal;
           if (t.quantityLoaded != ibtLoaded) {
+            changed = true;
             return t.copyWith(
               quantityLoaded: ibtLoaded,
               targetQuantity: t.targetQuantity ?? t.ibtTargetTotal,
@@ -139,43 +199,37 @@ class MigrationService {
           return t;
         }
         if (!t.isManual && trips.isNotEmpty && t.quantityLoaded != counterTotal) {
+          changed = true;
           return t.copyWith(quantityLoaded: counterTotal);
         }
         return t;
       }).toList();
 
-      var changed = false;
-      for (var i = 0; i < sheetTrips.length; i++) {
-        if (!identical(sheetTrips[i], updated[i])) changed = true;
+      if (changed) {
+        reconciled.add(e.copyWith(loadingSheetTrips: updated));
       }
-      if (!changed) continue;
-
-      await DatabaseService.insertOrUpdateEntry(
-        e.copyWith(loadingSheetTrips: updated),
-      );
-      fixedCount++;
     }
-
-    if (fixedCount > 0) {
-      debugPrintMigration('reconciled counts on $fixedCount entries');
-    }
+    return reconciled;
   }
 
-  /// Entries whose loading-sheet trip has the same tripId represent the same
-  /// truck. Keep the latest/richest one, merge its data, tombstone the rest.
-  static Future<void> _dedupeByTripId() async {
-    final all = await DatabaseService.getAllEntries();
+  // ── Phase 3 plan ──────────────────────────────────────────────────────────
 
-    final Map<String, List<(Entry, LoadingSheetTrip)>> groups = {};
-    for (final e in all) {
+  /// Entries whose (non-manual) loading-sheet trip resolves to the same
+  /// tripId on the same day represent the same truck. Keep the latest /
+  /// richest record, merge its data, tombstone the rest.
+  static List<_Dedupe> _planDedupe(List<Entry> liveEntries) {
+    final groups = <String, List<(Entry, LoadingSheetTrip)>>{};
+    for (final e in liveEntries) {
       for (final t in e.loadingSheetTrips ?? []) {
-        final key = _normTripId(t.tripId);
-        if (key.isEmpty) continue;
-        groups.putIfAbsent(key, () => []).add((e, t));
+        if (t.isManual) continue; // manual rows are unique adds, never merged
+        if (_normTripId(t.tripId).isEmpty) continue;
+        groups
+            .putIfAbsent(_groupKey(e.dayKey, t.tripId), () => [])
+            .add((e, t));
       }
     }
 
-    var dedupeCount = 0;
+    final dedupes = <_Dedupe>[];
     for (final group in groups.values) {
       if (group.length <= 1) continue;
 
@@ -205,7 +259,10 @@ class MigrationService {
         if (mergedTrip.targetQuantity == null && lt.targetQuantity != null) {
           mergedTrip = mergedTrip.copyWith(targetQuantity: lt.targetQuantity);
         }
-        if (mergedTrip.quantityLoaded <= 0 && lt.quantityLoaded > 0) {
+        if ((mergedTrip.ibtDocuments == null ||
+                mergedTrip.ibtDocuments!.isEmpty) &&
+            mergedTrip.quantityLoaded <= 0 &&
+            lt.quantityLoaded > 0) {
           mergedTrip = mergedTrip.copyWith(quantityLoaded: lt.quantityLoaded);
         }
         if (mergedTrip.startTime == null && lt.startTime != null) {
@@ -214,7 +271,7 @@ class MigrationService {
         if (mergedTrip.finishTime == null && lt.finishTime != null) {
           mergedTrip = mergedTrip.copyWith(finishTime: lt.finishTime);
         }
-        if ((mergedTrip.reg.isEmpty) && lt.reg.isNotEmpty) {
+        if (mergedTrip.reg.isEmpty && lt.reg.isNotEmpty) {
           mergedTrip = mergedTrip.copyWith(reg: lt.reg);
         }
         if (mergedTrip.driverName.isEmpty && lt.driverName.isNotEmpty) {
@@ -237,30 +294,38 @@ class MigrationService {
         );
       }
 
-      final sheetList = [...?mergedEntry.loadingSheetTrips];
-      final tripIdx =
-          sheetList.indexWhere((t) => _normTripId(t.tripId) == _normTripId(mergedTrip.tripId));
-      if (tripIdx >= 0) {
-        sheetList[tripIdx] = mergedTrip;
-      } else {
-        sheetList.add(mergedTrip);
-      }
+      final key = _groupKey(winner.$1.dayKey, mergedTrip.tripId);
+      final mergedTrips = [...?mergedEntry.loadingSheetTrips]
+        ..removeWhere((t) => _groupKey(mergedEntry.dayKey, t.tripId) == key)
+        ..add(mergedTrip);
 
-      await DatabaseService.insertOrUpdateEntry(
-        mergedEntry.copyWith(
-          loadingSheetTrips: sheetList,
-          updatedAt: DateTime.now().millisecondsSinceEpoch,
+      dedupes.add(
+        _Dedupe(
+          winner: mergedEntry,
+          mergedTrips: mergedTrips,
+          losers: losers.map((l) => l.$1).toList(),
         ),
       );
-
-      for (final loser in losers) {
-        await DatabaseService.softDeleteEntry(loser.$1.id);
-      }
-      dedupeCount += losers.length;
     }
-
-    if (dedupeCount > 0) {
-      debugPrintMigration('deduplicated $dedupeCount stale truck entries');
-    }
+    return dedupes;
   }
+}
+
+class _Split {
+  final Entry original;
+  final List<Entry> freshEntries;
+
+  const _Split({required this.original, required this.freshEntries});
+}
+
+class _Dedupe {
+  final Entry winner;
+  final List<LoadingSheetTrip> mergedTrips;
+  final List<Entry> losers;
+
+  const _Dedupe({
+    required this.winner,
+    required this.mergedTrips,
+    required this.losers,
+  });
 }

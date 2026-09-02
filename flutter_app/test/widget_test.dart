@@ -35,5 +35,10 @@ void main() {
     expect(find.text('Counter'), findsOneWidget);
     expect(find.text('Search'), findsOneWidget);
     expect(find.text('Archive'), findsOneWidget);
+
+    // Flush the automatic GitHub update check timer scheduled on launch
+    // (fires a silent UpdateService check, which resolves to "no update").
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(seconds: 11));
   });
 }

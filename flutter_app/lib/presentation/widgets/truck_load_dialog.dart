@@ -121,9 +121,16 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
   }
 
   void _incrementLoaded(int delta) {
-    setState(() {
-      _quantityLoaded = (_quantityLoaded + delta).clamp(0, 9999);
-    });
+    var next = _quantityLoaded + delta;
+    if (_targetQuantity > 0 && next > _targetQuantity) {
+      // Strict overshoot cap — snap to the manifest target with a heavy
+      // haptic so the operator physically feels the limit.
+      next = _targetQuantity;
+      AppHaptics.error();
+    } else {
+      next = next.clamp(0, 9999);
+    }
+    setState(() => _quantityLoaded = next);
   }
 
   void _incrementTarget(int delta) {

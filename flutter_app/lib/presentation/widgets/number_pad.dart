@@ -102,8 +102,16 @@ class _NumberPadSheetState extends State<_NumberPadSheet> {
   }
 
   void _confirm() {
-    AppHaptics.success();
-    Navigator.pop(context, _value);
+    var value = _value;
+    // Defense-in-depth: legacy data can open the pad already over target.
+    // Clamp on confirm so an over-limit value can never slip through.
+    if (_hasMax && value > widget.maxValue!) {
+      value = widget.maxValue!;
+      AppHaptics.error();
+    } else {
+      AppHaptics.success();
+    }
+    Navigator.pop(context, value);
   }
 
   @override

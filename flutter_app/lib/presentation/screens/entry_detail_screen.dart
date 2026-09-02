@@ -14,6 +14,7 @@ import '../../data/models/trip.dart';
 import 'stocks_entry_detail_screen.dart';
 import '../../data/services/audio_service.dart';
 import '../../data/repositories/entry_repository.dart';
+import '../entry_route.dart';
 import '../widgets/counter_panel.dart';
 import '../widgets/counter_progress.dart';
 import '../widgets/event_log_view.dart';
@@ -223,12 +224,9 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
           final ibtDocs = sheetTrip?.ibtDocuments ?? [];
           final hasIbt = ibtDocs.isNotEmpty;
 
-          final isStocks =
-              currentEntry.tags.contains('stocks') ||
-              currentEntry.title.toUpperCase().startsWith('STOCKS');
-
-          // Delegate to dedicated Stocks IBT screen for rich, line-item specific tracking
-          if (hasIbt || isStocks) {
+          // Delegate to the dedicated Stocks IBT screen for rich, line-item
+          // specific tracking (single source of truth: entry_route.dart).
+          if (isStocksEntry(currentEntry)) {
             return StocksEntryDetailScreen(entryId: currentEntry.id);
           }
 

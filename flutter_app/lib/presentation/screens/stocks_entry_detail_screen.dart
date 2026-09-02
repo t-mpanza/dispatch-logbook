@@ -185,8 +185,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
           final updatedTrip = primary.copyWith(
             ibtDocuments: docs,
             targetQuantity: totalTarget > 0 ? totalTarget : null,
-            quantityLoaded:
-                docs.isNotEmpty ? totalLoaded : primary.quantityLoaded,
+            quantityLoaded: docs.isNotEmpty ? totalLoaded : 0,
             startTime: primary.startTime ?? nowMs,
             finishTime: nowMs,
           );

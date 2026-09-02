@@ -26,10 +26,27 @@ class _TodayScreenState extends State<TodayScreen> {
   String _currentVersion = '...';
   bool _isCheckingUpdate = false;
 
+  /// One silent check per app launch — never nag the operator twice.
+  static bool _autoUpdateCheckDone = false;
+
   @override
   void initState() {
     super.initState();
     _loadVersion();
+    _scheduleAutoUpdateCheck();
+  }
+
+  /// Automatic release check: silently polls GitHub Releases a few seconds
+  /// after startup and only interrupts the operator when a newer release
+  /// with an APK asset is available.
+  void _scheduleAutoUpdateCheck() {
+    if (_TodayScreenState._autoUpdateCheckDone) return;
+    _TodayScreenState._autoUpdateCheckDone = true;
+    Future.delayed(const Duration(seconds: 5), () async {
+      final info = await UpdateService.checkForUpdates();
+      if (!mounted || !info.hasUpdate || info.apkDownloadUrl == null) return;
+      UpdateDialog.show(context, info);
+    });
   }
 
   Future<void> _loadVersion() async {
