@@ -1,10 +1,4 @@
-enum SyncStatus {
-  idle,
-  syncing,
-  synced,
-  error,
-  offline,
-}
+enum SyncStatus { idle, syncing, synced, error, offline }
 
 class SyncState {
   final SyncStatus status;

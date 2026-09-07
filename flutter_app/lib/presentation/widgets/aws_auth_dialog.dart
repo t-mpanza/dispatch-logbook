@@ -21,7 +21,8 @@ class AwsAuthDialog extends StatefulWidget {
   State<AwsAuthDialog> createState() => _AwsAuthDialogState();
 }
 
-class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProviderStateMixin {
+class _AwsAuthDialogState extends State<AwsAuthDialog>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -53,12 +54,15 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
   }
 
   Future<void> _handleWebSignIn() async {
-    final isDesktop = Theme.of(context).platform == TargetPlatform.linux || Theme.of(context).platform == TargetPlatform.windows;
+    final isDesktop =
+        Theme.of(context).platform == TargetPlatform.linux ||
+        Theme.of(context).platform == TargetPlatform.windows;
     if (isDesktop) {
       // Fallback to opening system browser on Desktop
       _tabController.animateTo(1);
       setState(() {
-        _successMessage = 'Web view unsupported on Desktop. Opening your system browser... Please log in and paste the token here.';
+        _successMessage =
+            'Web view unsupported on Desktop. Opening your system browser... Please log in and paste the token here.';
         _errorMessage = null;
       });
       await _openHostedUI();
@@ -212,8 +216,9 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
   }
 
   Future<void> _openHostedUI() async {
-
-    final hostedUrl = AppSyncManifestService.getHostedUiAuthorizeUrl(tokenFlow: true);
+    final hostedUrl = AppSyncManifestService.getHostedUiAuthorizeUrl(
+      tokenFlow: true,
+    );
     final uri = Uri.parse(hostedUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -271,7 +276,11 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.cloud_sync_outlined, color: AppColors.primaryGlow, size: 22),
+                    Icon(
+                      Icons.cloud_sync_outlined,
+                      color: AppColors.primaryGlow,
+                      size: 22,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'AWS AppSync Authentication',
@@ -311,7 +320,9 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                     _authInfo.isAuthenticated
                         ? Icons.check_circle_rounded
                         : Icons.error_outline_rounded,
-                    color: _authInfo.isAuthenticated ? Colors.greenAccent : Colors.redAccent,
+                    color: _authInfo.isAuthenticated
+                        ? Colors.greenAccent
+                        : Colors.redAccent,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -320,9 +331,13 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _authInfo.isAuthenticated ? 'CONNECTED TO AWS' : 'NOT AUTHENTICATED',
+                          _authInfo.isAuthenticated
+                              ? 'CONNECTED TO AWS'
+                              : 'NOT AUTHENTICATED',
                           style: TextStyle(
-                            color: _authInfo.isAuthenticated ? Colors.greenAccent : Colors.redAccent,
+                            color: _authInfo.isAuthenticated
+                                ? Colors.greenAccent
+                                : Colors.redAccent,
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.8,
@@ -331,7 +346,9 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                         const SizedBox(height: 2),
                         Text(
                           _authInfo.isAuthenticated
-                              ? (_authInfo.email ?? _authInfo.username ?? 'Active Session')
+                              ? (_authInfo.email ??
+                                    _authInfo.username ??
+                                    'Active Session')
                               : 'Sign in to fetch live IBT manifests directly from AWS AppSync.',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.8),
@@ -354,7 +371,11 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                   ),
                   if (_authInfo.isAuthenticated)
                     IconButton(
-                      icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
+                      icon: const Icon(
+                        Icons.logout,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
                       tooltip: 'Log Out',
                       onPressed: _handleLogout,
                     ),
@@ -372,10 +393,16 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryGlow,
                   foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 4,
                 ),
-                icon: const Icon(Icons.open_in_browser_rounded, color: Colors.black, size: 20),
+                icon: const Icon(
+                  Icons.open_in_browser_rounded,
+                  color: Colors.black,
+                  size: 20,
+                ),
                 label: const Text(
                   'Sign In with AWS Web Login (SSO)',
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
@@ -392,16 +419,25 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                 decoration: BoxDecoration(
                   color: Colors.redAccent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.redAccent),
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      size: 16,
+                      color: Colors.redAccent,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _errorMessage!,
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -415,16 +451,25 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                 decoration: BoxDecoration(
                   color: Colors.greenAccent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: Colors.greenAccent.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle_outline, size: 16, color: Colors.greenAccent),
+                    const Icon(
+                      Icons.check_circle_outline,
+                      size: 16,
+                      color: Colors.greenAccent,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _successMessage!,
-                        style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -446,7 +491,10 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                 ),
                 labelColor: Colors.white,
                 unselectedLabelColor: Colors.white60,
-                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                labelStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
                 tabs: const [
                   Tab(text: 'Direct Login'),
                   Tab(text: 'Paste Token / SSO'),
@@ -480,11 +528,15 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                         obscureText: _obscurePassword,
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                             color: Colors.white54,
                             size: 18,
                           ),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -495,15 +547,26 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                           onPressed: _isLoading ? null : _handleDirectLogin,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           child: _isLoading
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
-                              : const Text('Direct Sign In', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                              : const Text(
+                                  'Direct Sign In',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
@@ -534,9 +597,17 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                               onPressed: _openHostedUI,
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: Colors.white24),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                              child: const Text('Open in Browser', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                              child: const Text(
+                                'Open in Browser',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -545,15 +616,26 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
                               onPressed: _isLoading ? null : _handleSaveTokens,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                               child: _isLoading
                                   ? const SizedBox(
                                       width: 16,
                                       height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
                                     )
-                                  : const Text('Save Tokens', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  : const Text(
+                                      'Save Tokens',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ),
                         ],
@@ -570,11 +652,30 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
               SizedBox(
                 width: double.infinity,
                 child: TextButton.icon(
-                  onPressed: _isTestingConnection ? null : _handleTestConnection,
+                  onPressed: _isTestingConnection
+                      ? null
+                      : _handleTestConnection,
                   icon: _isTestingConnection
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryGlow))
-                      : const Icon(Icons.wifi_tethering, size: 16, color: AppColors.primaryGlow),
-                  label: const Text('Test Live AppSync Query Connection', style: TextStyle(color: AppColors.primaryGlow, fontSize: 12)),
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primaryGlow,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.wifi_tethering,
+                          size: 16,
+                          color: AppColors.primaryGlow,
+                        ),
+                  label: const Text(
+                    'Test Live AppSync Query Connection',
+                    style: TextStyle(
+                      color: AppColors.primaryGlow,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -597,7 +698,11 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
       children: [
         Text(
           label,
-          style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 4),
         TextField(
@@ -606,20 +711,30 @@ class _AwsAuthDialogState extends State<AwsAuthDialog> with SingleTickerProvider
           style: const TextStyle(color: Colors.white, fontSize: 13),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+            hintStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.3),
+              fontSize: 12,
+            ),
             prefixIcon: Icon(icon, color: Colors.white54, size: 16),
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: AppColors.glassSurfaceElevated,
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),

@@ -1,14 +1,5 @@
 // ignore_for_file: constant_identifier_names
-enum PresetKey {
-  DBN,
-  NLS,
-  BLOEM,
-  PLK,
-  STOCKS,
-  NLH,
-  TIREPOINT,
-  CUSTOM,
-}
+enum PresetKey { DBN, NLS, BLOEM, PLK, STOCKS, NLH, TIREPOINT, CUSTOM }
 
 class PresetConfig {
   final PresetKey key;
@@ -79,15 +70,9 @@ class PresetEngine {
           tripId: getNextStocksTripId(existingTripIds),
         );
       case PresetKey.CUSTOM:
-        return const PresetFillResult(
-          presetKey: PresetKey.CUSTOM,
-          tripId: '',
-        );
+        return const PresetFillResult(presetKey: PresetKey.CUSTOM, tripId: '');
       default:
-        return PresetFillResult(
-          presetKey: key,
-          tripId: key.name,
-        );
+        return PresetFillResult(presetKey: key, tripId: key.name);
     }
   }
 }

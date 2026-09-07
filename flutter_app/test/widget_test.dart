@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:dispatch_diary/data/repositories/entry_repository.dart';
 import 'package:dispatch_diary/data/repositories/settings_repository.dart';
 import 'package:dispatch_diary/presentation/viewmodels/entries_viewmodel.dart';
@@ -9,7 +10,14 @@ import 'package:dispatch_diary/main.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('App renders AppShell dock navigation without errors', (WidgetTester tester) async {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
+  testWidgets('App renders the field dock navigation without errors', (
+    WidgetTester tester,
+  ) async {
     final entryRepository = EntryRepository();
     final settingsRepository = SettingsRepository();
 
@@ -29,12 +37,13 @@ void main() {
       ),
     );
 
-    // Verify presence of navigation items
-    expect(find.text('Today'), findsOneWidget);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Verify presence of the three navigation destinations
+    expect(find.text('Home'), findsOneWidget);
     expect(find.text('Sheet'), findsOneWidget);
-    expect(find.text('Counter'), findsOneWidget);
-    expect(find.text('Search'), findsOneWidget);
-    expect(find.text('Archive'), findsOneWidget);
+    expect(find.text('History'), findsOneWidget);
 
     // Flush the automatic GitHub update check timer scheduled on launch
     // (fires a silent UpdateService check, which resolves to "no update").

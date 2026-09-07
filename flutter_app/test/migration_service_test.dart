@@ -71,94 +71,104 @@ void main() {
   });
 
   group('MigrationService', () {
-    test('splits squashed multi-trip entries into one entry per truck', () async {
-      final squashed = _entry(
-        id: 'squashed',
-        title: 'STOCKS 1',
-        dayKey: '2026-09-02',
-        loadingSheetTrips: [
-          _trip(id: 't1', tripId: 'STOCKS 1', quantityLoaded: 40),
-          _trip(id: 't2', tripId: 'STOCKS 2', quantityLoaded: 25),
-          _trip(id: 't3', tripId: 'BLOEM', quantityLoaded: 12),
-        ],
-      );
-      await DatabaseService.insertOrUpdateEntry(squashed);
-
-      await MigrationService.runIfNeeded();
-
-      final entries = await DatabaseService.getAllEntries();
-      expect(entries.length, 3);
-
-      for (final e in entries) {
-        expect(e.loadingSheetTrips!.length, 1);
-        expect(e.dayKey, '2026-09-02');
-      }
-
-      final tripIds = entries
-          .map((e) => e.loadingSheetTrips!.first.tripId)
-          .toSet();
-      expect(tripIds, containsAll(['STOCKS 1', 'STOCKS 2', 'BLOEM']));
-
-      // New entries back-reference their own id.
-      for (final e in entries.where((e) => e.id != 'squashed')) {
-        expect(e.loadingSheetTrips!.first.entryId, e.id);
-      }
-    });
-
-    test('dedupe is scoped per day: same tripId on different days survives', () async {
-      await DatabaseService.insertOrUpdateEntry(
-        _entry(
-          id: 'day1_old',
-          title: 'STOCKS 1',
-          dayKey: '2026-09-01',
-          updatedAt: 1000,
-          loadingSheetTrips: [_trip(id: 'a', tripId: 'STOCKS 1', quantityLoaded: 10)],
-        ),
-      );
-      await DatabaseService.insertOrUpdateEntry(
-        _entry(
-          id: 'day2',
+    test(
+      'splits squashed multi-trip entries into one entry per truck',
+      () async {
+        final squashed = _entry(
+          id: 'squashed',
           title: 'STOCKS 1',
           dayKey: '2026-09-02',
-          updatedAt: 2000,
-          loadingSheetTrips: [_trip(id: 'b', tripId: 'STOCKS 1', quantityLoaded: 20)],
-        ),
-      );
-      await DatabaseService.insertOrUpdateEntry(
-        _entry(
-          id: 'day1_new',
-          title: 'STOCKS 1',
-          dayKey: '2026-09-01',
-          updatedAt: 3000,
           loadingSheetTrips: [
-            _trip(
-              id: 'c',
-              tripId: 'STOCKS 1',
-              quantityLoaded: 30,
-              ibtDocuments: const [
-                IbtDocument(documentNo: 'IBT-1', total: 30, lineItems: []),
-              ],
-            ),
+            _trip(id: 't1', tripId: 'STOCKS 1', quantityLoaded: 40),
+            _trip(id: 't2', tripId: 'STOCKS 2', quantityLoaded: 25),
+            _trip(id: 't3', tripId: 'BLOEM', quantityLoaded: 12),
           ],
-        ),
-      );
+        );
+        await DatabaseService.insertOrUpdateEntry(squashed);
 
-      await MigrationService.runIfNeeded();
+        await MigrationService.runIfNeeded();
 
-      final live = await DatabaseService.getAllEntries();
-      // day1_old merged into day1_new (same day), day2 untouched.
-      expect(live.length, 2);
-      final ids = live.map((e) => e.id).toSet();
-      expect(ids, contains('day1_new'));
-      expect(ids, contains('day2'));
+        final entries = await DatabaseService.getAllEntries();
+        expect(entries.length, 3);
 
-      final tombstones = await DatabaseService.getAllTombstonedEntries();
-      expect(tombstones.map((e) => e.id), contains('day1_old'));
+        for (final e in entries) {
+          expect(e.loadingSheetTrips!.length, 1);
+          expect(e.dayKey, '2026-09-02');
+        }
 
-      // Winner kept the richer trip (IBT docs) and merged nothing away.
-      final winner = live.firstWhere((e) => e.id == 'day1_new');
-      expect(winner.loadingSheetTrips!.first.ibtDocuments, isNotNull);
-    });
+        final tripIds = entries
+            .map((e) => e.loadingSheetTrips!.first.tripId)
+            .toSet();
+        expect(tripIds, containsAll(['STOCKS 1', 'STOCKS 2', 'BLOEM']));
+
+        // New entries back-reference their own id.
+        for (final e in entries.where((e) => e.id != 'squashed')) {
+          expect(e.loadingSheetTrips!.first.entryId, e.id);
+        }
+      },
+    );
+
+    test(
+      'dedupe is scoped per day: same tripId on different days survives',
+      () async {
+        await DatabaseService.insertOrUpdateEntry(
+          _entry(
+            id: 'day1_old',
+            title: 'STOCKS 1',
+            dayKey: '2026-09-01',
+            updatedAt: 1000,
+            loadingSheetTrips: [
+              _trip(id: 'a', tripId: 'STOCKS 1', quantityLoaded: 10),
+            ],
+          ),
+        );
+        await DatabaseService.insertOrUpdateEntry(
+          _entry(
+            id: 'day2',
+            title: 'STOCKS 1',
+            dayKey: '2026-09-02',
+            updatedAt: 2000,
+            loadingSheetTrips: [
+              _trip(id: 'b', tripId: 'STOCKS 1', quantityLoaded: 20),
+            ],
+          ),
+        );
+        await DatabaseService.insertOrUpdateEntry(
+          _entry(
+            id: 'day1_new',
+            title: 'STOCKS 1',
+            dayKey: '2026-09-01',
+            updatedAt: 3000,
+            loadingSheetTrips: [
+              _trip(
+                id: 'c',
+                tripId: 'STOCKS 1',
+                quantityLoaded: 30,
+                ibtDocuments: const [
+                  IbtDocument(documentNo: 'IBT-1', total: 30, lineItems: []),
+                ],
+              ),
+            ],
+          ),
+        );
+
+        await MigrationService.runIfNeeded();
+
+        final live = await DatabaseService.getAllEntries();
+        // day1_old merged into day1_new (same day), day2 untouched.
+        expect(live.length, 2);
+        final ids = live.map((e) => e.id).toSet();
+        expect(ids, contains('day1_new'));
+        expect(ids, contains('day2'));
+
+        final tombstones = await DatabaseService.getAllTombstonedEntries();
+        expect(tombstones.map((e) => e.id), contains('day1_old'));
+
+        // Winner kept the richer trip (IBT docs) and merged nothing away.
+        final winner = live.firstWhere((e) => e.id == 'day1_new');
+        expect(winner.loadingSheetTrips!.first.ibtDocuments, isNotNull);
+      },
+    );
 
     test('never touches tombstoned entries (no resurrection)', () async {
       final squashed = _entry(
@@ -190,7 +200,12 @@ void main() {
           dayKey: '2026-09-02',
           updatedAt: 1000,
           loadingSheetTrips: [
-            _trip(id: 'ma', tripId: 'CASH SALE', quantityLoaded: 4, isManual: true),
+            _trip(
+              id: 'ma',
+              tripId: 'CASH SALE',
+              quantityLoaded: 4,
+              isManual: true,
+            ),
           ],
         ),
       );
@@ -201,7 +216,12 @@ void main() {
           dayKey: '2026-09-02',
           updatedAt: 2000,
           loadingSheetTrips: [
-            _trip(id: 'mb', tripId: 'CASH SALE', quantityLoaded: 6, isManual: true),
+            _trip(
+              id: 'mb',
+              tripId: 'CASH SALE',
+              quantityLoaded: 6,
+              isManual: true,
+            ),
           ],
         ),
       );
@@ -216,20 +236,26 @@ void main() {
 
     test('runs only once (flag persisted)', () async {
       await MigrationService.runIfNeeded();
-      expect(await DatabaseService.getSetting('migration_ungroup_dedupe_v1'), '1');
+      expect(
+        await DatabaseService.getSetting('migration_ungroup_dedupe_v1'),
+        '1',
+      );
     });
   });
 
   group('SupabaseService.formatEntryPayload tombstone invariant', () {
-    test('live payload omits deleted_at so stale pushes cannot clear tombstones', () {
-      final entry = _entry(
-        id: 'live',
-        title: 'STOCKS 1',
-        dayKey: '2026-09-02',
-      );
-      final payload = SupabaseService.formatEntryPayload(entry, 'user-1');
-      expect(payload.containsKey('deleted_at'), isFalse);
-    });
+    test(
+      'live payload omits deleted_at so stale pushes cannot clear tombstones',
+      () {
+        final entry = _entry(
+          id: 'live',
+          title: 'STOCKS 1',
+          dayKey: '2026-09-02',
+        );
+        final payload = SupabaseService.formatEntryPayload(entry, 'user-1');
+        expect(payload.containsKey('deleted_at'), isFalse);
+      },
+    );
 
     test('tombstone payload always carries deleted_at', () {
       final entry = _entry(

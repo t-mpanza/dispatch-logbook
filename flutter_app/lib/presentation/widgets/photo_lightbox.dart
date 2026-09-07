@@ -32,7 +32,13 @@ class PhotoLightbox extends StatefulWidget {
   }) {
     AppHaptics.light();
     final photoList = allAttachments != null && allAttachments.isNotEmpty
-        ? allAttachments.where((a) => a.kind == AttachmentKind.photo || a.kind == AttachmentKind.image).toList()
+        ? allAttachments
+              .where(
+                (a) =>
+                    a.kind == AttachmentKind.photo ||
+                    a.kind == AttachmentKind.image,
+              )
+              .toList()
         : [attachment];
 
     final idx = photoList.indexWhere((a) => a.id == attachment.id);
@@ -99,7 +105,9 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
     if (idx < 0 || idx >= widget.attachments.length) return;
     final att = widget.attachments[idx];
 
-    if (_providerCache.containsKey(att.id) || _loadingIds.contains(att.id)) return;
+    if (_providerCache.containsKey(att.id) || _loadingIds.contains(att.id)) {
+      return;
+    }
 
     setState(() => _loadingIds.add(att.id));
 
@@ -169,7 +177,9 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
     final url = _resolveImageUrl(att);
     if (url != null) {
       try {
-        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 10));
         if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
           final bytes = response.bodyBytes;
           _bytesCache[att.id] = bytes;
@@ -218,7 +228,9 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
   void _showEditCaptionSheet() {
     AppHaptics.light();
     final att = _currentAttachment;
-    final ctrl = TextEditingController(text: _captionCache[att.id] ?? att.caption ?? '');
+    final ctrl = TextEditingController(
+      text: _captionCache[att.id] ?? att.caption ?? '',
+    );
 
     showModalBottomSheet(
       context: context,
@@ -257,7 +269,11 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.subtitles_rounded, color: AppColors.primaryGlow, size: 20),
+                        Icon(
+                          Icons.subtitles_rounded,
+                          color: AppColors.primaryGlow,
+                          size: 20,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'Edit Photo Caption',
@@ -270,7 +286,10 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: AppColors.textMuted,
+                      ),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -279,7 +298,10 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
 
                 // Caption Input
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(14),
@@ -290,10 +312,17 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                     autofocus: true,
                     maxLines: 3,
                     minLines: 1,
-                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                    ),
                     decoration: const InputDecoration(
-                      hintText: 'e.g. Broken rim on trailer 2, tyre barcode #4912',
-                      hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                      hintText:
+                          'e.g. Broken rim on trailer 2, tyre barcode #4912',
+                      hintStyle: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 13,
+                      ),
                       border: InputBorder.none,
                     ),
                   ),
@@ -325,7 +354,10 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                         }
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.glassSurfaceElevated,
                           borderRadius: BorderRadius.circular(8),
@@ -354,7 +386,10 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                           AppHaptics.light();
                           ctrl.clear();
                         },
-                        child: const Text('Clear', style: TextStyle(color: AppColors.error)),
+                        child: const Text(
+                          'Clear',
+                          style: TextStyle(color: AppColors.error),
+                        ),
                       ),
                     const Spacer(),
                     ElevatedButton(
@@ -369,7 +404,9 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                           }
                         });
 
-                        final updated = att.copyWith(caption: newCap.isNotEmpty ? newCap : null);
+                        final updated = att.copyWith(
+                          caption: newCap.isNotEmpty ? newCap : null,
+                        );
                         if (widget.onUpdateAttachment != null) {
                           widget.onUpdateAttachment!(updated);
                         }
@@ -378,10 +415,21 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text('Save Caption', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'Save Caption',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -397,15 +445,13 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
     AppHaptics.light();
     final att = _currentAttachment;
     final bytes = _bytesCache[att.id] ?? att.bytes;
-    final captionText = _captionCache[att.id] ?? att.caption ?? att.name ?? 'Inspection photo';
+    final captionText =
+        _captionCache[att.id] ?? att.caption ?? att.name ?? 'Inspection photo';
 
     try {
       if (att.localFilePath != null && File(att.localFilePath!).existsSync()) {
         await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(att.localFilePath!)],
-            text: captionText,
-          ),
+          ShareParams(files: [XFile(att.localFilePath!)], text: captionText),
         );
         return;
       }
@@ -415,10 +461,7 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
         final shareFile = File('${tempDir.path}/share_${att.id}.jpg');
         await shareFile.writeAsBytes(bytes);
         await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(shareFile.path)],
-            text: captionText,
-          ),
+          ShareParams(files: [XFile(shareFile.path)], text: captionText),
         );
         return;
       }
@@ -426,14 +469,17 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
       final url = _resolveImageUrl(att);
       if (url != null) {
         await SharePlus.instance.share(
-          ShareParams(text: '$captionText\n$url', subject: att.name ?? 'Inspection photo'),
+          ShareParams(
+            text: '$captionText\n$url',
+            subject: att.name ?? 'Inspection photo',
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share photo: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not share photo: $e')));
       }
     }
   }
@@ -486,7 +532,9 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
 
               if (isLoading) {
                 return const Center(
-                  child: CircularProgressIndicator(color: AppColors.primaryGlow),
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryGlow,
+                  ),
                 );
               }
 
@@ -502,7 +550,9 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                 heroAttributes: PhotoViewHeroAttributes(tag: itemAtt.id),
                 backgroundDecoration: const BoxDecoration(color: Colors.black),
                 loadingBuilder: (context, event) => const Center(
-                  child: CircularProgressIndicator(color: AppColors.primaryGlow),
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryGlow,
+                  ),
                 ),
                 errorBuilder: (context, error, stackTrace) =>
                     _buildMissingBucketGuidance(itemAtt),
@@ -515,7 +565,7 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                     1.4, 0, 0, 0, 30, // Red
                     0, 1.4, 0, 0, 30, // Green
                     0, 0, 1.4, 0, 30, // Blue
-                    0, 0, 0, 1, 0,    // Alpha
+                    0, 0, 0, 1, 0, // Alpha
                   ]),
                   child: imageWidget,
                 );
@@ -540,7 +590,10 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
             right: 0,
             child: SafeArea(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -551,7 +604,11 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 4),
@@ -582,8 +639,12 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                     ),
                     IconButton(
                       icon: Icon(
-                        _showMetadata ? Icons.info_rounded : Icons.info_outline_rounded,
-                        color: _showMetadata ? AppColors.primaryGlow : Colors.white,
+                        _showMetadata
+                            ? Icons.info_rounded
+                            : Icons.info_outline_rounded,
+                        color: _showMetadata
+                            ? AppColors.primaryGlow
+                            : Colors.white,
                         size: 22,
                       ),
                       onPressed: () {
@@ -592,7 +653,11 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                       },
                     ),
                     IconButton(
-                      icon: const Icon(Icons.share_rounded, color: Colors.white, size: 22),
+                      icon: const Icon(
+                        Icons.share_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
                       onPressed: _handleSharePhoto,
                     ),
                   ],
@@ -610,7 +675,10 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
               child: GestureDetector(
                 onTap: _showEditCaptionSheet,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xDD13151F),
                     borderRadius: BorderRadius.circular(16),
@@ -620,7 +688,11 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                           : Colors.white.withValues(alpha: 0.15),
                     ),
                     boxShadow: const [
-                      BoxShadow(color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
+                      BoxShadow(
+                        color: Colors.black54,
+                        blurRadius: 16,
+                        offset: Offset(0, 4),
+                      ),
                     ],
                   ),
                   child: Row(
@@ -630,7 +702,8 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                             ? Icons.chat_bubble_outline_rounded
                             : Icons.add_comment_outlined,
                         size: 16,
-                        color: currentCaption != null && currentCaption.isNotEmpty
+                        color:
+                            currentCaption != null && currentCaption.isNotEmpty
                             ? AppColors.primaryGlow
                             : Colors.white70,
                       ),
@@ -642,18 +715,28 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                               : 'Tap to add a caption (e.g. barcode, damage, tyre serial)...',
                           style: TextStyle(
                             fontSize: 12,
-                            color: currentCaption != null && currentCaption.isNotEmpty
+                            color:
+                                currentCaption != null &&
+                                    currentCaption.isNotEmpty
                                 ? Colors.white
                                 : Colors.white60,
-                            fontStyle: currentCaption == null ? FontStyle.italic : FontStyle.normal,
-                            fontWeight: currentCaption != null ? FontWeight.w600 : FontWeight.normal,
+                            fontStyle: currentCaption == null
+                                ? FontStyle.italic
+                                : FontStyle.normal,
+                            fontWeight: currentCaption != null
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Icon(Icons.edit_rounded, size: 14, color: AppColors.primaryGlow),
+                      const Icon(
+                        Icons.edit_rounded,
+                        size: 14,
+                        color: AppColors.primaryGlow,
+                      ),
                     ],
                   ),
                 ),
@@ -668,13 +751,22 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
             right: 20,
             child: SafeArea(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xCC13151F),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.15),
+                  ),
                   boxShadow: const [
-                    BoxShadow(color: Colors.black54, blurRadius: 20, offset: Offset(0, 6)),
+                    BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 20,
+                      offset: Offset(0, 6),
+                    ),
                   ],
                 ),
                 child: Row(
@@ -684,7 +776,8 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                     _buildMediaActionButton(
                       icon: Icons.subtitles_rounded,
                       label: 'Caption',
-                      isActive: currentCaption != null && currentCaption.isNotEmpty,
+                      isActive:
+                          currentCaption != null && currentCaption.isNotEmpty,
                       onTap: _showEditCaptionSheet,
                     ),
 
@@ -698,7 +791,9 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
 
                     // Brightness / Warehouse Night Booster
                     _buildMediaActionButton(
-                      icon: _isBrightnessBoosted ? Icons.wb_sunny_rounded : Icons.wb_sunny_outlined,
+                      icon: _isBrightnessBoosted
+                          ? Icons.wb_sunny_rounded
+                          : Icons.wb_sunny_outlined,
                       label: _isBrightnessBoosted ? 'Boost: ON' : 'Exposure',
                       isActive: _isBrightnessBoosted,
                       activeColor: Colors.amber,
@@ -728,7 +823,9 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                 decoration: BoxDecoration(
                   color: const Color(0xEE1E2330),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: AppColors.primaryGlow.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -736,7 +833,11 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.perm_media_rounded, size: 14, color: AppColors.primaryGlow),
+                        Icon(
+                          Icons.perm_media_rounded,
+                          size: 14,
+                          color: AppColors.primaryGlow,
+                        ),
                         SizedBox(width: 6),
                         Text(
                           'ATTACHMENT METADATA',
@@ -753,11 +854,24 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
                     _buildMetaRow('File Name', att.name ?? 'Unnamed'),
                     if (currentCaption != null && currentCaption.isNotEmpty)
                       _buildMetaRow('Caption', currentCaption),
-                    _buildMetaRow('Logged At', DateTime.fromMillisecondsSinceEpoch(att.createdAt).toLocal().toString()),
-                    _buildMetaRow('Local Cache', att.localFilePath != null ? 'Permanent on device' : 'In-memory / Cloud'),
+                    _buildMetaRow(
+                      'Logged At',
+                      DateTime.fromMillisecondsSinceEpoch(
+                        att.createdAt,
+                      ).toLocal().toString(),
+                    ),
+                    _buildMetaRow(
+                      'Local Cache',
+                      att.localFilePath != null
+                          ? 'Permanent on device'
+                          : 'In-memory / Cloud',
+                    ),
                     _buildMetaRow('MIME Type', att.mime),
                     if (_bytesCache[att.id] != null)
-                      _buildMetaRow('File Size', '${(_bytesCache[att.id]!.lengthInBytes / 1024).toStringAsFixed(1)} KB'),
+                      _buildMetaRow(
+                        'File Size',
+                        '${(_bytesCache[att.id]!.lengthInBytes / 1024).toStringAsFixed(1)} KB',
+                      ),
                   ],
                 ),
               ),
@@ -774,7 +888,9 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
     bool isActive = false,
     Color? activeColor,
   }) {
-    final color = isActive ? (activeColor ?? AppColors.primaryGlow) : Colors.white70;
+    final color = isActive
+        ? (activeColor ?? AppColors.primaryGlow)
+        : Colors.white70;
 
     return GestureDetector(
       onTap: onTap,
@@ -843,7 +959,11 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_rounded, size: 44, color: AppColors.warning),
+              const Icon(
+                Icons.cloud_off_rounded,
+                size: 44,
+                color: AppColors.warning,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'Media Not in Local Cache',
@@ -856,24 +976,46 @@ class _PhotoLightboxState extends State<PhotoLightbox> {
               const SizedBox(height: 8),
               const Text(
                 'This photo was saved prior to v2.0.49 and the remote Supabase project does not have the public "attachments" storage bucket enabled.',
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.4),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                  height: 1.4,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () async {
-                  final uri = Uri.parse('https://supabase.com/dashboard/project/glxxawxuwusxwjvezugo/storage/buckets');
+                  final uri = Uri.parse(
+                    'https://supabase.com/dashboard/project/glxxawxuwusxwjvezugo/storage/buckets',
+                  );
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri, mode: LaunchMode.externalApplication);
                   }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                icon: const Icon(Icons.open_in_new_rounded, size: 16, color: Colors.white),
-                label: const Text('Open Supabase Storage Page', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                label: const Text(
+                  'Open Supabase Storage Page',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
               ),
             ],
           ),

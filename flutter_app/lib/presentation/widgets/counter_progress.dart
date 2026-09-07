@@ -12,7 +12,8 @@ class CounterProgress extends StatelessWidget {
   final String? driverName;
   final String? tripTitle;
   final Function(int?) onSetExpected;
-  final Function(String? reg, String? driver, int? target)? onUpdateTruckDetails;
+  final Function(String? reg, String? driver, int? target)?
+  onUpdateTruckDetails;
 
   const CounterProgress({
     super.key,
@@ -54,14 +55,21 @@ class CounterProgress extends StatelessWidget {
     final isOver = hasTarget && total > expectedTotal!;
     final overCount = isOver ? total - expectedTotal! : 0;
     final isComplete = hasTarget && total == expectedTotal!;
-    final pct = hasTarget && expectedTotal! > 0 ? (total / expectedTotal!).clamp(0.0, 1.0) : 0.0;
+    final pct = hasTarget && expectedTotal! > 0
+        ? (total / expectedTotal!).clamp(0.0, 1.0)
+        : 0.0;
     final pctText = hasTarget ? '${(pct * 100).toStringAsFixed(0)}%' : null;
 
-    final hasTruck = (truckReg != null && truckReg!.isNotEmpty) || (driverName != null && driverName!.isNotEmpty);
+    final hasTruck =
+        (truckReg != null && truckReg!.isNotEmpty) ||
+        (driverName != null && driverName!.isNotEmpty);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: GlassDecorations.glassElevated(context: context, borderRadius: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: GlassDecorations.glassElevated(
+        context: context,
+        borderRadius: 22,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -82,13 +90,17 @@ class CounterProgress extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15),
+                          color: AppColors.primary.withValues(
+                            alpha: isLight ? 0.12 : 0.15,
+                          ),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Icon(
                           Icons.local_shipping_rounded,
                           size: 12,
-                          color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                          color: isLight
+                              ? AppColors.primary
+                              : AppColors.primaryGlow,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -98,7 +110,7 @@ class CounterProgress extends StatelessWidget {
                               ? '${tripTitle != null && tripTitle!.isNotEmpty ? "$tripTitle • " : ""}${truckReg?.isNotEmpty == true ? truckReg : "NO REG"}${driverName?.isNotEmpty == true ? " ($driverName)" : ""}'
                               : (tripTitle ?? 'Tap to assign truck'),
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppColors.dynamicTextPrimary(context),
                           ),
@@ -107,7 +119,11 @@ class CounterProgress extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.edit_outlined, size: 12, color: AppColors.dynamicTextMuted(context)),
+                      Icon(
+                        Icons.edit_outlined,
+                        size: 12,
+                        color: AppColors.dynamicTextMuted(context),
+                      ),
                     ],
                   ),
                 ),
@@ -121,24 +137,39 @@ class CounterProgress extends StatelessWidget {
                   _showEditDetailsDialog(context);
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: isComplete
                         ? AppColors.success.withValues(alpha: 0.15)
                         : (isOver
-                            ? AppColors.warning.withValues(alpha: 0.15)
-                            : (hasTarget
-                                ? AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15)
-                                : (isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurface))),
+                              ? AppColors.warning.withValues(alpha: 0.15)
+                              : (hasTarget
+                                    ? AppColors.primary.withValues(
+                                        alpha: isLight ? 0.12 : 0.15,
+                                      )
+                                    : (isLight
+                                          ? const Color(0xFFF1F5F9)
+                                          : AppColors.glassSurface))),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isComplete
                           ? AppColors.success.withValues(alpha: 0.4)
                           : (isOver
-                              ? AppColors.warning.withValues(alpha: 0.4)
-                              : (hasTarget
-                                  ? (isLight ? AppColors.primary.withValues(alpha: 0.4) : AppColors.primaryGlow.withValues(alpha: 0.4))
-                                  : (isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder))),
+                                ? AppColors.warning.withValues(alpha: 0.4)
+                                : (hasTarget
+                                      ? (isLight
+                                            ? AppColors.primary.withValues(
+                                                alpha: 0.4,
+                                              )
+                                            : AppColors.primaryGlow.withValues(
+                                                alpha: 0.4,
+                                              ))
+                                      : (isLight
+                                            ? const Color(0xFFCBD5E1)
+                                            : AppColors.glassBorder))),
                     ),
                   ),
                   child: Row(
@@ -148,34 +179,44 @@ class CounterProgress extends StatelessWidget {
                         isComplete
                             ? Icons.check_circle_rounded
                             : (isOver
-                                ? Icons.warning_amber_rounded
-                                : (hasTarget ? Icons.hourglass_bottom_rounded : Icons.track_changes)),
+                                  ? Icons.warning_amber_rounded
+                                  : (hasTarget
+                                        ? Icons.hourglass_bottom_rounded
+                                        : Icons.track_changes)),
                         size: 11,
                         color: isComplete
                             ? AppColors.success
                             : (isOver
-                                ? AppColors.warning
-                                : (hasTarget
-                                    ? (isLight ? AppColors.primary : AppColors.primaryGlow)
-                                    : AppColors.dynamicTextMuted(context))),
+                                  ? AppColors.warning
+                                  : (hasTarget
+                                        ? (isLight
+                                              ? AppColors.primary
+                                              : AppColors.primaryGlow)
+                                        : AppColors.dynamicTextMuted(context))),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         isComplete
                             ? 'LOAD COMPLETE'
                             : (isOver
-                                ? '+$overCount OVER'
-                                : (hasTarget ? '$remaining LEFT' : '+ Set Target')),
+                                  ? '+$overCount OVER'
+                                  : (hasTarget
+                                        ? '$remaining LEFT'
+                                        : '+ Set Target')),
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 13,
                           fontWeight: FontWeight.w900,
                           color: isComplete
                               ? AppColors.success
                               : (isOver
-                                  ? AppColors.warning
-                                  : (hasTarget
-                                      ? (isLight ? AppColors.primary : AppColors.primaryGlow)
-                                      : AppColors.dynamicTextMuted(context))),
+                                    ? AppColors.warning
+                                    : (hasTarget
+                                          ? (isLight
+                                                ? AppColors.primary
+                                                : AppColors.primaryGlow)
+                                          : AppColors.dynamicTextMuted(
+                                              context,
+                                            ))),
                           fontFamily: 'monospace',
                         ),
                       ),
@@ -195,11 +236,11 @@ class CounterProgress extends StatelessWidget {
               Text(
                 '$total',
                 style: TextStyle(
-                  fontSize: 26,
+                  fontSize: 40,
                   fontWeight: FontWeight.w900,
                   color: isLight ? AppColors.primary : AppColors.primaryGlow,
                   fontFamily: 'monospace',
-                  letterSpacing: -0.5,
+                  letterSpacing: -1.0,
                   height: 1.0,
                 ),
               ),
@@ -207,7 +248,7 @@ class CounterProgress extends StatelessWidget {
                 Text(
                   ' / $expectedTotal',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: AppColors.dynamicTextMuted(context),
                     fontFamily: 'monospace',
@@ -217,7 +258,7 @@ class CounterProgress extends StatelessWidget {
               Text(
                 'tyres',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: AppColors.dynamicTextMuted(context),
                 ),
@@ -231,7 +272,9 @@ class CounterProgress extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: isComplete
                         ? AppColors.success
-                        : (isOver ? AppColors.warning : AppColors.dynamicTextSecondary(context)),
+                        : (isOver
+                              ? AppColors.warning
+                              : AppColors.dynamicTextSecondary(context)),
                     fontFamily: 'monospace',
                   ),
                 )
@@ -250,15 +293,21 @@ class CounterProgress extends StatelessWidget {
 
           // Mini High-Precision Gradient Progress Bar
           ClipRRect(
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: hasTarget ? pct : 0.0,
-              minHeight: 3.5,
-              backgroundColor: isLight ? const Color(0xFFE2E8F0) : Colors.white.withValues(alpha: 0.06),
+              minHeight: 9,
+              backgroundColor: isLight
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.06),
               valueColor: AlwaysStoppedAnimation<Color>(
                 isComplete
                     ? AppColors.success
-                    : (isOver ? AppColors.warning : (isLight ? AppColors.primary : AppColors.primaryGlow)),
+                    : (isOver
+                          ? AppColors.warning
+                          : (isLight
+                                ? AppColors.primary
+                                : AppColors.primaryGlow)),
               ),
             ),
           ),
@@ -282,7 +331,8 @@ class _TruckTargetBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<_TruckTargetBottomSheet> createState() => _TruckTargetBottomSheetState();
+  State<_TruckTargetBottomSheet> createState() =>
+      _TruckTargetBottomSheetState();
 }
 
 class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
@@ -295,7 +345,16 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
   Timer? _repeatInterval;
 
   static const List<int> _quickIncrements = [1, 5, 10, 20, 50];
-  static const List<int> _capacityPresets = [60, 100, 150, 200, 250, 300, 400, 500];
+  static const List<int> _capacityPresets = [
+    60,
+    100,
+    150,
+    200,
+    250,
+    300,
+    400,
+    500,
+  ];
 
   @override
   void initState() {
@@ -303,7 +362,9 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
     _regCtrl = TextEditingController(text: widget.initialReg ?? '');
     _driverCtrl = TextEditingController(text: widget.initialDriver ?? '');
     _targetValue = widget.initialTarget ?? 0;
-    _targetCtrl = TextEditingController(text: _targetValue > 0 ? '$_targetValue' : '');
+    _targetCtrl = TextEditingController(
+      text: _targetValue > 0 ? '$_targetValue' : '',
+    );
   }
 
   void _stopRepeat() {
@@ -315,7 +376,11 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
     final reg = _regCtrl.text.trim().toUpperCase();
     final driver = _driverCtrl.text.trim();
     final target = _targetValue > 0 ? _targetValue : null;
-    widget.onSave(reg.isNotEmpty ? reg : null, driver.isNotEmpty ? driver : null, target);
+    widget.onSave(
+      reg.isNotEmpty ? reg : null,
+      driver.isNotEmpty ? driver : null,
+      target,
+    );
   }
 
   void _startRepeat(VoidCallback action) {
@@ -382,7 +447,9 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isLight ? const Color(0xFFCBD5E1) : Colors.white.withValues(alpha: 0.2),
+                  color: isLight
+                      ? const Color(0xFFCBD5E1)
+                      : Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -402,7 +469,10 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close_rounded, color: AppColors.dynamicTextMuted(context)),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: AppColors.dynamicTextMuted(context),
+                  ),
                   onPressed: () {
                     _triggerAutoSave();
                     Navigator.pop(context);
@@ -462,14 +532,22 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurfaceElevated,
+                      color: isLight
+                          ? const Color(0xFFF1F5F9)
+                          : AppColors.glassSurfaceElevated,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder,
+                        color: isLight
+                            ? const Color(0xFFCBD5E1)
+                            : AppColors.glassBorder,
                       ),
                     ),
                     child: Center(
-                      child: Icon(Icons.remove_rounded, color: AppColors.dynamicTextPrimary(context), size: 20),
+                      child: Icon(
+                        Icons.remove_rounded,
+                        color: AppColors.dynamicTextPrimary(context),
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
@@ -480,10 +558,14 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                   child: Container(
                     height: 44,
                     decoration: BoxDecoration(
-                      color: isLight ? const Color(0xFFF8FAFC) : Colors.black.withValues(alpha: 0.35),
+                      color: isLight
+                          ? const Color(0xFFF8FAFC)
+                          : Colors.black.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder,
+                        color: isLight
+                            ? const Color(0xFFCBD5E1)
+                            : AppColors.glassBorder,
                       ),
                     ),
                     child: TextField(
@@ -493,12 +575,17 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
-                        color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                        color: isLight
+                            ? AppColors.primary
+                            : AppColors.primaryGlow,
                         fontFamily: 'monospace',
                       ),
                       decoration: InputDecoration(
                         hintText: '0',
-                        hintStyle: TextStyle(color: AppColors.dynamicTextMuted(context), fontSize: 16),
+                        hintStyle: TextStyle(
+                          color: AppColors.dynamicTextMuted(context),
+                          fontSize: 16,
+                        ),
                         contentPadding: EdgeInsets.zero,
                         border: InputBorder.none,
                       ),
@@ -521,14 +608,22 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurfaceElevated,
+                      color: isLight
+                          ? const Color(0xFFF1F5F9)
+                          : AppColors.glassSurfaceElevated,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder,
+                        color: isLight
+                            ? const Color(0xFFCBD5E1)
+                            : AppColors.glassBorder,
                       ),
                     ),
                     child: Center(
-                      child: Icon(Icons.add_rounded, color: AppColors.dynamicTextPrimary(context), size: 20),
+                      child: Icon(
+                        Icons.add_rounded,
+                        color: AppColors.dynamicTextPrimary(context),
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
@@ -553,16 +648,21 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                   child: Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: GestureDetector(
-                      onTapDown: (_) => _startRepeat(() => _incrementTarget(inc)),
+                      onTapDown: (_) =>
+                          _startRepeat(() => _incrementTarget(inc)),
                       onTapUp: (_) => _stopRepeat(),
                       onTapCancel: _stopRepeat,
                       child: Container(
                         height: 36,
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: isLight ? 0.1 : 0.12),
+                          color: AppColors.primary.withValues(
+                            alpha: isLight ? 0.1 : 0.12,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isLight ? AppColors.primary.withValues(alpha: 0.3) : AppColors.primaryGlow.withValues(alpha: 0.3),
+                            color: isLight
+                                ? AppColors.primary.withValues(alpha: 0.3)
+                                : AppColors.primaryGlow.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Center(
@@ -571,7 +671,9 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w900,
-                              color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                              color: isLight
+                                  ? AppColors.primary
+                                  : AppColors.primaryGlow,
                               fontFamily: 'monospace',
                             ),
                           ),
@@ -606,16 +708,27 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                     _setTarget(qty);
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary.withValues(alpha: isLight ? 0.2 : 0.3)
-                          : (isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurfaceElevated),
+                          ? AppColors.primary.withValues(
+                              alpha: isLight ? 0.2 : 0.3,
+                            )
+                          : (isLight
+                                ? const Color(0xFFF1F5F9)
+                                : AppColors.glassSurfaceElevated),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: isSelected
-                            ? (isLight ? AppColors.primary : AppColors.primaryGlow)
-                            : (isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder),
+                            ? (isLight
+                                  ? AppColors.primary
+                                  : AppColors.primaryGlow)
+                            : (isLight
+                                  ? const Color(0xFFCBD5E1)
+                                  : AppColors.glassBorder),
                         width: isSelected ? 1.5 : 1.0,
                       ),
                     ),
@@ -645,7 +758,10 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                       AppHaptics.light();
                       _setTarget(0);
                     },
-                    child: const Text('Clear Target', style: TextStyle(color: AppColors.error, fontSize: 12)),
+                    child: const Text(
+                      'Clear Target',
+                      style: TextStyle(color: AppColors.error, fontSize: 12),
+                    ),
                   ),
                 const Spacer(),
                 ElevatedButton(
@@ -656,10 +772,21 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Save Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Save Details',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -695,7 +822,9 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: isLight ? const Color(0xFFF8FAFC) : Colors.black.withValues(alpha: 0.3),
+            color: isLight
+                ? const Color(0xFFF8FAFC)
+                : Colors.black.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder,
@@ -704,7 +833,9 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
           child: Center(
             child: TextField(
               controller: controller,
-              textCapitalization: isCaps ? TextCapitalization.characters : TextCapitalization.words,
+              textCapitalization: isCaps
+                  ? TextCapitalization.characters
+                  : TextCapitalization.words,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
@@ -713,7 +844,10 @@ class _TruckTargetBottomSheetState extends State<_TruckTargetBottomSheet> {
               ),
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle: TextStyle(color: AppColors.dynamicTextMuted(context), fontSize: 12),
+                hintStyle: TextStyle(
+                  color: AppColors.dynamicTextMuted(context),
+                  fontSize: 12,
+                ),
                 contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
                 isDense: true,

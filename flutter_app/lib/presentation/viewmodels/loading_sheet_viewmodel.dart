@@ -59,25 +59,31 @@ class LoadingSheetViewModel extends ChangeNotifier {
         result.addAll(trips);
       } else if (e.trips != null && e.trips!.isNotEmpty) {
         // Synthesize loading sheet trip from counter trips, carrying expectedTotal as target.
-        final totalQty = e.trips!.fold<int>(0, (s, t) => s + t.count + (t.rejected ?? 0));
-        final sorted = [...e.trips!]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        final totalQty = e.trips!.fold<int>(
+          0,
+          (s, t) => s + t.count + (t.rejected ?? 0),
+        );
+        final sorted = [...e.trips!]
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
         final start = sorted.first.createdAt;
         final finish = sorted.last.createdAt;
         final dur = ((finish - start) / (1000 * 60)).round();
 
-        result.add(LoadingSheetTrip(
-          id: e.id,
-          entryId: e.id,
-          reg: '',
-          driverName: '',
-          tripId: e.title.isNotEmpty ? e.title : 'Truck Load',
-          quantityLoaded: totalQty,
-          targetQuantity: e.expectedTotal,
-          startTime: start,
-          finishTime: finish,
-          durationMinutes: dur > 0 ? dur : 1,
-          createdAt: start,
-        ));
+        result.add(
+          LoadingSheetTrip(
+            id: e.id,
+            entryId: e.id,
+            reg: '',
+            driverName: '',
+            tripId: e.title.isNotEmpty ? e.title : 'Truck Load',
+            quantityLoaded: totalQty,
+            targetQuantity: e.expectedTotal,
+            startTime: start,
+            finishTime: finish,
+            durationMinutes: dur > 0 ? dur : 1,
+            createdAt: start,
+          ),
+        );
       }
     }
 
@@ -120,7 +126,9 @@ class LoadingSheetViewModel extends ChangeNotifier {
     final dayEntries = await getDayEntries();
     for (final e in dayEntries) {
       if (e.loadingSheetTrips != null) {
-        final idx = e.loadingSheetTrips!.indexWhere((t) => t.id == updatedTrip.id);
+        final idx = e.loadingSheetTrips!.indexWhere(
+          (t) => t.id == updatedTrip.id,
+        );
         if (idx >= 0) {
           final previous = e.loadingSheetTrips![idx];
           final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -211,8 +219,14 @@ class LoadingSheetViewModel extends ChangeNotifier {
       currentDocs.add(ibtDoc);
     }
 
-    final int totalTarget = currentDocs.fold<int>(0, (int sum, IbtDocument d) => sum + d.total);
-    final int totalLoaded = currentDocs.fold<int>(0, (int sum, IbtDocument d) => sum + d.loadedTotal);
+    final int totalTarget = currentDocs.fold<int>(
+      0,
+      (int sum, IbtDocument d) => sum + d.total,
+    );
+    final int totalLoaded = currentDocs.fold<int>(
+      0,
+      (int sum, IbtDocument d) => sum + d.loadedTotal,
+    );
 
     final updatedTrip = trip.copyWith(
       ibtDocuments: currentDocs,
@@ -235,10 +249,14 @@ class LoadingSheetViewModel extends ChangeNotifier {
 
     final LoadingSheetTrip updatedTrip;
     if (filtered.isNotEmpty) {
-      final int totalTarget =
-          filtered.fold<int>(0, (int sum, IbtDocument d) => sum + d.total);
-      final int totalLoaded =
-          filtered.fold<int>(0, (int sum, IbtDocument d) => sum + d.loadedTotal);
+      final int totalTarget = filtered.fold<int>(
+        0,
+        (int sum, IbtDocument d) => sum + d.total,
+      );
+      final int totalLoaded = filtered.fold<int>(
+        0,
+        (int sum, IbtDocument d) => sum + d.loadedTotal,
+      );
       updatedTrip = trip.copyWith(
         ibtDocuments: filtered,
         targetQuantity: totalTarget > 0 ? totalTarget : null,
@@ -261,7 +279,9 @@ class LoadingSheetViewModel extends ChangeNotifier {
     final dayEntries = await getDayEntries();
     for (final e in dayEntries) {
       if (e.loadingSheetTrips != null) {
-        final filtered = e.loadingSheetTrips!.where((t) => t.id != tripId).toList();
+        final filtered = e.loadingSheetTrips!
+            .where((t) => t.id != tripId)
+            .toList();
         if (filtered.length != e.loadingSheetTrips!.length) {
           await _repository.saveEntry(e.copyWith(loadingSheetTrips: filtered));
           return;

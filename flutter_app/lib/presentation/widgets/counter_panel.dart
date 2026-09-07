@@ -257,24 +257,28 @@ class _CounterPanelState extends State<CounterPanel> {
                 onTapUp: (_) => _stopRepeat(),
                 onTapCancel: _stopRepeat,
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: AppColors.glassSurfaceElevated,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.glassBorder),
+                    color: AppColors.dynamicCardSurface(context),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.dynamicBorder(context)),
                   ),
                   child: Center(
-                    child: Icon(Icons.remove_rounded, color: AppColors.dynamicTextPrimary(context), size: 20),
+                    child: Icon(
+                      Icons.remove_rounded,
+                      color: AppColors.dynamicTextPrimary(context),
+                      size: 26,
+                    ),
                   ),
                 ),
               ),
-              SizedBox(width: 6),
+              SizedBox(width: 10),
 
               // Number Display / Input (tap to open the precise keypad)
               SizedBox(
-                width: 52,
-                height: 40,
+                width: 76,
+                height: 56,
                 child: TextField(
                   controller: _numberController,
                   keyboardType: TextInputType.number,
@@ -282,7 +286,7 @@ class _CounterPanelState extends State<CounterPanel> {
                   readOnly: true,
                   onTap: _openNumberPad,
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 26,
                     fontWeight: FontWeight.w900,
                     color: AppColors.dynamicTextPrimary(context),
                     fontFamily: 'monospace',
@@ -290,19 +294,24 @@ class _CounterPanelState extends State<CounterPanel> {
                   decoration: InputDecoration(
                     contentPadding: EdgeInsets.zero,
                     filled: true,
-                    fillColor: AppColors.glassSurfaceElevated,
+                    fillColor: AppColors.dynamicSurfaceSunk(context),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.glassBorder),
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: AppColors.dynamicBorder(context),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.primaryGlow, width: 1.5),
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.6,
+                      ),
                     ),
                   ),
                 ),
               ),
-              SizedBox(width: 6),
+              SizedBox(width: 10),
 
               // Stepper Plus
               GestureDetector(
@@ -319,19 +328,25 @@ class _CounterPanelState extends State<CounterPanel> {
                 onTapUp: (_) => _stopRepeat(),
                 onTapCancel: _stopRepeat,
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: AppColors.glassSurfaceElevated,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.glassBorder),
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.primaryGlow.withValues(alpha: 0.5),
+                    ),
                   ),
-                  child: Center(
-                    child: Icon(Icons.add_rounded, color: AppColors.dynamicTextPrimary(context), size: 20),
+                  child: const Center(
+                    child: Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 10),
 
               // Quick Add Buttons or Slip Input
               if (_tabIndex == 0)
@@ -352,19 +367,21 @@ class _CounterPanelState extends State<CounterPanel> {
                               onTapUp: (_) => _stopRepeat(),
                               onTapCancel: _stopRepeat,
                               child: Container(
-                                height: 40,
+                                height: 56,
                                 decoration: BoxDecoration(
-                                  color: AppColors.glassSurfaceElevated,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: AppColors.glassBorder),
+                                  color: AppColors.dynamicCardSurface(context),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: AppColors.dynamicBorder(context),
+                                  ),
                                 ),
                                 child: Center(
                                   child: Text(
                                     '+$n',
-                                    style: const TextStyle(
-                                      fontSize: 11,
+                                    style: TextStyle(
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w900,
-                                      color: AppColors.primaryGlow,
+                                      color: AppColors.dynamicAccent(context),
                                       fontFamily: 'monospace',
                                     ),
                                   ),
@@ -382,23 +399,30 @@ class _CounterPanelState extends State<CounterPanel> {
                     children: [
                       Expanded(
                         child: SizedBox(
-                          height: 40,
+                          height: 56,
                           child: TextField(
                             controller: _slipController,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 15,
                               color: AppColors.dynamicTextPrimary(context),
                               fontFamily: 'monospace',
                             ),
                             decoration: InputDecoration(
                               hintText: 'Slip #',
-                              hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                              hintStyle: TextStyle(
+                                color: AppColors.dynamicTextMuted(context),
+                                fontSize: 13,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               filled: true,
-                              fillColor: AppColors.glassSurfaceElevated,
+                              fillColor: AppColors.dynamicSurfaceSunk(context),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.glassBorder),
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(
+                                  color: AppColors.dynamicBorder(context),
+                                ),
                               ),
                             ),
                           ),
@@ -408,15 +432,21 @@ class _CounterPanelState extends State<CounterPanel> {
                       GestureDetector(
                         onTap: _handleCaptureSlipPhoto,
                         child: Container(
-                          width: 40,
-                          height: 40,
+                          width: 56,
+                          height: 56,
                           decoration: BoxDecoration(
                             color: AppColors.warning.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+                            border: Border.all(
+                              color: AppColors.warning.withValues(alpha: 0.4),
+                            ),
                           ),
                           child: const Center(
-                            child: Icon(Icons.camera_alt_rounded, color: AppColors.warning, size: 18),
+                            child: Icon(
+                              Icons.camera_alt_rounded,
+                              color: AppColors.warning,
+                              size: 22,
+                            ),
                           ),
                         ),
                       ),
@@ -430,16 +460,22 @@ class _CounterPanelState extends State<CounterPanel> {
           // Log Action Button
           SizedBox(
             width: double.infinity,
-            height: 42,
+            height: 56,
             child: ElevatedButton(
-              onPressed: canLog ? (_tabIndex == 0 ? _logScanned : () => _logManual()) : null,
+              onPressed: canLog
+                  ? (_tabIndex == 0 ? _logScanned : () => _logManual())
+                  : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _tabIndex == 0 ? AppColors.primary : AppColors.warning,
+                backgroundColor: _tabIndex == 0
+                    ? AppColors.primary
+                    : AppColors.warning,
                 disabledBackgroundColor: Colors.white.withValues(alpha: 0.05),
                 foregroundColor: Colors.white,
                 disabledForegroundColor: AppColors.textMuted,
                 elevation: canLog ? 6 : 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -474,21 +510,27 @@ class _CounterPanelState extends State<CounterPanel> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.glassSurfaceElevated : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isActive
+              ? AppColors.primary.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isActive ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
+            color: isActive
+                ? AppColors.primary.withValues(alpha: 0.4)
+                : Colors.transparent,
           ),
         ),
         child: Center(
           child: Text(
             title.toUpperCase(),
             style: TextStyle(
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
-              color: isActive ? AppColors.textPrimary : AppColors.textMuted,
+              color: isActive
+                  ? AppColors.dynamicTextPrimary(context)
+                  : AppColors.dynamicTextMuted(context),
               letterSpacing: 0.6,
             ),
           ),

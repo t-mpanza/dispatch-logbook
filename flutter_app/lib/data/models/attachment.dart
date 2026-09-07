@@ -98,7 +98,8 @@ class Attachment {
       storagePath: map['storagePath'] as String?,
       downloadUrl: map['downloadUrl'] as String?,
       localFilePath: map['localFilePath'] as String?,
-      createdAt: map['createdAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      createdAt:
+          map['createdAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
     );
   }
 }

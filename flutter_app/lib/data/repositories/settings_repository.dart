@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 class SettingsRepository extends ChangeNotifier {
   static const String _keyDespatcherName = 'despatcher_name';
   static const String _keySunlightMode = 'is_sunlight_mode';
+  static const String _keyWelcomeSeen = 'welcome_seen_v3';
 
   String _despatcherName = 'Theolus';
   String get despatcherName => _despatcherName;
@@ -12,9 +13,13 @@ class SettingsRepository extends ChangeNotifier {
   bool _isSunlightMode = false;
   bool get isSunlightMode => _isSunlightMode;
 
+  bool _welcomeSeen = false;
+  bool get welcomeSeen => _welcomeSeen;
+
   Future<void> loadSettings() async {
     final sp = await SharedPreferences.getInstance();
-    final name = sp.getString(_keyDespatcherName) ??
+    final name =
+        sp.getString(_keyDespatcherName) ??
         await DatabaseService.getSetting(_keyDespatcherName);
 
     if (name != null && name.trim().isNotEmpty) {
@@ -27,9 +32,12 @@ class SettingsRepository extends ChangeNotifier {
     } else {
       final dbSunlight = await DatabaseService.getSetting(_keySunlightMode);
       if (dbSunlight != null) {
-        _isSunlightMode = dbSunlight == '1' || dbSunlight.toLowerCase() == 'true';
+        _isSunlightMode =
+            dbSunlight == '1' || dbSunlight.toLowerCase() == 'true';
       }
     }
+
+    _welcomeSeen = sp.getBool(_keyWelcomeSeen) ?? false;
     notifyListeners();
   }
 
@@ -45,7 +53,17 @@ class SettingsRepository extends ChangeNotifier {
     _isSunlightMode = !_isSunlightMode;
     final sp = await SharedPreferences.getInstance();
     await sp.setBool(_keySunlightMode, _isSunlightMode);
-    await DatabaseService.saveSetting(_keySunlightMode, _isSunlightMode ? '1' : '0');
+    await DatabaseService.saveSetting(
+      _keySunlightMode,
+      _isSunlightMode ? '1' : '0',
+    );
+    notifyListeners();
+  }
+
+  Future<void> markWelcomeSeen() async {
+    _welcomeSeen = true;
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool(_keyWelcomeSeen, true);
     notifyListeners();
   }
 }

@@ -24,7 +24,9 @@ class PdfExportService {
     final hours = totalMinutes ~/ 60;
     final mins = totalMinutes % 60;
     final timeFormatted = totalMinutes > 0
-        ? (hours > 0 ? '${hours}h ${mins}m (${totalMinutes}m)' : '$totalMinutes mins')
+        ? (hours > 0
+              ? '${hours}h ${mins}m (${totalMinutes}m)'
+              : '$totalMinutes mins')
         : '0 mins';
 
     final hasAnyIbts = trips.any((t) => t.hasIbtDocuments);
@@ -115,7 +117,7 @@ class PdfExportService {
                 'TYRES',
                 'START',
                 'FINISH',
-                'DURATION'
+                'DURATION',
               ],
               data: trips.asMap().entries.map((item) {
                 final idx = item.key + 1;
@@ -189,7 +191,7 @@ class PdfExportService {
                   'SPECIFICATION / PATTERN',
                   'RCS CODE',
                   'LOADED / TARGET',
-                  'STATUS'
+                  'STATUS',
                 ],
                 data: [
                   for (final t in trips)
@@ -205,9 +207,9 @@ class PdfExportService {
                             line.isOverloaded
                                 ? '+${line.overCount} OVER'
                                 : (line.isShort
-                                    ? 'SHORT (${line.remaining})'
-                                    : 'COMPLETE'),
-                          ]
+                                      ? 'SHORT (${line.remaining})'
+                                      : 'COMPLETE'),
+                          ],
                 ],
                 headerStyle: pw.TextStyle(
                   fontSize: 7.5,
@@ -243,14 +245,20 @@ class PdfExportService {
                       width: 150,
                       decoration: const pw.BoxDecoration(
                         border: pw.Border(
-                          bottom: pw.BorderSide(color: PdfColors.black, width: 1),
+                          bottom: pw.BorderSide(
+                            color: PdfColors.black,
+                            width: 1,
+                          ),
                         ),
                       ),
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
                       'Despatcher Signature',
-                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+                      style: const pw.TextStyle(
+                        fontSize: 8,
+                        color: PdfColors.grey700,
+                      ),
                     ),
                   ],
                 ),
@@ -261,14 +269,20 @@ class PdfExportService {
                       width: 150,
                       decoration: const pw.BoxDecoration(
                         border: pw.Border(
-                          bottom: pw.BorderSide(color: PdfColors.black, width: 1),
+                          bottom: pw.BorderSide(
+                            color: PdfColors.black,
+                            width: 1,
+                          ),
                         ),
                       ),
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
                       'Warehouse Manager Signature',
-                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+                      style: const pw.TextStyle(
+                        fontSize: 8,
+                        color: PdfColors.grey700,
+                      ),
                     ),
                   ],
                 ),

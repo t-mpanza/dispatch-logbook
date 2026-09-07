@@ -53,49 +53,68 @@ class _TagsInputState extends State<TagsInput> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
-          spacing: 6,
-          runSpacing: 6,
+          spacing: 8,
+          runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             for (final tag in widget.value)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primaryGlow.withValues(alpha: 0.3)),
+                  color: AppColors.primary.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: AppColors.dynamicAccent(
+                      context,
+                    ).withValues(alpha: 0.4),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       '#$tag',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryGlow,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.dynamicAccent(context),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     GestureDetector(
                       onTap: () => _removeTag(tag),
-                      child: const Icon(Icons.close_rounded, size: 12, color: AppColors.textMuted),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 14,
+                        color: AppColors.dynamicTextMuted(context),
+                      ),
                     ),
                   ],
                 ),
               ),
 
-            // Input tag
             SizedBox(
-              width: 100,
-              height: 28,
+              width: 120,
+              height: 34,
               child: TextField(
                 controller: _controller,
-                style: const TextStyle(fontSize: 11, color: AppColors.textPrimary),
-                decoration: const InputDecoration(
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.dynamicTextPrimary(context),
+                ),
+                decoration: InputDecoration(
                   hintText: '+ Add tag',
-                  hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 11),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  hintStyle: TextStyle(
+                    color: AppColors.dynamicTextMuted(context),
+                    fontSize: 13,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   border: InputBorder.none,
                 ),
                 onSubmitted: _addTag,
@@ -103,26 +122,34 @@ class _TagsInputState extends State<TagsInput> {
             ),
           ],
         ),
-
         if (unusedSuggestions.isNotEmpty) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 4,
-            runSpacing: 4,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               for (final s in unusedSuggestions)
                 GestureDetector(
                   onTap: () => _addTag(s),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: AppColors.glassSurface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.glassBorderLight),
+                      color: AppColors.dynamicCardSurface(context),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: AppColors.dynamicBorderLight(context),
+                      ),
                     ),
                     child: Text(
                       '+$s',
-                      style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.dynamicTextMuted(context),
+                      ),
                     ),
                   ),
                 ),

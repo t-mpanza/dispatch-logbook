@@ -24,10 +24,8 @@ class VoiceRecorderSheet extends StatefulWidget {
       context: context,
       isDismissible: false,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => VoiceRecorderSheet(
-        audioService: audioService,
-        onSave: onSave,
-      ),
+      builder: (ctx) =>
+          VoiceRecorderSheet(audioService: audioService, onSave: onSave),
     );
   }
 
@@ -106,10 +104,17 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet> {
             decoration: BoxDecoration(
               color: AppColors.presetNlh.withValues(alpha: 0.15),
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.presetNlh.withValues(alpha: 0.4), width: 2),
+              border: Border.all(
+                color: AppColors.presetNlh.withValues(alpha: 0.4),
+                width: 2,
+              ),
             ),
             child: const Center(
-              child: Icon(Icons.mic_rounded, size: 36, color: AppColors.presetNlh),
+              child: Icon(
+                Icons.mic_rounded,
+                size: 36,
+                color: AppColors.presetNlh,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -134,19 +139,30 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet> {
               TextButton.icon(
                 onPressed: _handleCancel,
                 icon: const Icon(Icons.close_rounded, color: AppColors.error),
-                label: const Text('Cancel', style: TextStyle(color: AppColors.error)),
+                label: const Text(
+                  'Cancel',
+                  style: TextStyle(color: AppColors.error),
+                ),
               ),
               ElevatedButton.icon(
                 onPressed: _handleStopAndSave,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
                 icon: const Icon(Icons.check_rounded, color: Colors.white),
                 label: const Text(
                   'Save Voice Note',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],

@@ -9,11 +9,7 @@ class NoteBlock {
     required this.createdAt,
   });
 
-  NoteBlock copyWith({
-    String? id,
-    String? text,
-    int? createdAt,
-  }) {
+  NoteBlock copyWith({String? id, String? text, int? createdAt}) {
     return NoteBlock(
       id: id ?? this.id,
       text: text ?? this.text,
@@ -22,18 +18,15 @@ class NoteBlock {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'text': text,
-      'createdAt': createdAt,
-    };
+    return {'id': id, 'text': text, 'createdAt': createdAt};
   }
 
   factory NoteBlock.fromMap(Map<String, dynamic> map) {
     return NoteBlock(
       id: map['id'] as String,
       text: map['text'] as String? ?? '',
-      createdAt: map['createdAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      createdAt:
+          map['createdAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
     );
   }
 }

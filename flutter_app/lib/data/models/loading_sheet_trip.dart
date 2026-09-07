@@ -117,12 +117,16 @@ class LoadingSheetTrip {
       finishTime: finishTime ?? this.finishTime,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       quantityLoaded: quantityLoaded ?? this.quantityLoaded,
-      targetQuantity: clearTargetQuantity ? null : (targetQuantity ?? this.targetQuantity),
+      targetQuantity: clearTargetQuantity
+          ? null
+          : (targetQuantity ?? this.targetQuantity),
       rejectedCount: rejectedCount ?? this.rejectedCount,
       note: note ?? this.note,
       isManual: isManual ?? this.isManual,
       createdAt: createdAt ?? this.createdAt,
-      ibtDocuments: clearIbtDocuments ? null : (ibtDocuments ?? this.ibtDocuments),
+      ibtDocuments: clearIbtDocuments
+          ? null
+          : (ibtDocuments ?? this.ibtDocuments),
     );
   }
 

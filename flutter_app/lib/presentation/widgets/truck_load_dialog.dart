@@ -77,11 +77,16 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       _tripIdController = TextEditingController(text: t.tripId);
       _regController = TextEditingController(text: t.reg);
       _driverController = TextEditingController(text: t.driverName);
-      _startController = TextEditingController(text: AppFormatters.formatTimeHHmm(t.startTime));
-      _finishController = TextEditingController(text: AppFormatters.formatTimeHHmm(t.finishTime));
+      _startController = TextEditingController(
+        text: AppFormatters.formatTimeHHmm(t.startTime),
+      );
+      _finishController = TextEditingController(
+        text: AppFormatters.formatTimeHHmm(t.finishTime),
+      );
       _targetQuantity = t.targetQuantity ?? 0;
       _targetController = TextEditingController(
-          text: _targetQuantity > 0 ? '$_targetQuantity' : '');
+        text: _targetQuantity > 0 ? '$_targetQuantity' : '',
+      );
       _quantityLoaded = t.quantityLoaded;
     } else {
       _selectedPreset = PresetKey.STOCKS;
@@ -184,11 +189,18 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
   void _handleSave() {
     AppHaptics.success();
     final now = DateTime.now().millisecondsSinceEpoch;
-    final baseDateMs = widget.existingTrip?.createdAt ??
+    final baseDateMs =
+        widget.existingTrip?.createdAt ??
         (DateTime.tryParse(widget.dayKey)?.millisecondsSinceEpoch ?? now);
 
-    var startMs = AppFormatters.timeStringToMs(_startController.text, baseDateMs);
-    var finishMs = AppFormatters.timeStringToMs(_finishController.text, baseDateMs);
+    var startMs = AppFormatters.timeStringToMs(
+      _startController.text,
+      baseDateMs,
+    );
+    var finishMs = AppFormatters.timeStringToMs(
+      _finishController.text,
+      baseDateMs,
+    );
 
     // Timestamp persistence: a truck with a loaded quantity must never show
     // "No timestamps" on the Sheet.
@@ -204,7 +216,9 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       duration = diff > 0 ? (diff / (1000 * 60)).round() : 1;
     }
 
-    final targetQty = _targetQuantity > 0 ? _targetQuantity : int.tryParse(_targetController.text.trim());
+    final targetQty = _targetQuantity > 0
+        ? _targetQuantity
+        : int.tryParse(_targetController.text.trim());
 
     final trip = LoadingSheetTrip(
       id: widget.existingTrip?.id ?? IdGenerator.generate(),
@@ -264,7 +278,9 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existingTrip != null;
-    final target = _targetQuantity > 0 ? _targetQuantity : (int.tryParse(_targetController.text.trim()) ?? 0);
+    final target = _targetQuantity > 0
+        ? _targetQuantity
+        : (int.tryParse(_targetController.text.trim()) ?? 0);
     final remaining = target > 0 ? target - _quantityLoaded : 0;
     final isOver = target > 0 && _quantityLoaded > target;
     final isDone = target > 0 && _quantityLoaded == target;
@@ -293,7 +309,9 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isLight ? const Color(0xFFCBD5E1) : Colors.white.withValues(alpha: 0.2),
+                  color: isLight
+                      ? const Color(0xFFCBD5E1)
+                      : Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -314,7 +332,10 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close_rounded, color: AppColors.dynamicTextMuted(context)),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: AppColors.dynamicTextMuted(context),
+                  ),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -324,7 +345,12 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
             // Route Preset Chips
             Text(
               'ROUTE PRESET',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context), letterSpacing: 1.0),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: AppColors.dynamicTextMuted(context),
+                letterSpacing: 1.0,
+              ),
             ),
             const SizedBox(height: 6),
             Wrap(
@@ -338,16 +364,23 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                   onTap: () => _onPresetChanged(preset.key),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? color.withValues(alpha: isLight ? 0.15 : 0.25)
-                          : (isLight ? const Color(0xFFF1F5F9) : AppColors.glassSurface),
+                          : (isLight
+                                ? const Color(0xFFF1F5F9)
+                                : AppColors.glassSurface),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isSelected
                             ? color
-                            : (isLight ? const Color(0xFFCBD5E1) : Colors.white.withValues(alpha: 0.08)),
+                            : (isLight
+                                  ? const Color(0xFFCBD5E1)
+                                  : Colors.white.withValues(alpha: 0.08)),
                         width: isSelected ? 1.5 : 1.0,
                       ),
                     ),
@@ -357,15 +390,22 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                         Container(
                           width: 6,
                           height: 6,
-                          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           preset.label,
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                            color: isSelected ? color : AppColors.dynamicTextSecondary(context),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w600,
+                            color: isSelected
+                                ? color
+                                : AppColors.dynamicTextSecondary(context),
                           ),
                         ),
                       ],
@@ -419,26 +459,44 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                     children: [
                       Text(
                         'TARGET TYRES',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context), letterSpacing: 1.0),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.dynamicTextMuted(context),
+                          letterSpacing: 1.0,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Container(
                         height: 44,
                         decoration: BoxDecoration(
-                          color: isLight ? const Color(0xFFF8FAFC) : Colors.black.withValues(alpha: 0.3),
+                          color: isLight
+                              ? const Color(0xFFF8FAFC)
+                              : Colors.black.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder),
+                          border: Border.all(
+                            color: isLight
+                                ? const Color(0xFFCBD5E1)
+                                : AppColors.glassBorder,
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             GestureDetector(
-                              onTapDown: (_) => _startRepeat(() => _incrementTarget(-1)),
+                              onTapDown: (_) =>
+                                  _startRepeat(() => _incrementTarget(-1)),
                               onTapUp: (_) => _stopRepeat(),
                               onTapCancel: _stopRepeat,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: Icon(Icons.remove_rounded, size: 18, color: AppColors.dynamicTextPrimary(context)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Icon(
+                                  Icons.remove_rounded,
+                                  size: 18,
+                                  color: AppColors.dynamicTextPrimary(context),
+                                ),
                               ),
                             ),
                             Expanded(
@@ -450,25 +508,37 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                                 onTap: _openTargetPad,
                                 style: TextStyle(
                                   fontSize: 15,
-                                  color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                                  color: isLight
+                                      ? AppColors.primary
+                                      : AppColors.primaryGlow,
                                   fontWeight: FontWeight.w900,
                                   fontFamily: 'monospace',
                                 ),
                                 decoration: InputDecoration(
                                   hintText: '0',
-                                  hintStyle: TextStyle(color: AppColors.dynamicTextMuted(context), fontSize: 13),
+                                  hintStyle: TextStyle(
+                                    color: AppColors.dynamicTextMuted(context),
+                                    fontSize: 13,
+                                  ),
                                   contentPadding: EdgeInsets.zero,
                                   border: InputBorder.none,
                                 ),
                               ),
                             ),
                             GestureDetector(
-                              onTapDown: (_) => _startRepeat(() => _incrementTarget(1)),
+                              onTapDown: (_) =>
+                                  _startRepeat(() => _incrementTarget(1)),
                               onTapUp: (_) => _stopRepeat(),
                               onTapCancel: _stopRepeat,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: Icon(Icons.add_rounded, size: 18, color: AppColors.dynamicTextPrimary(context)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Icon(
+                                  Icons.add_rounded,
+                                  size: 18,
+                                  color: AppColors.dynamicTextPrimary(context),
+                                ),
                               ),
                             ),
                           ],
@@ -486,26 +556,44 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                     children: [
                       Text(
                         'LOADED TYRES',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context), letterSpacing: 1.0),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.dynamicTextMuted(context),
+                          letterSpacing: 1.0,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Container(
                         height: 44,
                         decoration: BoxDecoration(
-                          color: isLight ? const Color(0xFFF8FAFC) : Colors.black.withValues(alpha: 0.3),
+                          color: isLight
+                              ? const Color(0xFFF8FAFC)
+                              : Colors.black.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder),
+                          border: Border.all(
+                            color: isLight
+                                ? const Color(0xFFCBD5E1)
+                                : AppColors.glassBorder,
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             GestureDetector(
-                              onTapDown: (_) => _startRepeat(() => _incrementLoaded(-1)),
+                              onTapDown: (_) =>
+                                  _startRepeat(() => _incrementLoaded(-1)),
                               onTapUp: (_) => _stopRepeat(),
                               onTapCancel: _stopRepeat,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: Icon(Icons.remove_rounded, size: 18, color: AppColors.dynamicTextPrimary(context)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Icon(
+                                  Icons.remove_rounded,
+                                  size: 18,
+                                  color: AppColors.dynamicTextPrimary(context),
+                                ),
                               ),
                             ),
                             GestureDetector(
@@ -515,18 +603,27 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w900,
-                                  color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                                  color: isLight
+                                      ? AppColors.primary
+                                      : AppColors.primaryGlow,
                                   fontFamily: 'monospace',
                                 ),
                               ),
                             ),
                             GestureDetector(
-                              onTapDown: (_) => _startRepeat(() => _incrementLoaded(1)),
+                              onTapDown: (_) =>
+                                  _startRepeat(() => _incrementLoaded(1)),
                               onTapUp: (_) => _stopRepeat(),
                               onTapCancel: _stopRepeat,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: Icon(Icons.add_rounded, size: 18, color: AppColors.dynamicTextPrimary(context)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Icon(
+                                  Icons.add_rounded,
+                                  size: 18,
+                                  color: AppColors.dynamicTextPrimary(context),
+                                ),
                               ),
                             ),
                           ],
@@ -542,28 +639,49 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
             // Quick Target Increment Chips
             Row(
               children: [
-                Text('Target +: ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context))),
+                Text(
+                  'Target +: ',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.dynamicTextMuted(context),
+                  ),
+                ),
                 const SizedBox(width: 4),
                 ..._quickIncrements.map((inc) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: GestureDetector(
-                      onTapDown: (_) => _startRepeat(() => _incrementTarget(inc)),
+                      onTapDown: (_) =>
+                          _startRepeat(() => _incrementTarget(inc)),
                       onTapUp: (_) => _stopRepeat(),
                       onTapCancel: _stopRepeat,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.15),
+                          color: AppColors.primary.withValues(
+                            alpha: isLight ? 0.12 : 0.15,
+                          ),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: (isLight ? AppColors.primary : AppColors.primaryGlow).withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color:
+                                (isLight
+                                        ? AppColors.primary
+                                        : AppColors.primaryGlow)
+                                    .withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Text(
                           '+$inc',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                            color: isLight
+                                ? AppColors.primary
+                                : AppColors.primaryGlow,
                             fontFamily: 'monospace',
                           ),
                         ),
@@ -578,20 +696,23 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
             if (target > 0) ...[
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: isDone
                       ? AppColors.success.withValues(alpha: 0.15)
                       : (isOver
-                          ? AppColors.warning.withValues(alpha: 0.15)
-                          : AppColors.primary.withValues(alpha: 0.15)),
+                            ? AppColors.warning.withValues(alpha: 0.15)
+                            : AppColors.primary.withValues(alpha: 0.15)),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: isDone
                         ? AppColors.success.withValues(alpha: 0.4)
                         : (isOver
-                            ? AppColors.warning.withValues(alpha: 0.4)
-                            : AppColors.primaryGlow.withValues(alpha: 0.4)),
+                              ? AppColors.warning.withValues(alpha: 0.4)
+                              : AppColors.primaryGlow.withValues(alpha: 0.4)),
                   ),
                 ),
                 child: Row(
@@ -599,19 +720,31 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                     Icon(
                       isDone
                           ? Icons.check_circle_rounded
-                          : (isOver ? Icons.warning_amber_rounded : Icons.hourglass_bottom_rounded),
+                          : (isOver
+                                ? Icons.warning_amber_rounded
+                                : Icons.hourglass_bottom_rounded),
                       size: 14,
-                      color: isDone ? AppColors.success : (isOver ? AppColors.warning : AppColors.primaryGlow),
+                      color: isDone
+                          ? AppColors.success
+                          : (isOver
+                                ? AppColors.warning
+                                : AppColors.primaryGlow),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       isDone
                           ? 'Target reached! (100% loaded)'
-                          : (isOver ? '+${_quantityLoaded - target} tyres over target!' : '$remaining tyres left to load'),
+                          : (isOver
+                                ? '+${_quantityLoaded - target} tyres over target!'
+                                : '$remaining tyres left to load'),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: isDone ? AppColors.success : (isOver ? AppColors.warning : AppColors.primaryGlow),
+                        color: isDone
+                            ? AppColors.success
+                            : (isOver
+                                  ? AppColors.warning
+                                  : AppColors.primaryGlow),
                       ),
                     ),
                   ],
@@ -654,8 +787,18 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
                       widget.onDelete!();
                       Navigator.pop(context);
                     },
-                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                    label: const Text('Delete', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: AppColors.error,
+                      size: 18,
+                    ),
+                    label: const Text(
+                      'Delete',
+                      style: TextStyle(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   const Spacer(),
                 ] else
@@ -663,19 +806,30 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
 
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: AppColors.textMuted),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: _handleSave,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   child: Text(
                     isEdit ? 'Save Changes' : 'Add Truck Load',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
@@ -700,15 +854,24 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.dynamicTextMuted(context), letterSpacing: 1.0),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: AppColors.dynamicTextMuted(context),
+            letterSpacing: 1.0,
+          ),
         ),
         const SizedBox(height: 4),
         Container(
           height: 44,
           decoration: BoxDecoration(
-            color: isLight ? const Color(0xFFF8FAFC) : Colors.black.withValues(alpha: 0.3),
+            color: isLight
+                ? const Color(0xFFF8FAFC)
+                : Colors.black.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder),
+            border: Border.all(
+              color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -721,7 +884,10 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: AppColors.dynamicTextMuted(context), fontSize: 11),
+              hintStyle: TextStyle(
+                color: AppColors.dynamicTextMuted(context),
+                fontSize: 11,
+              ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               border: InputBorder.none,
             ),

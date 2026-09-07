@@ -10,10 +10,17 @@ void main() {
       final tripId2 = PresetEngine.getNextStocksTripId(['STOCKS 1']);
       expect(tripId2, equals('STOCKS 2'));
 
-      final tripId3 = PresetEngine.getNextStocksTripId(['STOCKS 1', 'STOCKS 2', 'STOCKS 3']);
+      final tripId3 = PresetEngine.getNextStocksTripId([
+        'STOCKS 1',
+        'STOCKS 2',
+        'STOCKS 3',
+      ]);
       expect(tripId3, equals('STOCKS 4'));
 
-      final tripIdOutOfOrder = PresetEngine.getNextStocksTripId(['STOCKS 5', 'STOCKS 1']);
+      final tripIdOutOfOrder = PresetEngine.getNextStocksTripId([
+        'STOCKS 5',
+        'STOCKS 1',
+      ]);
       expect(tripIdOutOfOrder, equals('STOCKS 6'));
     });
 
@@ -34,7 +41,13 @@ void main() {
     });
 
     test('Standard destination presets return their key names', () {
-      for (final key in [PresetKey.DBN, PresetKey.NLS, PresetKey.BLOEM, PresetKey.PLK, PresetKey.TIREPOINT]) {
+      for (final key in [
+        PresetKey.DBN,
+        PresetKey.NLS,
+        PresetKey.BLOEM,
+        PresetKey.PLK,
+        PresetKey.TIREPOINT,
+      ]) {
         final fill = PresetEngine.getPresetFill(key);
         expect(fill.tripId, equals(key.name));
       }

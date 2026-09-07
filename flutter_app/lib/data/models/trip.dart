@@ -51,7 +51,8 @@ class Trip {
       count: (map['count'] as num?)?.toInt() ?? 0,
       rejected: (map['rejected'] as num?)?.toInt(),
       note: map['note'] as String?,
-      createdAt: map['createdAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      createdAt:
+          map['createdAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
     );
   }
 }

@@ -18,9 +18,7 @@ void main() {
           NoteBlock(id: 'note-1', text: 'Loaded properly', createdAt: now),
         ],
         attachments: [],
-        trips: [
-          Trip(id: 'trip-1', count: 45, createdAt: now),
-        ],
+        trips: [Trip(id: 'trip-1', count: 45, createdAt: now)],
         loadingSheetTrips: [
           LoadingSheetTrip(
             id: 'lst-1',

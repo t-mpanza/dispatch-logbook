@@ -26,6 +26,7 @@ class IbtLineItem {
     if (loadedQuantity <= targetTotal) return 0;
     return loadedQuantity - targetTotal;
   }
+
   bool get isComplete => targetTotal > 0 && loadedQuantity >= targetTotal;
   bool get isShort => targetTotal > 0 && loadedQuantity < targetTotal;
   bool get isOverloaded => targetTotal > 0 && loadedQuantity > targetTotal;

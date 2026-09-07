@@ -164,12 +164,16 @@ class _NumberPadSheetState extends State<_NumberPadSheet> {
                 ),
                 if (_hasMax)
                   Text(
-                    _clamped ? 'CAPPED AT ${widget.maxValue}' : 'MAX: ${widget.maxValue}',
+                    _clamped
+                        ? 'CAPPED AT ${widget.maxValue}'
+                        : 'MAX: ${widget.maxValue}',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.8,
-                      color: _clamped ? AppColors.warning : AppColors.dynamicTextMuted(context),
+                      color: _clamped
+                          ? AppColors.warning
+                          : AppColors.dynamicTextMuted(context),
                     ),
                   ),
               ],
@@ -181,12 +185,16 @@ class _NumberPadSheetState extends State<_NumberPadSheet> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: isLight ? const Color(0xFFF1F5F9) : Colors.black.withValues(alpha: 0.3),
+                color: isLight
+                    ? const Color(0xFFF1F5F9)
+                    : Colors.black.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: _clamped
                       ? AppColors.warning
-                      : (isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder),
+                      : (isLight
+                            ? const Color(0xFFCBD5E1)
+                            : AppColors.glassBorder),
                   width: _clamped ? 1.5 : 1.0,
                 ),
               ),
@@ -266,14 +274,15 @@ class _NumberPadSheetState extends State<_NumberPadSheet> {
 
   Widget _buildKeyRow(List<String> labels) {
     return Row(
-      children: [
-        for (final label in labels)
-          Expanded(child: _buildKey(label)),
-      ],
+      children: [for (final label in labels) Expanded(child: _buildKey(label))],
     );
   }
 
-  Widget _buildKey(String label, {VoidCallback? onTap, bool isSpecial = false}) {
+  Widget _buildKey(
+    String label, {
+    VoidCallback? onTap,
+    bool isSpecial = false,
+  }) {
     final isLight = AppColors.isLight(context);
     return Padding(
       padding: const EdgeInsets.all(4),
@@ -283,11 +292,18 @@ class _NumberPadSheetState extends State<_NumberPadSheet> {
           height: 52,
           decoration: BoxDecoration(
             color: isSpecial
-                ? (isLight ? const Color(0xFFE2E8F0) : Colors.white.withValues(alpha: 0.06))
-                : GlassDecorations.glassCard(context: context, borderRadius: 14).color,
+                ? (isLight
+                      ? const Color(0xFFE2E8F0)
+                      : Colors.white.withValues(alpha: 0.06))
+                : GlassDecorations.glassCard(
+                    context: context,
+                    borderRadius: 14,
+                  ).color,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorderLight,
+              color: isLight
+                  ? const Color(0xFFCBD5E1)
+                  : AppColors.glassBorderLight,
             ),
           ),
           child: Center(

@@ -83,7 +83,8 @@ class AudioService {
       return;
     }
 
-    if (attachment.localFilePath != null && File(attachment.localFilePath!).existsSync()) {
+    if (attachment.localFilePath != null &&
+        File(attachment.localFilePath!).existsSync()) {
       await _player.play(DeviceFileSource(attachment.localFilePath!));
       return;
     }

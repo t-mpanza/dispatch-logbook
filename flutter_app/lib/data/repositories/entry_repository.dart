@@ -69,10 +69,9 @@ class EntryRepository extends ChangeNotifier {
   Future<bool> syncNow() async {
     if (_isSyncRunning) return false;
     _isSyncRunning = true;
-    _setSyncState(_syncState.copyWith(
-      status: SyncStatus.syncing,
-      errorMessage: null,
-    ));
+    _setSyncState(
+      _syncState.copyWith(status: SyncStatus.syncing, errorMessage: null),
+    );
 
     try {
       // 1. Push all live local entries
@@ -88,27 +87,33 @@ class EntryRepository extends ChangeNotifier {
       final success = await SupabaseService.pullAndMerge();
 
       if (success) {
-        _setSyncState(_syncState.copyWith(
-          status: SyncStatus.synced,
-          lastSyncedAt: DateTime.now().millisecondsSinceEpoch,
-          pendingCount: 0,
-          errorMessage: null,
-        ));
+        _setSyncState(
+          _syncState.copyWith(
+            status: SyncStatus.synced,
+            lastSyncedAt: DateTime.now().millisecondsSinceEpoch,
+            pendingCount: 0,
+            errorMessage: null,
+          ),
+        );
       } else {
-        _setSyncState(_syncState.copyWith(
-          status: SyncStatus.error,
-          errorMessage: 'Sync partially failed or network unavailable',
-        ));
+        _setSyncState(
+          _syncState.copyWith(
+            status: SyncStatus.error,
+            errorMessage: 'Sync partially failed or network unavailable',
+          ),
+        );
       }
 
       _isSyncRunning = false;
       notifyListeners();
       return success;
     } catch (e) {
-      _setSyncState(_syncState.copyWith(
-        status: SyncStatus.error,
-        errorMessage: e.toString(),
-      ));
+      _setSyncState(
+        _syncState.copyWith(
+          status: SyncStatus.error,
+          errorMessage: e.toString(),
+        ),
+      );
       _isSyncRunning = false;
       notifyListeners();
       return false;

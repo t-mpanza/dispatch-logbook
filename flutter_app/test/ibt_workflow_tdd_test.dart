@@ -40,172 +40,184 @@ void main() {
       vm = LoadingSheetViewModel(repo);
     });
 
-    test('Attaching an IBT to a trip auto-calculates targets and updates state', () async {
-      final trip = LoadingSheetTrip(
-        id: 'trip_100',
-        reg: 'ND556677',
-        driverName: 'Sipho',
-        tripId: 'DBN',
-        quantityLoaded: 0,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-      );
+    test(
+      'Attaching an IBT to a trip auto-calculates targets and updates state',
+      () async {
+        final trip = LoadingSheetTrip(
+          id: 'trip_100',
+          reg: 'ND556677',
+          driverName: 'Sipho',
+          tripId: 'DBN',
+          quantityLoaded: 0,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+        );
 
-      await vm.addTruckLoad(trip);
+        await vm.addTruckLoad(trip);
 
-      const ibtDoc = IbtDocument(
-        documentNo: 'IBT119512',
-        total: 53,
-        lineItems: [
-          IbtLineItem(
-            id: 'line_1',
-            description: '315/80R22.5 RD2+',
-            size: '315/80R22.5',
-            rubber: 'RD2+',
-            targetTotal: 13,
-            loadedQuantity: 0,
-          ),
-          IbtLineItem(
-            id: 'line_2',
-            description: '315/80R22.5 M90L',
-            size: '315/80R22.5',
-            rubber: 'M90L',
-            targetTotal: 40,
-            loadedQuantity: 0,
-          ),
-        ],
-      );
+        const ibtDoc = IbtDocument(
+          documentNo: 'IBT119512',
+          total: 53,
+          lineItems: [
+            IbtLineItem(
+              id: 'line_1',
+              description: '315/80R22.5 RD2+',
+              size: '315/80R22.5',
+              rubber: 'RD2+',
+              targetTotal: 13,
+              loadedQuantity: 0,
+            ),
+            IbtLineItem(
+              id: 'line_2',
+              description: '315/80R22.5 M90L',
+              size: '315/80R22.5',
+              rubber: 'M90L',
+              targetTotal: 40,
+              loadedQuantity: 0,
+            ),
+          ],
+        );
 
-      // Attach IBT
-      await vm.attachIbtDocument(trip: trip, ibtDoc: ibtDoc);
+        // Attach IBT
+        await vm.attachIbtDocument(trip: trip, ibtDoc: ibtDoc);
 
-      final trips = await vm.getTripsForSelectedDate();
-      expect(trips.length, 1);
-      final attachedTrip = trips.first;
+        final trips = await vm.getTripsForSelectedDate();
+        expect(trips.length, 1);
+        final attachedTrip = trips.first;
 
-      expect(attachedTrip.hasIbtDocuments, isTrue);
-      expect(attachedTrip.ibtTargetTotal, 53);
-      expect(attachedTrip.ibtLoadedTotal, 0);
-      expect(attachedTrip.remainingTyres, 53);
-      expect(attachedTrip.isTargetReached, isFalse);
+        expect(attachedTrip.hasIbtDocuments, isTrue);
+        expect(attachedTrip.ibtTargetTotal, 53);
+        expect(attachedTrip.ibtLoadedTotal, 0);
+        expect(attachedTrip.remainingTyres, 53);
+        expect(attachedTrip.isTargetReached, isFalse);
 
-      // Step quantity on Line 1 (+13)
-      await vm.updateIbtLineQuantity(
-        trip: attachedTrip,
-        documentNo: 'IBT119512',
-        lineItemId: 'line_1',
-        newQuantity: 13,
-      );
+        // Step quantity on Line 1 (+13)
+        await vm.updateIbtLineQuantity(
+          trip: attachedTrip,
+          documentNo: 'IBT119512',
+          lineItemId: 'line_1',
+          newQuantity: 13,
+        );
 
-      final afterLine1 = (await vm.getTripsForSelectedDate()).first;
-      expect(afterLine1.quantityLoaded, 13);
-      expect(afterLine1.remainingTyres, 40);
-      expect(afterLine1.ibtDocuments!.first.lineItems[0].isComplete, isTrue);
-      expect(afterLine1.ibtDocuments!.first.lineItems[1].isShort, isTrue);
+        final afterLine1 = (await vm.getTripsForSelectedDate()).first;
+        expect(afterLine1.quantityLoaded, 13);
+        expect(afterLine1.remainingTyres, 40);
+        expect(afterLine1.ibtDocuments!.first.lineItems[0].isComplete, isTrue);
+        expect(afterLine1.ibtDocuments!.first.lineItems[1].isShort, isTrue);
 
-      // Step quantity on Line 2 (+40)
-      await vm.updateIbtLineQuantity(
-        trip: afterLine1,
-        documentNo: 'IBT119512',
-        lineItemId: 'line_2',
-        newQuantity: 40,
-      );
+        // Step quantity on Line 2 (+40)
+        await vm.updateIbtLineQuantity(
+          trip: afterLine1,
+          documentNo: 'IBT119512',
+          lineItemId: 'line_2',
+          newQuantity: 40,
+        );
 
-      final completedTrip = (await vm.getTripsForSelectedDate()).first;
-      expect(completedTrip.quantityLoaded, 53);
-      expect(completedTrip.remainingTyres, 0);
-      expect(completedTrip.isTargetReached, isTrue);
-      expect(completedTrip.ibtDocuments!.first.isComplete, isTrue);
-    });
+        final completedTrip = (await vm.getTripsForSelectedDate()).first;
+        expect(completedTrip.quantityLoaded, 53);
+        expect(completedTrip.remainingTyres, 0);
+        expect(completedTrip.isTargetReached, isTrue);
+        expect(completedTrip.ibtDocuments!.first.isComplete, isTrue);
+      },
+    );
 
-    test('Stepping loaded quantities down to 0 properly sets quantityLoaded to 0', () async {
-      final trip = LoadingSheetTrip(
-        id: 'trip_step_zero',
-        reg: 'ND112233',
-        driverName: 'John',
-        tripId: 'DBN',
-        quantityLoaded: 0,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-      );
+    test(
+      'Stepping loaded quantities down to 0 properly sets quantityLoaded to 0',
+      () async {
+        final trip = LoadingSheetTrip(
+          id: 'trip_step_zero',
+          reg: 'ND112233',
+          driverName: 'John',
+          tripId: 'DBN',
+          quantityLoaded: 0,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+        );
 
-      await vm.addTruckLoad(trip);
+        await vm.addTruckLoad(trip);
 
-      const ibtDoc = IbtDocument(
-        documentNo: 'IBT100',
-        total: 10,
-        lineItems: [
-          IbtLineItem(
-            id: 'line_1',
-            description: '315/80R22.5',
-            targetTotal: 10,
-            loadedQuantity: 0,
-          ),
-        ],
-      );
+        const ibtDoc = IbtDocument(
+          documentNo: 'IBT100',
+          total: 10,
+          lineItems: [
+            IbtLineItem(
+              id: 'line_1',
+              description: '315/80R22.5',
+              targetTotal: 10,
+              loadedQuantity: 0,
+            ),
+          ],
+        );
 
-      await vm.attachIbtDocument(trip: trip, ibtDoc: ibtDoc);
-      var currentTrip = (await vm.getTripsForSelectedDate()).first;
+        await vm.attachIbtDocument(trip: trip, ibtDoc: ibtDoc);
+        var currentTrip = (await vm.getTripsForSelectedDate()).first;
 
-      // Increment to 5
-      await vm.updateIbtLineQuantity(
-        trip: currentTrip,
-        documentNo: 'IBT100',
-        lineItemId: 'line_1',
-        newQuantity: 5,
-      );
-      currentTrip = (await vm.getTripsForSelectedDate()).first;
-      expect(currentTrip.quantityLoaded, 5);
+        // Increment to 5
+        await vm.updateIbtLineQuantity(
+          trip: currentTrip,
+          documentNo: 'IBT100',
+          lineItemId: 'line_1',
+          newQuantity: 5,
+        );
+        currentTrip = (await vm.getTripsForSelectedDate()).first;
+        expect(currentTrip.quantityLoaded, 5);
 
-      // Decrement back to 0
-      await vm.updateIbtLineQuantity(
-        trip: currentTrip,
-        documentNo: 'IBT100',
-        lineItemId: 'line_1',
-        newQuantity: 0,
-      );
-      currentTrip = (await vm.getTripsForSelectedDate()).first;
-      expect(currentTrip.quantityLoaded, 0);
-      expect(currentTrip.ibtDocuments!.first.lineItems.first.loadedQuantity, 0);
-    });
+        // Decrement back to 0
+        await vm.updateIbtLineQuantity(
+          trip: currentTrip,
+          documentNo: 'IBT100',
+          lineItemId: 'line_1',
+          newQuantity: 0,
+        );
+        currentTrip = (await vm.getTripsForSelectedDate()).first;
+        expect(currentTrip.quantityLoaded, 0);
+        expect(
+          currentTrip.ibtDocuments!.first.lineItems.first.loadedQuantity,
+          0,
+        );
+      },
+    );
 
-    test('Removing the last IBT document clears ibtDocuments and sets hasIbtDocuments to false', () async {
-      final trip = LoadingSheetTrip(
-        id: 'trip_remove_last',
-        reg: 'ND998877',
-        driverName: 'Neil',
-        tripId: 'NLH',
-        quantityLoaded: 0,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-      );
+    test(
+      'Removing the last IBT document clears ibtDocuments and sets hasIbtDocuments to false',
+      () async {
+        final trip = LoadingSheetTrip(
+          id: 'trip_remove_last',
+          reg: 'ND998877',
+          driverName: 'Neil',
+          tripId: 'NLH',
+          quantityLoaded: 0,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+        );
 
-      await vm.addTruckLoad(trip);
+        await vm.addTruckLoad(trip);
 
-      const ibtDoc = IbtDocument(
-        documentNo: 'IBT200',
-        total: 25,
-        lineItems: [
-          IbtLineItem(
-            id: 'line_1',
-            description: '11R22.5',
-            targetTotal: 25,
-            loadedQuantity: 10,
-          ),
-        ],
-      );
+        const ibtDoc = IbtDocument(
+          documentNo: 'IBT200',
+          total: 25,
+          lineItems: [
+            IbtLineItem(
+              id: 'line_1',
+              description: '11R22.5',
+              targetTotal: 25,
+              loadedQuantity: 10,
+            ),
+          ],
+        );
 
-      await vm.attachIbtDocument(trip: trip, ibtDoc: ibtDoc);
-      var currentTrip = (await vm.getTripsForSelectedDate()).first;
-      expect(currentTrip.hasIbtDocuments, isTrue);
-      expect(currentTrip.ibtDocuments, isNotNull);
+        await vm.attachIbtDocument(trip: trip, ibtDoc: ibtDoc);
+        var currentTrip = (await vm.getTripsForSelectedDate()).first;
+        expect(currentTrip.hasIbtDocuments, isTrue);
+        expect(currentTrip.ibtDocuments, isNotNull);
 
-      // Remove the only IBT document
-      await vm.removeIbtDocument(trip: currentTrip, documentNo: 'IBT200');
-      currentTrip = (await vm.getTripsForSelectedDate()).first;
+        // Remove the only IBT document
+        await vm.removeIbtDocument(trip: currentTrip, documentNo: 'IBT200');
+        currentTrip = (await vm.getTripsForSelectedDate()).first;
 
-      expect(currentTrip.hasIbtDocuments, isFalse);
-      expect(currentTrip.ibtDocuments, isNull);
-      expect(currentTrip.targetQuantity, isNull);
-      expect(currentTrip.quantityLoaded, 0);
-    });
+        expect(currentTrip.hasIbtDocuments, isFalse);
+        expect(currentTrip.ibtDocuments, isNull);
+        expect(currentTrip.targetQuantity, isNull);
+        expect(currentTrip.quantityLoaded, 0);
+      },
+    );
 
     test('Multi-IBT document target recalculation upon removal', () async {
       final trip = LoadingSheetTrip(

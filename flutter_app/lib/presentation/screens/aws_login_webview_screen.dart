@@ -102,7 +102,9 @@ class _AwsLoginWebViewScreenState extends State<AwsLoginWebViewScreen> {
   void _interceptIfRedirect(String url) {
     if (_isProcessingRedirect) return;
     // Match myapp://?code=... pattern from original app
-    if (url.startsWith('myapp://') || url.contains('?code=') || url.contains('&code=')) {
+    if (url.startsWith('myapp://') ||
+        url.contains('?code=') ||
+        url.contains('&code=')) {
       _processRedirect(url);
     }
   }
@@ -128,7 +130,11 @@ class _AwsLoginWebViewScreenState extends State<AwsLoginWebViewScreen> {
               children: [
                 Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
                 SizedBox(width: 8),
-                Expanded(child: Text('Signed in! AWS credentials stored successfully.')),
+                Expanded(
+                  child: Text(
+                    'Signed in! AWS credentials stored successfully.',
+                  ),
+                ),
               ],
             ),
             backgroundColor: Colors.green,
@@ -140,7 +146,10 @@ class _AwsLoginWebViewScreenState extends State<AwsLoginWebViewScreen> {
     } else {
       _isProcessingRedirect = false;
       if (mounted) {
-        setState(() => _errorText = 'Sign-in redirect received but token exchange failed. Please try again.');
+        setState(
+          () => _errorText =
+              'Sign-in redirect received but token exchange failed. Please try again.',
+        );
       }
     }
   }
@@ -207,12 +216,19 @@ class _AwsLoginWebViewScreenState extends State<AwsLoginWebViewScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.redAccent),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: Colors.redAccent,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _errorText!,
-                      style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.redAccent,
+                      ),
                     ),
                   ),
                   TextButton(

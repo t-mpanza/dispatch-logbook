@@ -14,9 +14,7 @@ import 'presentation/viewmodels/loading_sheet_viewmodel.dart';
 import 'presentation/widgets/app_shell.dart';
 import 'presentation/screens/today_screen.dart';
 import 'presentation/screens/loading_sheet_screen.dart';
-import 'presentation/screens/counter_screen.dart';
-import 'presentation/screens/search_screen.dart';
-import 'presentation/screens/archive_screen.dart';
+import 'presentation/screens/history_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +22,6 @@ void main() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
-
 
   // Edge-to-edge status and navigation bars
   SystemChrome.setSystemUIOverlayStyle(
@@ -83,12 +80,10 @@ class DispatchDiaryApp extends StatefulWidget {
 class _DispatchDiaryAppState extends State<DispatchDiaryApp> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
+  static const List<Widget> _screens = [
     TodayScreen(),
     LoadingSheetScreen(),
-    CounterScreen(),
-    SearchScreen(),
-    ArchiveScreen(),
+    HistoryScreen(),
   ];
 
   @override
@@ -108,10 +103,7 @@ class _DispatchDiaryAppState extends State<DispatchDiaryApp> {
                 _currentIndex = index;
               });
             },
-            child: IndexedStack(
-              index: _currentIndex,
-              children: _screens,
-            ),
+            child: IndexedStack(index: _currentIndex, children: _screens),
           ),
         );
       },

@@ -41,20 +41,23 @@ void main() {
       expect(overLine.isOverloaded, isTrue);
     });
 
-    test('Negative loadedQuantity does not throw ArgumentError in overCount or remaining', () {
-      const negativeLine = IbtLineItem(
-        id: 'line_neg',
-        description: 'Corrupted Negative Scan',
-        targetTotal: 10,
-        loadedQuantity: -5,
-      );
+    test(
+      'Negative loadedQuantity does not throw ArgumentError in overCount or remaining',
+      () {
+        const negativeLine = IbtLineItem(
+          id: 'line_neg',
+          description: 'Corrupted Negative Scan',
+          targetTotal: 10,
+          loadedQuantity: -5,
+        );
 
-      expect(negativeLine.overCount, 0);
-      expect(negativeLine.remaining, 10);
-      expect(negativeLine.isComplete, isFalse);
-      expect(negativeLine.isShort, isTrue);
-      expect(negativeLine.isOverloaded, isFalse);
-    });
+        expect(negativeLine.overCount, 0);
+        expect(negativeLine.remaining, 10);
+        expect(negativeLine.isComplete, isFalse);
+        expect(negativeLine.isShort, isTrue);
+        expect(negativeLine.isOverloaded, isFalse);
+      },
+    );
 
     test('Serialization and Deserialization roundtrip', () {
       const line = IbtLineItem(
@@ -184,7 +187,10 @@ void main() {
       expect(entryReconstructed.loadingSheetTrips!.length, 1);
       final rTrip = entryReconstructed.loadingSheetTrips!.first;
       expect(rTrip.hasIbtDocuments, isTrue);
-      expect(rTrip.ibtDocuments!.first.lineItems.first.description, '315/80R22.5 RD2+');
+      expect(
+        rTrip.ibtDocuments!.first.lineItems.first.description,
+        '315/80R22.5 RD2+',
+      );
     });
 
     test('WhatsApp export includes itemized IBT breakdown and shortages', () {
@@ -237,89 +243,97 @@ void main() {
       expect(waText, contains('315/80R22.5 M90L [⚠️ Short 2]'));
     });
 
-    test('LoadingSheetTrip.copyWith clearIbtDocuments and clearTargetQuantity flags', () {
-      const doc = IbtDocument(
-        documentNo: 'IBT100',
-        total: 20,
-        lineItems: [],
-      );
-      final trip = LoadingSheetTrip(
-        id: 't1',
-        reg: 'ND123',
-        driverName: 'Sipho',
-        tripId: 'DBN',
-        quantityLoaded: 10,
-        targetQuantity: 20,
-        createdAt: 1000,
-        ibtDocuments: const [doc],
-      );
+    test(
+      'LoadingSheetTrip.copyWith clearIbtDocuments and clearTargetQuantity flags',
+      () {
+        const doc = IbtDocument(documentNo: 'IBT100', total: 20, lineItems: []);
+        final trip = LoadingSheetTrip(
+          id: 't1',
+          reg: 'ND123',
+          driverName: 'Sipho',
+          tripId: 'DBN',
+          quantityLoaded: 10,
+          targetQuantity: 20,
+          createdAt: 1000,
+          ibtDocuments: const [doc],
+        );
 
-      expect(trip.hasIbtDocuments, isTrue);
-      expect(trip.targetQuantity, 20);
+        expect(trip.hasIbtDocuments, isTrue);
+        expect(trip.targetQuantity, 20);
 
-      // Clear IBT documents
-      final clearedIbtTrip = trip.copyWith(clearIbtDocuments: true);
-      expect(clearedIbtTrip.hasIbtDocuments, isFalse);
-      expect(clearedIbtTrip.ibtDocuments, isNull);
+        // Clear IBT documents
+        final clearedIbtTrip = trip.copyWith(clearIbtDocuments: true);
+        expect(clearedIbtTrip.hasIbtDocuments, isFalse);
+        expect(clearedIbtTrip.ibtDocuments, isNull);
 
-      // Clear target quantity
-      final clearedTargetTrip = trip.copyWith(clearTargetQuantity: true);
-      expect(clearedTargetTrip.targetQuantity, isNull);
+        // Clear target quantity
+        final clearedTargetTrip = trip.copyWith(clearTargetQuantity: true);
+        expect(clearedTargetTrip.targetQuantity, isNull);
 
-      // Replace IBT documents
-      const newDoc = IbtDocument(
-        documentNo: 'IBT200',
-        total: 50,
-        lineItems: [],
-      );
-      final replacedTrip = trip.copyWith(ibtDocuments: [newDoc]);
-      expect(replacedTrip.ibtDocuments!.first.documentNo, 'IBT200');
-    });
+        // Replace IBT documents
+        const newDoc = IbtDocument(
+          documentNo: 'IBT200',
+          total: 50,
+          lineItems: [],
+        );
+        final replacedTrip = trip.copyWith(ibtDocuments: [newDoc]);
+        expect(replacedTrip.ibtDocuments!.first.documentNo, 'IBT200');
+      },
+    );
 
-    test('WhatsApp and PDF exports correctly label overloaded line items', () async {
-      final trip = LoadingSheetTrip(
-        id: 'trip_overload',
-        reg: 'ND 984-210',
-        driverName: 'Sipho',
-        tripId: 'DBN',
-        quantityLoaded: 25,
-        createdAt: 1725000000000,
-        ibtDocuments: const [
-          IbtDocument(
-            documentNo: 'IBT99999',
-            total: 20,
-            lineItems: [
-              IbtLineItem(
-                id: 'l1',
-                description: '315/80R22.5 RD2+',
-                targetTotal: 20,
-                loadedQuantity: 25,
-              ),
-            ],
-          ),
-        ],
-      );
+    test(
+      'WhatsApp and PDF exports correctly label overloaded line items',
+      () async {
+        final trip = LoadingSheetTrip(
+          id: 'trip_overload',
+          reg: 'ND 984-210',
+          driverName: 'Sipho',
+          tripId: 'DBN',
+          quantityLoaded: 25,
+          createdAt: 1725000000000,
+          ibtDocuments: const [
+            IbtDocument(
+              documentNo: 'IBT99999',
+              total: 20,
+              lineItems: [
+                IbtLineItem(
+                  id: 'l1',
+                  description: '315/80R22.5 RD2+',
+                  targetTotal: 20,
+                  loadedQuantity: 25,
+                ),
+              ],
+            ),
+          ],
+        );
 
-      final entry = Entry(
-        id: 'entry_overload',
-        title: 'TODAY',
-        tags: [],
-        notes: [],
-        attachments: [],
-        loadingSheetTrips: [trip],
-        createdAt: 1725000000000,
-        updatedAt: 1725000000000,
-        dayKey: '2026-08-31',
-        monthKey: '2026-08',
-        yearKey: '2026',
-      );
+        final entry = Entry(
+          id: 'entry_overload',
+          title: 'TODAY',
+          tags: [],
+          notes: [],
+          attachments: [],
+          loadingSheetTrips: [trip],
+          createdAt: 1725000000000,
+          updatedAt: 1725000000000,
+          dayKey: '2026-08-31',
+          monthKey: '2026-08',
+          yearKey: '2026',
+        );
 
-      final waText = WhatsAppExportService.formatWhatsAppText(entry, 'Theolus');
-      expect(waText, contains('315/80R22.5 RD2+ [+5 Over]'));
-      expect(waText, isNot(contains('315/80R22.5 RD2+ [✓]')));
+        final waText = WhatsAppExportService.formatWhatsAppText(
+          entry,
+          'Theolus',
+        );
+        expect(waText, contains('315/80R22.5 RD2+ [+5 Over]'));
+        expect(waText, isNot(contains('315/80R22.5 RD2+ [✓]')));
 
-      final pdfBytes = await PdfExportService.generateLoadingSheetPdf(entry, 'Theolus');
-      expect(pdfBytes, isNotEmpty);
-    });
+        final pdfBytes = await PdfExportService.generateLoadingSheetPdf(
+          entry,
+          'Theolus',
+        );
+        expect(pdfBytes, isNotEmpty);
+      },
+    );
   });
 }

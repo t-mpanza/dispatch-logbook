@@ -5,6 +5,8 @@ import '../../core/utils/haptics.dart';
 import '../../data/models/attachment.dart';
 import '../../data/services/camera_service.dart';
 
+/// Bottom action bar for notes, photos and voice. Big round buttons for
+/// gloved hands, note field front and centre.
 class FloatingNoteBar extends StatefulWidget {
   final Function(String) onAddNote;
   final Function(Attachment) onAttachment;
@@ -36,30 +38,14 @@ class _FloatingNoteBarState extends State<FloatingNoteBar> {
 
   Future<void> _handleCamera() async {
     AppHaptics.light();
-    final typedCaption = _controller.text.trim();
     final att = await CameraService.capturePhoto();
-    if (att != null) {
-      final finalAtt = typedCaption.isNotEmpty ? att.copyWith(caption: typedCaption) : att;
-      widget.onAttachment(finalAtt);
-      if (typedCaption.isNotEmpty) {
-        _controller.clear();
-        setState(() => _hasText = false);
-      }
-    }
+    if (att != null) widget.onAttachment(att);
   }
 
   Future<void> _handleGallery() async {
     AppHaptics.light();
-    final typedCaption = _controller.text.trim();
     final att = await CameraService.pickImageFromGallery();
-    if (att != null) {
-      final finalAtt = typedCaption.isNotEmpty ? att.copyWith(caption: typedCaption) : att;
-      widget.onAttachment(finalAtt);
-      if (typedCaption.isNotEmpty) {
-        _controller.clear();
-        setState(() => _hasText = false);
-      }
-    }
+    if (att != null) widget.onAttachment(att);
   }
 
   @override
@@ -71,89 +57,126 @@ class _FloatingNoteBarState extends State<FloatingNoteBar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: GlassDecorations.glassDock(borderRadius: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: GlassDecorations.glassDock(
+        context: context,
+        borderRadius: 26,
+      ),
       child: Row(
         children: [
-          // Camera Button
-          IconButton(
-            icon: const Icon(Icons.camera_alt_rounded, color: AppColors.primaryGlow, size: 20),
-            onPressed: _handleCamera,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          _roundButton(
+            context,
+            icon: Icons.camera_alt_rounded,
+            color: AppColors.dynamicAccent(context),
+            onTap: _handleCamera,
+            tooltip: 'Take photo',
           ),
-
-          // Gallery Button
-          IconButton(
-            icon: Icon(Icons.photo_library_rounded, color: AppColors.dynamicTextSecondary(context), size: 20),
-            onPressed: _handleGallery,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          const SizedBox(width: 6),
+          _roundButton(
+            context,
+            icon: Icons.photo_library_rounded,
+            color: AppColors.dynamicTextSecondary(context),
+            onTap: _handleGallery,
+            tooltip: 'From gallery',
           ),
-
-          // Mic Button
-          IconButton(
-            icon: const Icon(Icons.mic_rounded, color: AppColors.presetNlh, size: 20),
-            onPressed: () {
+          const SizedBox(width: 6),
+          _roundButton(
+            context,
+            icon: Icons.mic_rounded,
+            color: AppColors.presetNlh,
+            onTap: () {
               AppHaptics.medium();
               widget.onStartVoice();
             },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            tooltip: 'Voice note',
           ),
-
-          const SizedBox(width: 4),
-
-          // Text Field
+          const SizedBox(width: 8),
           Expanded(
-            child: TextField(
-              controller: _controller,
-              style: TextStyle(fontSize: 13, color: AppColors.dynamicTextPrimary(context)),
-              decoration: InputDecoration(
-                hintText: 'Add note…',
-                hintStyle: TextStyle(color: AppColors.dynamicTextMuted(context), fontSize: 12),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                filled: true,
-                fillColor: Colors.black.withValues(alpha: 0.4),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppColors.glassBorderLight),
+            child: SizedBox(
+              height: 48,
+              child: TextField(
+                controller: _controller,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.dynamicTextPrimary(context),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppColors.primaryGlow),
+                decoration: InputDecoration(
+                  hintText: 'Add a note…',
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 0,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.dynamicSurfaceSunk(context),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide(
+                      color: AppColors.dynamicBorderLight(context),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide(
+                      color: AppColors.dynamicBorderLight(context),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(color: AppColors.primary),
+                  ),
                 ),
+                onChanged: (val) =>
+                    setState(() => _hasText = val.trim().isNotEmpty),
+                onSubmitted: (_) => _handleSubmit(),
               ),
-              onChanged: (val) {
-                setState(() => _hasText = val.trim().isNotEmpty);
-              },
-              onSubmitted: (_) => _handleSubmit(),
             ),
           ),
-
-          const SizedBox(width: 6),
-
-          // Send / Add Button
+          const SizedBox(width: 8),
           GestureDetector(
             onTap: _hasText ? _handleSubmit : null,
-            child: Container(
-              width: 36,
-              height: 36,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: _hasText ? AppColors.primary : AppColors.glassSurface,
+                color: _hasText
+                    ? AppColors.primary
+                    : AppColors.dynamicCardSurface(context),
                 shape: BoxShape.circle,
               ),
-              child: Center(
-                child: Icon(
-                  Icons.arrow_upward_rounded,
-                  size: 18,
-                  color: _hasText ? Colors.white : AppColors.textMuted,
-                ),
+              child: Icon(
+                Icons.arrow_upward_rounded,
+                size: 22,
+                color: _hasText
+                    ? Colors.white
+                    : AppColors.dynamicTextMuted(context),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _roundButton(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    required String tooltip,
+  }) {
+    return IconButton(
+      onPressed: () {
+        AppHaptics.light();
+        onTap();
+      },
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        backgroundColor: color.withValues(alpha: 0.12),
+        foregroundColor: color,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      icon: Icon(icon, size: 22),
     );
   }
 }

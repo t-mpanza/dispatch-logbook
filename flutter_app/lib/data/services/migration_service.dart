@@ -90,10 +90,9 @@ class MigrationService {
       for (final d in dedupe) {
         await txn.update(
           'entries',
-          d.winner.copyWith(
-            loadingSheetTrips: d.mergedTrips,
-            updatedAt: nowMs,
-          ).toMap(),
+          d.winner
+              .copyWith(loadingSheetTrips: d.mergedTrips, updatedAt: nowMs)
+              .toMap(),
           where: 'id = ?',
           whereArgs: [d.winner.id],
         );
@@ -107,11 +106,10 @@ class MigrationService {
         }
       }
 
-      await txn.insert(
-        'settings',
-        {'key': _flagKey, 'value': '1'},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await txn.insert('settings', {
+        'key': _flagKey,
+        'value': '1',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
 
     debugPrintMigration(
@@ -145,8 +143,8 @@ class MigrationService {
             ],
             expectedTotal:
                 (trip.targetQuantity != null && trip.targetQuantity! > 0)
-                    ? trip.targetQuantity
-                    : null,
+                ? trip.targetQuantity
+                : null,
             notes: const [],
             attachments: const [],
             trips: const [],
@@ -182,8 +180,10 @@ class MigrationService {
       if (sheetTrips.isEmpty) continue;
 
       final trips = e.trips ?? [];
-      final counterTotal =
-          trips.fold<int>(0, (s, t) => s + t.count + (t.rejected ?? 0));
+      final counterTotal = trips.fold<int>(
+        0,
+        (s, t) => s + t.count + (t.rejected ?? 0),
+      );
 
       var changed = false;
       final updated = sheetTrips.map((t) {
@@ -198,7 +198,9 @@ class MigrationService {
           }
           return t;
         }
-        if (!t.isManual && trips.isNotEmpty && t.quantityLoaded != counterTotal) {
+        if (!t.isManual &&
+            trips.isNotEmpty &&
+            t.quantityLoaded != counterTotal) {
           changed = true;
           return t.copyWith(quantityLoaded: counterTotal);
         }
@@ -223,9 +225,7 @@ class MigrationService {
       for (final t in e.loadingSheetTrips ?? []) {
         if (t.isManual) continue; // manual rows are unique adds, never merged
         if (_normTripId(t.tripId).isEmpty) continue;
-        groups
-            .putIfAbsent(_groupKey(e.dayKey, t.tripId), () => [])
-            .add((e, t));
+        groups.putIfAbsent(_groupKey(e.dayKey, t.tripId), () => []).add((e, t));
       }
     }
 

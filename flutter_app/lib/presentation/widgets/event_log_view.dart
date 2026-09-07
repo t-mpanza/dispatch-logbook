@@ -36,17 +36,25 @@ class EventLogView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cleanNotes = notes
-        .where((n) =>
-            n.id != '__meta_sheet__' &&
-            !n.text.startsWith('{"loadingSheetTrips"') &&
-            !n.text.startsWith('{"despatcherName"'))
+        .where(
+          (n) =>
+              n.id != '__meta_sheet__' &&
+              !n.text.startsWith('{"loadingSheetTrips"') &&
+              !n.text.startsWith('{"despatcherName"'),
+        )
         .toList();
 
     // Group items chronologically
     final List<_LogItem> raw = [
-      ...cleanNotes.map((n) => _LogItem(type: _ItemType.note, at: n.createdAt, note: n)),
-      ...attachments.map((a) => _LogItem(type: _ItemType.att, at: a.createdAt, attachment: a)),
-      ...trips.map((t) => _LogItem(type: _ItemType.trip, at: t.createdAt, trip: t)),
+      ...cleanNotes.map(
+        (n) => _LogItem(type: _ItemType.note, at: n.createdAt, note: n),
+      ),
+      ...attachments.map(
+        (a) => _LogItem(type: _ItemType.att, at: a.createdAt, attachment: a),
+      ),
+      ...trips.map(
+        (t) => _LogItem(type: _ItemType.trip, at: t.createdAt, trip: t),
+      ),
     ]..sort((a, b) => a.at.compareTo(b.at));
 
     if (raw.isEmpty) {
@@ -71,24 +79,32 @@ class EventLogView extends StatelessWidget {
         if (groups.isNotEmpty && groups.last.type == _GroupType.tripGroup) {
           groups.last.trips.add(item.trip!);
         } else {
-          groups.add(_RenderGroup(
-            type: _GroupType.tripGroup,
-            at: item.at,
-            trips: [item.trip!],
-          ));
+          groups.add(
+            _RenderGroup(
+              type: _GroupType.tripGroup,
+              at: item.at,
+              trips: [item.trip!],
+            ),
+          );
         }
       } else if (item.type == _ItemType.note) {
-        groups.add(_RenderGroup(type: _GroupType.note, at: item.at, note: item.note));
+        groups.add(
+          _RenderGroup(type: _GroupType.note, at: item.at, note: item.note),
+        );
       } else {
-        groups.add(_RenderGroup(type: _GroupType.att, at: item.at, attachment: item.attachment));
+        groups.add(
+          _RenderGroup(
+            type: _GroupType.att,
+            at: item.at,
+            attachment: item.attachment,
+          ),
+        );
       }
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final group in groups) _buildGroupWidget(group),
-      ],
+      children: [for (final group in groups) _buildGroupWidget(group)],
     );
   }
 
@@ -155,7 +171,10 @@ class EventLogView extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               slipText,
-              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 10,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
           const SizedBox(width: 4),
@@ -175,7 +194,11 @@ class EventLogView extends StatelessWidget {
             },
             child: const Padding(
               padding: EdgeInsets.only(left: 2),
-              child: Icon(Icons.close_rounded, size: 12, color: AppColors.textMuted),
+              child: Icon(
+                Icons.close_rounded,
+                size: 12,
+                color: AppColors.textMuted,
+              ),
             ),
           ),
         ],
@@ -210,7 +233,11 @@ class EventLogView extends StatelessWidget {
             children: [
               Text(
                 AppFormatters.formatTimeHHmm(note.createdAt),
-                style: const TextStyle(fontSize: 9, color: AppColors.textMuted, fontFamily: 'monospace'),
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: AppColors.textMuted,
+                  fontFamily: 'monospace',
+                ),
               ),
               const SizedBox(height: 4),
               GestureDetector(
@@ -218,7 +245,11 @@ class EventLogView extends StatelessWidget {
                   AppHaptics.light();
                   onRemoveNote(note.id);
                 },
-                child: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.textMuted),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  size: 16,
+                  color: AppColors.textMuted,
+                ),
               ),
             ],
           ),
@@ -247,7 +278,11 @@ class EventLogView extends StatelessWidget {
           width: 44,
           height: 44,
           color: AppColors.glassSurfaceElevated,
-          child: const Icon(Icons.image_outlined, size: 20, color: AppColors.textMuted),
+          child: const Icon(
+            Icons.image_outlined,
+            size: 20,
+            color: AppColors.textMuted,
+          ),
         ),
       );
     }
@@ -262,7 +297,8 @@ class EventLogView extends StatelessWidget {
 
   Widget _buildAttachmentRow(Attachment att) {
     final isAudio = att.kind == AttachmentKind.audio;
-    final isPhoto = att.kind == AttachmentKind.photo || att.kind == AttachmentKind.image;
+    final isPhoto =
+        att.kind == AttachmentKind.photo || att.kind == AttachmentKind.image;
 
     if (isAudio && audioService != null) {
       return _VoiceNotePlayerCard(
@@ -313,16 +349,26 @@ class EventLogView extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         '${att.name ?? "Photo"} • ${AppFormatters.formatTimeHHmm(att.createdAt)}',
-                        style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ] else ...[
                       Text(
                         att.name ?? 'Photo Attachment',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       Text(
                         AppFormatters.formatTimeHHmm(att.createdAt),
-                        style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ],
                   ],
@@ -331,7 +377,11 @@ class EventLogView extends StatelessWidget {
             ),
           ],
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.textMuted),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              size: 16,
+              color: AppColors.textMuted,
+            ),
             onPressed: () {
               AppHaptics.light();
               onRemoveAttachment(att.id);
@@ -375,20 +425,23 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
     _duration = Duration(milliseconds: defaultDurMs);
 
     _posSub = widget.audioService.onPositionChanged.listen((p) {
-      if (mounted && widget.audioService.currentlyPlayingId == widget.attachment.id) {
+      if (mounted &&
+          widget.audioService.currentlyPlayingId == widget.attachment.id) {
         setState(() => _position = p);
       }
     });
 
     _durSub = widget.audioService.onDurationChanged.listen((d) {
-      if (mounted && widget.audioService.currentlyPlayingId == widget.attachment.id) {
+      if (mounted &&
+          widget.audioService.currentlyPlayingId == widget.attachment.id) {
         setState(() => _duration = d);
       }
     });
 
     _stateSub = widget.audioService.onPlayerStateChanged.listen((s) {
       if (mounted) {
-        final isThisPlaying = s == PlayerState.playing &&
+        final isThisPlaying =
+            s == PlayerState.playing &&
             widget.audioService.currentlyPlayingId == widget.attachment.id;
         setState(() => _isPlaying = isThisPlaying);
       }
@@ -414,7 +467,10 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
 
   void _skip(int seconds) {
     AppHaptics.light();
-    final targetSec = (_position.inSeconds + seconds).clamp(0, _duration.inSeconds);
+    final targetSec = (_position.inSeconds + seconds).clamp(
+      0,
+      _duration.inSeconds,
+    );
     widget.audioService.seekAudio(Duration(seconds: targetSec));
   }
 
@@ -435,7 +491,9 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
 
   @override
   Widget build(BuildContext context) {
-    final maxSec = _duration.inMilliseconds > 0 ? _duration.inMilliseconds.toDouble() : 1.0;
+    final maxSec = _duration.inMilliseconds > 0
+        ? _duration.inMilliseconds.toDouble()
+        : 1.0;
     final curSec = _position.inMilliseconds.toDouble().clamp(0.0, maxSec);
 
     return Container(
@@ -455,32 +513,55 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
                   color: AppColors.presetNlh.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.mic_rounded, color: AppColors.presetNlh, size: 16),
+                child: const Icon(
+                  Icons.mic_rounded,
+                  color: AppColors.presetNlh,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (widget.attachment.caption != null && widget.attachment.caption!.isNotEmpty) ...[
+                    if (widget.attachment.caption != null &&
+                        widget.attachment.caption!.isNotEmpty) ...[
                       Text(
                         widget.attachment.caption!,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         '${widget.attachment.name ?? "Voice"} • ${AppFormatters.formatTimeHHmm(widget.attachment.createdAt)}',
-                        style: const TextStyle(fontSize: 9, color: AppColors.textMuted, fontFamily: 'monospace'),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: AppColors.textMuted,
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ] else ...[
                       Text(
                         widget.attachment.name ?? 'Voice Note',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       Text(
-                        AppFormatters.formatTimeHHmm(widget.attachment.createdAt),
-                        style: const TextStyle(fontSize: 9, color: AppColors.textMuted, fontFamily: 'monospace'),
+                        AppFormatters.formatTimeHHmm(
+                          widget.attachment.createdAt,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: AppColors.textMuted,
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ],
                   ],
@@ -490,7 +571,10 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
               GestureDetector(
                 onTap: _cycleSpeed,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.glassSurfaceElevated,
                     borderRadius: BorderRadius.circular(8),
@@ -509,7 +593,11 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
               ),
               const SizedBox(width: 4),
               IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.textMuted),
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  size: 16,
+                  color: AppColors.textMuted,
+                ),
                 onPressed: () {
                   AppHaptics.light();
                   widget.onDelete();
@@ -534,7 +622,9 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
               min: 0.0,
               max: maxSec,
               onChanged: (val) {
-                widget.audioService.seekAudio(Duration(milliseconds: val.toInt()));
+                widget.audioService.seekAudio(
+                  Duration(milliseconds: val.toInt()),
+                );
               },
             ),
           ),
@@ -561,7 +651,9 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
                       ],
                     ),
                     child: Icon(
-                      _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      _isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -569,11 +661,19 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.replay_5_rounded, size: 20, color: AppColors.textSecondary),
+                  icon: const Icon(
+                    Icons.replay_5_rounded,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
                   onPressed: () => _skip(-5),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.forward_5_rounded, size: 20, color: AppColors.textSecondary),
+                  icon: const Icon(
+                    Icons.forward_5_rounded,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
                   onPressed: () => _skip(5),
                 ),
                 const Spacer(),
@@ -596,6 +696,7 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
 }
 
 enum _ItemType { note, att, trip }
+
 enum _GroupType { note, att, tripGroup }
 
 class _LogItem {
@@ -605,7 +706,13 @@ class _LogItem {
   final Attachment? attachment;
   final Trip? trip;
 
-  _LogItem({required this.type, required this.at, this.note, this.attachment, this.trip});
+  _LogItem({
+    required this.type,
+    required this.at,
+    this.note,
+    this.attachment,
+    this.trip,
+  });
 }
 
 class _RenderGroup {
@@ -615,5 +722,11 @@ class _RenderGroup {
   final Attachment? attachment;
   final List<Trip> trips;
 
-  _RenderGroup({required this.type, required this.at, this.note, this.attachment, this.trips = const []});
+  _RenderGroup({
+    required this.type,
+    required this.at,
+    this.note,
+    this.attachment,
+    this.trips = const [],
+  });
 }

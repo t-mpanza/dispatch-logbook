@@ -37,8 +37,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
     return '${mb.toStringAsFixed(1)} MB';
   }
 
-  static const _installChannel =
-      MethodChannel('com.dispatchdiary.dispatch_diary/install');
+  static const _installChannel = MethodChannel(
+    'com.dispatchdiary.dispatch_diary/install',
+  );
 
   Future<void> _handleStartDownloadAndInstall() async {
     final apkUrl = widget.updateInfo.apkDownloadUrl;
@@ -46,7 +47,8 @@ class _UpdateDialogState extends State<UpdateDialog> {
       // Fallback to browser if no direct APK asset found
       AppHaptics.light();
       await UpdateService.openReleasePage(
-          widget.updateInfo.releaseUrl ?? UpdateService.releasesPageUrl);
+        widget.updateInfo.releaseUrl ?? UpdateService.releasesPageUrl,
+      );
       if (mounted) Navigator.pop(context);
       return;
     }
@@ -82,7 +84,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
           _isInstalling = true;
         });
         try {
-          await _installChannel.invokeMethod('installApk', {'path': event.filePath!});
+          await _installChannel.invokeMethod('installApk', {
+            'path': event.filePath!,
+          });
         } catch (e) {
           debugPrint('Install APK channel invoke failed: $e');
         }
@@ -116,7 +120,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isLight ? const Color(0xFFCBD5E1) : Colors.white.withValues(alpha: 0.2),
+                  color: isLight
+                      ? const Color(0xFFCBD5E1)
+                      : Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -133,7 +139,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: info.hasUpdate
-                            ? AppColors.primary.withValues(alpha: isLight ? 0.12 : 0.2)
+                            ? AppColors.primary.withValues(
+                                alpha: isLight ? 0.12 : 0.2,
+                              )
                             : AppColors.successBg,
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -142,7 +150,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
                             ? Icons.system_update_rounded
                             : Icons.check_circle_rounded,
                         color: info.hasUpdate
-                            ? (isLight ? AppColors.primary : AppColors.primaryGlow)
+                            ? (isLight
+                                  ? AppColors.primary
+                                  : AppColors.primaryGlow)
                             : AppColors.success,
                         size: 20,
                       ),
@@ -157,7 +167,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                             color: info.hasUpdate
-                                ? (isLight ? AppColors.primary : AppColors.primaryGlow)
+                                ? (isLight
+                                      ? AppColors.primary
+                                      : AppColors.primaryGlow)
                                 : AppColors.success,
                             letterSpacing: 1.5,
                           ),
@@ -167,17 +179,20 @@ class _UpdateDialogState extends State<UpdateDialog> {
                               ? 'New Version Available'
                               : 'Latest Release Installed',
                           style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.dynamicTextPrimary(context)),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.dynamicTextPrimary(context),
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
                 IconButton(
-                  icon: Icon(Icons.close_rounded,
-                      color: AppColors.dynamicTextMuted(context)),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: AppColors.dynamicTextMuted(context),
+                  ),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -187,37 +202,52 @@ class _UpdateDialogState extends State<UpdateDialog> {
             // Version Comparison Box
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: GlassDecorations.glassCard(context: context, borderRadius: 16),
+              decoration: GlassDecorations.glassCard(
+                context: context,
+                borderRadius: 16,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   Column(
                     children: [
-                      Text('CURRENT',
-                          style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.dynamicTextMuted(context),
-                              letterSpacing: 0.8)),
+                      Text(
+                        'CURRENT',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.dynamicTextMuted(context),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(info.currentVersion,
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.dynamicTextPrimary(context),
-                              fontFamily: 'monospace')),
+                      Text(
+                        info.currentVersion,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.dynamicTextPrimary(context),
+                          fontFamily: 'monospace',
+                        ),
+                      ),
                     ],
                   ),
-                  Icon(Icons.arrow_forward_rounded,
-                      size: 16, color: AppColors.dynamicTextMuted(context)),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 16,
+                    color: AppColors.dynamicTextMuted(context),
+                  ),
                   Column(
                     children: [
-                      Text('LATEST CANDIDATE',
-                          style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.dynamicTextMuted(context),
-                              letterSpacing: 0.8)),
+                      Text(
+                        'LATEST CANDIDATE',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.dynamicTextMuted(context),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         info.latestVersion,
@@ -225,7 +255,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
                           fontSize: 14,
                           fontWeight: FontWeight.w900,
                           color: info.hasUpdate
-                              ? (isLight ? AppColors.primary : AppColors.primaryGlow)
+                              ? (isLight
+                                    ? AppColors.primary
+                                    : AppColors.primaryGlow)
                               : AppColors.success,
                           fontFamily: 'monospace',
                         ),
@@ -241,28 +273,34 @@ class _UpdateDialogState extends State<UpdateDialog> {
             if (info.releaseNotes != null &&
                 info.releaseNotes!.isNotEmpty &&
                 !_isDownloading) ...[
-              Text('WHAT\'S NEW',
-                  style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.dynamicTextMuted(context),
-                      letterSpacing: 1.0)),
+              Text(
+                'WHAT\'S NEW',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.dynamicTextMuted(context),
+                  letterSpacing: 1.0,
+                ),
+              ),
               const SizedBox(height: 6),
               Container(
                 width: double.infinity,
                 constraints: const BoxConstraints(maxHeight: 120),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isLight ? const Color(0xFFF1F5F9) : Colors.black.withValues(alpha: 0.25),
+                  color: isLight
+                      ? const Color(0xFFF1F5F9)
+                      : Colors.black.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: SingleChildScrollView(
                   child: Text(
                     info.releaseNotes!,
                     style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.dynamicTextSecondary(context),
-                        height: 1.4),
+                      fontSize: 12,
+                      color: AppColors.dynamicTextSecondary(context),
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ),
@@ -275,7 +313,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 padding: const EdgeInsets.all(16),
                 decoration: GlassDecorations.glassCard(
                   context: context,
-                  color: AppColors.primary.withValues(alpha: isLight ? 0.08 : 0.1),
+                  color: AppColors.primary.withValues(
+                    alpha: isLight ? 0.08 : 0.1,
+                  ),
                   borderRadius: 16,
                 ),
                 child: Column(
@@ -287,15 +327,20 @@ class _UpdateDialogState extends State<UpdateDialog> {
                         Row(
                           children: [
                             if (_isInstalling)
-                              const Icon(Icons.check_circle_rounded,
-                                  color: AppColors.success, size: 18)
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.success,
+                                size: 18,
+                              )
                             else
                               SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: isLight ? AppColors.primary : AppColors.primaryGlow,
+                                  color: isLight
+                                      ? AppColors.primary
+                                      : AppColors.primaryGlow,
                                 ),
                               ),
                             const SizedBox(width: 8),
@@ -328,11 +373,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
                       child: LinearProgressIndicator(
                         value: _downloadProgress > 0 ? _downloadProgress : null,
                         minHeight: 8,
-                        backgroundColor: isLight ? const Color(0xFFE2E8F0) : Colors.white.withValues(alpha: 0.1),
+                        backgroundColor: isLight
+                            ? const Color(0xFFE2E8F0)
+                            : Colors.white.withValues(alpha: 0.1),
                         valueColor: AlwaysStoppedAnimation<Color>(
                           _isInstalling
                               ? AppColors.success
-                              : (isLight ? AppColors.primary : AppColors.primaryGlow),
+                              : (isLight
+                                    ? AppColors.primary
+                                    : AppColors.primaryGlow),
                         ),
                       ),
                     ),
@@ -341,9 +390,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
                       const Text(
                         'Tap "Update" on the system prompt to apply changes and reopen.',
                         style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.success,
-                            fontWeight: FontWeight.bold),
+                          fontSize: 11,
+                          color: AppColors.success,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ],
@@ -362,14 +412,19 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded,
-                        color: AppColors.error, size: 18),
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: AppColors.error,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _errorMessage!,
                         style: const TextStyle(
-                            color: AppColors.error, fontSize: 11),
+                          color: AppColors.error,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ],
@@ -388,11 +443,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     elevation: 6,
                   ),
-                  icon: const Icon(Icons.system_update_rounded,
-                      color: Colors.white, size: 20),
+                  icon: const Icon(
+                    Icons.system_update_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                   label: Text(
                     'AUTO-UPDATE NOW (${info.latestVersion})',
                     style: const TextStyle(
@@ -416,20 +475,28 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   onPressed: () {
                     AppHaptics.light();
                     UpdateService.openReleasePage(
-                        info.releaseUrl ?? UpdateService.releasesPageUrl);
+                      info.releaseUrl ?? UpdateService.releasesPageUrl,
+                    );
                   },
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: AppColors.dynamicBorder(context)),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  icon: Icon(Icons.open_in_browser_rounded,
-                      size: 16, color: AppColors.dynamicTextSecondary(context)),
-                  label: Text('View Release on GitHub',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.dynamicTextSecondary(context))),
+                  icon: Icon(
+                    Icons.open_in_browser_rounded,
+                    size: 16,
+                    color: AppColors.dynamicTextSecondary(context),
+                  ),
+                  label: Text(
+                    'View Release on GitHub',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.dynamicTextSecondary(context),
+                    ),
+                  ),
                 ),
               ),
           ],

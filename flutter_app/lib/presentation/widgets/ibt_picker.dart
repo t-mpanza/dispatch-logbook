@@ -57,8 +57,9 @@ class _IbtPickerState extends State<IbtPicker> {
     final docNumbers = _extractDocNumbers(raw);
     AppHaptics.light();
 
-    final existing =
-        widget.documents.map((d) => d.documentNo.toUpperCase()).toSet();
+    final existing = widget.documents
+        .map((d) => d.documentNo.toUpperCase())
+        .toSet();
     final failures = <String, String>{};
 
     setState(() {
@@ -69,9 +70,9 @@ class _IbtPickerState extends State<IbtPicker> {
       _lastSuccessMessage = null;
     });
 
-    final results = await Future.wait(
-      [for (final docNo in docNumbers) _fetchOne(docNo, failures)],
-    );
+    final results = await Future.wait([
+      for (final docNo in docNumbers) _fetchOne(docNo, failures),
+    ]);
 
     if (!mounted) return;
 
@@ -160,7 +161,10 @@ class _IbtPickerState extends State<IbtPicker> {
       children: [
         // Unified input with integrated suffix icon
         Container(
-          decoration: GlassDecorations.glassCard(context: context, borderRadius: 14),
+          decoration: GlassDecorations.glassCard(
+            context: context,
+            borderRadius: 14,
+          ),
           child: Row(
             children: [
               Expanded(
@@ -220,7 +224,11 @@ class _IbtPickerState extends State<IbtPicker> {
           const SizedBox(height: 6),
           Row(
             children: [
-              Icon(Icons.check_circle_rounded, size: 13, color: AppColors.success),
+              Icon(
+                Icons.check_circle_rounded,
+                size: 13,
+                color: AppColors.success,
+              ),
               const SizedBox(width: 5),
               Text(
                 _lastSuccessMessage!,
@@ -239,7 +247,11 @@ class _IbtPickerState extends State<IbtPicker> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.error_outline_rounded, size: 13, color: AppColors.error),
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 13,
+                color: AppColors.error,
+              ),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
@@ -262,7 +274,10 @@ class _IbtPickerState extends State<IbtPicker> {
             runSpacing: 8,
             children: widget.documents.map((doc) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: isLight ? 0.1 : 0.12),
                   borderRadius: BorderRadius.circular(8),

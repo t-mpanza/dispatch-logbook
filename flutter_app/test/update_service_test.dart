@@ -12,9 +12,12 @@ void main() {
         currentVersion: 'v2.1.0-rc1',
         latestVersion: 'v2.1.0-rc2',
         releaseTitle: 'Dispatch Diary v2.1.0-rc2',
-        releaseNotes: '- In-app AWS Web Sign-In\n- Automated OAuth credential storage',
-        apkDownloadUrl: 'https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.1.0-rc2/DispatchDiary_v2.1.0-rc2.apk',
-        releaseUrl: 'https://github.com/t-mpanza/dispatch-logbook/releases/tag/v2.1.0-rc2',
+        releaseNotes:
+            '- In-app AWS Web Sign-In\n- Automated OAuth credential storage',
+        apkDownloadUrl:
+            'https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.1.0-rc2/DispatchDiary_v2.1.0-rc2.apk',
+        releaseUrl:
+            'https://github.com/t-mpanza/dispatch-logbook/releases/tag/v2.1.0-rc2',
       );
 
       expect(info.hasUpdate, isTrue);
@@ -42,15 +45,18 @@ void main() {
             "assets": [
               {
                 "name": "app-release.apk",
-                "browser_download_url": "https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.0.55/app-release.apk"
-              }
-            ]
-          }
+                "browser_download_url":
+                    "https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.0.55/app-release.apk",
+              },
+            ],
+          },
         ];
         return http.Response(jsonEncode(mockReleases), 200);
       });
 
-      final updateInfo = await UpdateService.checkForUpdates(client: mockHttpClient);
+      final updateInfo = await UpdateService.checkForUpdates(
+        client: mockHttpClient,
+      );
       expect(updateInfo.hasUpdate, isFalse);
       expect(updateInfo.releaseChannel, equals('Dispatch Diary'));
     });
@@ -65,15 +71,18 @@ void main() {
             "assets": [
               {
                 "name": "DispatchDiary-v2.2.0.apk",
-                "browser_download_url": "https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.2.0/DispatchDiary-v2.2.0.apk"
-              }
-            ]
-          }
+                "browser_download_url":
+                    "https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.2.0/DispatchDiary-v2.2.0.apk",
+              },
+            ],
+          },
         ];
         return http.Response(jsonEncode(mockReleases), 200);
       });
 
-      final updateInfo = await UpdateService.checkForUpdates(client: mockHttpClient);
+      final updateInfo = await UpdateService.checkForUpdates(
+        client: mockHttpClient,
+      );
       expect(updateInfo.latestVersion, equals('v2.2.0'));
       expect(updateInfo.apkDownloadUrl, contains('DispatchDiary-v2.2.0.apk'));
       expect(updateInfo.hasUpdate, isTrue);

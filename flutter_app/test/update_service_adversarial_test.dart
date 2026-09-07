@@ -18,8 +18,14 @@ void main() {
 
       // RC sequence progression
       expect(UpdateService.isNewerVersion('v2.1.0-rc1', 'v2.1.0-rc2'), isTrue);
-      expect(UpdateService.isNewerVersion('v2.1.0-rc2', 'v2.1.0-rc10'), isTrue); // multi-digit RC
-      expect(UpdateService.isNewerVersion('v2.1.0-rc10', 'v2.1.0-rc2'), isFalse);
+      expect(
+        UpdateService.isNewerVersion('v2.1.0-rc2', 'v2.1.0-rc10'),
+        isTrue,
+      ); // multi-digit RC
+      expect(
+        UpdateService.isNewerVersion('v2.1.0-rc10', 'v2.1.0-rc2'),
+        isFalse,
+      );
       expect(UpdateService.isNewerVersion('v2.1.0-rc5', 'v2.1.0-rc5'), isFalse);
 
       // RC to newer base version
@@ -30,15 +36,36 @@ void main() {
 
     test('Pre-release tag stripping (-ibt, +build, v prefixes)', () {
       // Suffix -ibt stripping
-      expect(UpdateService.isNewerVersion('v2.1.0-ibt', 'v2.1.0'), isFalse); // same base version
-      expect(UpdateService.isNewerVersion('v2.1.0-rc5-ibt', 'v2.1.0'), isTrue); // rc to stable
-      expect(UpdateService.isNewerVersion('v2.1.0-rc5-ibt', 'v2.1.0-rc6'), isTrue);
-      expect(UpdateService.isNewerVersion('v2.1.0-rc5-ibt', 'v2.1.0-rc5'), isFalse);
-      expect(UpdateService.isNewerVersion('v2.1.0-rc5-IBT', 'v2.1.0-rc6'), isTrue); // case insensitivity
+      expect(
+        UpdateService.isNewerVersion('v2.1.0-ibt', 'v2.1.0'),
+        isFalse,
+      ); // same base version
+      expect(
+        UpdateService.isNewerVersion('v2.1.0-rc5-ibt', 'v2.1.0'),
+        isTrue,
+      ); // rc to stable
+      expect(
+        UpdateService.isNewerVersion('v2.1.0-rc5-ibt', 'v2.1.0-rc6'),
+        isTrue,
+      );
+      expect(
+        UpdateService.isNewerVersion('v2.1.0-rc5-ibt', 'v2.1.0-rc5'),
+        isFalse,
+      );
+      expect(
+        UpdateService.isNewerVersion('v2.1.0-rc5-IBT', 'v2.1.0-rc6'),
+        isTrue,
+      ); // case insensitivity
 
       // Build metadata (+N) stripping
-      expect(UpdateService.isNewerVersion('v2.1.0+10', 'v2.1.0+11'), isFalse); // build metadata alone != newer
-      expect(UpdateService.isNewerVersion('v2.1.0+10', 'v2.1.1+1'), isTrue); // patch bump with build meta
+      expect(
+        UpdateService.isNewerVersion('v2.1.0+10', 'v2.1.0+11'),
+        isFalse,
+      ); // build metadata alone != newer
+      expect(
+        UpdateService.isNewerVersion('v2.1.0+10', 'v2.1.1+1'),
+        isTrue,
+      ); // patch bump with build meta
       expect(UpdateService.isNewerVersion('v2.1.0+100', 'v2.2.0'), isTrue);
 
       // 'v' prefix variation
@@ -94,143 +121,163 @@ void main() {
   });
 
   group('UpdateService Asset Discovery & API Robustness Tests', () {
-    test('Filters out draft releases and selects newest published release with APK', () async {
-      final mockHttpClient = MockClient((request) async {
-        final mockReleases = [
-          {
-            "tag_name": "v2.3.0",
-            "name": "Draft release",
-            "draft": true,
-            "assets": [
-              {
-                "name": "DispatchDiary-v2.3.0.apk",
-                "browser_download_url": "https://example.com/draft.apk"
-              }
-            ]
-          },
-          {
-            "tag_name": "v2.2.0",
-            "name": "Published release v2.2.0",
-            "draft": false,
-            "assets": [
-              {
-                "name": "DispatchDiary-v2.2.0.apk",
-                "browser_download_url": "https://example.com/v2.2.0.apk"
-              }
-            ]
-          }
-        ];
-        return http.Response(jsonEncode(mockReleases), 200);
-      });
+    test(
+      'Filters out draft releases and selects newest published release with APK',
+      () async {
+        final mockHttpClient = MockClient((request) async {
+          final mockReleases = [
+            {
+              "tag_name": "v2.3.0",
+              "name": "Draft release",
+              "draft": true,
+              "assets": [
+                {
+                  "name": "DispatchDiary-v2.3.0.apk",
+                  "browser_download_url": "https://example.com/draft.apk",
+                },
+              ],
+            },
+            {
+              "tag_name": "v2.2.0",
+              "name": "Published release v2.2.0",
+              "draft": false,
+              "assets": [
+                {
+                  "name": "DispatchDiary-v2.2.0.apk",
+                  "browser_download_url": "https://example.com/v2.2.0.apk",
+                },
+              ],
+            },
+          ];
+          return http.Response(jsonEncode(mockReleases), 200);
+        });
 
-      final info = await UpdateService.checkForUpdates(client: mockHttpClient);
-      expect(info.latestVersion, equals('v2.2.0'));
-      expect(info.apkDownloadUrl, equals('https://example.com/v2.2.0.apk'));
-      expect(info.releaseTitle, equals('Published release v2.2.0'));
-    });
+        final info = await UpdateService.checkForUpdates(
+          client: mockHttpClient,
+        );
+        expect(info.latestVersion, equals('v2.2.0'));
+        expect(info.apkDownloadUrl, equals('https://example.com/v2.2.0.apk'));
+        expect(info.releaseTitle, equals('Published release v2.2.0'));
+      },
+    );
 
-    test('Skips release candidates in checkForUpdates() to target stable releases', () async {
-      final mockHttpClient = MockClient((request) async {
-        final mockReleases = [
-          {
-            "tag_name": "v2.2.0-rc1",
-            "name": "RC Candidate",
-            "draft": false,
-            "assets": [
-              {
-                "name": "DispatchDiary-v2.2.0-rc1.apk",
-                "browser_download_url": "https://example.com/rc1.apk"
-              }
-            ]
-          },
-          {
-            "tag_name": "v2.1.5",
-            "name": "Stable Release v2.1.5",
-            "draft": false,
-            "assets": [
-              {
-                "name": "DispatchDiary-v2.1.5.apk",
-                "browser_download_url": "https://example.com/v2.1.5.apk"
-              }
-            ]
-          }
-        ];
-        return http.Response(jsonEncode(mockReleases), 200);
-      });
+    test(
+      'Skips release candidates in checkForUpdates() to target stable releases',
+      () async {
+        final mockHttpClient = MockClient((request) async {
+          final mockReleases = [
+            {
+              "tag_name": "v2.2.0-rc1",
+              "name": "RC Candidate",
+              "draft": false,
+              "assets": [
+                {
+                  "name": "DispatchDiary-v2.2.0-rc1.apk",
+                  "browser_download_url": "https://example.com/rc1.apk",
+                },
+              ],
+            },
+            {
+              "tag_name": "v2.1.5",
+              "name": "Stable Release v2.1.5",
+              "draft": false,
+              "assets": [
+                {
+                  "name": "DispatchDiary-v2.1.5.apk",
+                  "browser_download_url": "https://example.com/v2.1.5.apk",
+                },
+              ],
+            },
+          ];
+          return http.Response(jsonEncode(mockReleases), 200);
+        });
 
-      final info = await UpdateService.checkForUpdates(client: mockHttpClient);
-      expect(info.latestVersion, equals('v2.1.5'));
-      expect(info.apkDownloadUrl, equals('https://example.com/v2.1.5.apk'));
-    });
+        final info = await UpdateService.checkForUpdates(
+          client: mockHttpClient,
+        );
+        expect(info.latestVersion, equals('v2.1.5'));
+        expect(info.apkDownloadUrl, equals('https://example.com/v2.1.5.apk'));
+      },
+    );
 
-    test('Handles multiple assets and correctly identifies the .apk asset', () async {
-      final mockHttpClient = MockClient((request) async {
-        final mockReleases = [
-          {
-            "tag_name": "v2.2.0",
-            "name": "Multi-asset Release",
-            "draft": false,
-            "assets": [
-              {
-                "name": "source.tar.gz",
-                "browser_download_url": "https://example.com/source.tar.gz"
-              },
-              {
-                "name": "app-release.aab",
-                "browser_download_url": "https://example.com/app.aab"
-              },
-              {
-                "name": "DispatchDiary-v2.2.0.apk",
-                "browser_download_url": "https://example.com/valid.apk"
-              },
-              {
-                "name": "checksums.txt",
-                "browser_download_url": "https://example.com/checksums.txt"
-              }
-            ]
-          }
-        ];
-        return http.Response(jsonEncode(mockReleases), 200);
-      });
+    test(
+      'Handles multiple assets and correctly identifies the .apk asset',
+      () async {
+        final mockHttpClient = MockClient((request) async {
+          final mockReleases = [
+            {
+              "tag_name": "v2.2.0",
+              "name": "Multi-asset Release",
+              "draft": false,
+              "assets": [
+                {
+                  "name": "source.tar.gz",
+                  "browser_download_url": "https://example.com/source.tar.gz",
+                },
+                {
+                  "name": "app-release.aab",
+                  "browser_download_url": "https://example.com/app.aab",
+                },
+                {
+                  "name": "DispatchDiary-v2.2.0.apk",
+                  "browser_download_url": "https://example.com/valid.apk",
+                },
+                {
+                  "name": "checksums.txt",
+                  "browser_download_url": "https://example.com/checksums.txt",
+                },
+              ],
+            },
+          ];
+          return http.Response(jsonEncode(mockReleases), 200);
+        });
 
-      final info = await UpdateService.checkForUpdates(client: mockHttpClient);
-      expect(info.latestVersion, equals('v2.2.0'));
-      expect(info.apkDownloadUrl, equals('https://example.com/valid.apk'));
-    });
+        final info = await UpdateService.checkForUpdates(
+          client: mockHttpClient,
+        );
+        expect(info.latestVersion, equals('v2.2.0'));
+        expect(info.apkDownloadUrl, equals('https://example.com/valid.apk'));
+      },
+    );
 
-    test('Skips releases missing an APK asset and finds previous release with APK', () async {
-      final mockHttpClient = MockClient((request) async {
-        final mockReleases = [
-          {
-            "tag_name": "v2.3.0",
-            "name": "Source only release",
-            "draft": false,
-            "assets": [
-              {
-                "name": "source.zip",
-                "browser_download_url": "https://example.com/source.zip"
-              }
-            ]
-          },
-          {
-            "tag_name": "v2.2.0",
-            "name": "Release with APK",
-            "draft": false,
-            "assets": [
-              {
-                "name": "app.apk",
-                "browser_download_url": "https://example.com/app.apk"
-              }
-            ]
-          }
-        ];
-        return http.Response(jsonEncode(mockReleases), 200);
-      });
+    test(
+      'Skips releases missing an APK asset and finds previous release with APK',
+      () async {
+        final mockHttpClient = MockClient((request) async {
+          final mockReleases = [
+            {
+              "tag_name": "v2.3.0",
+              "name": "Source only release",
+              "draft": false,
+              "assets": [
+                {
+                  "name": "source.zip",
+                  "browser_download_url": "https://example.com/source.zip",
+                },
+              ],
+            },
+            {
+              "tag_name": "v2.2.0",
+              "name": "Release with APK",
+              "draft": false,
+              "assets": [
+                {
+                  "name": "app.apk",
+                  "browser_download_url": "https://example.com/app.apk",
+                },
+              ],
+            },
+          ];
+          return http.Response(jsonEncode(mockReleases), 200);
+        });
 
-      final info = await UpdateService.checkForUpdates(client: mockHttpClient);
-      expect(info.latestVersion, equals('v2.2.0'));
-      expect(info.apkDownloadUrl, equals('https://example.com/app.apk'));
-    });
+        final info = await UpdateService.checkForUpdates(
+          client: mockHttpClient,
+        );
+        expect(info.latestVersion, equals('v2.2.0'));
+        expect(info.apkDownloadUrl, equals('https://example.com/app.apk'));
+      },
+    );
 
     test('Handles empty releases gracefully without exception', () async {
       final mockHttpClient = MockClient((request) async {

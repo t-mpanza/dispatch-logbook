@@ -58,18 +58,21 @@ class DatabaseService {
         ''');
 
         await db.execute(
-            'CREATE INDEX idx_entries_day_key ON entries(day_key)');
+          'CREATE INDEX idx_entries_day_key ON entries(day_key)',
+        );
         await db.execute(
-            'CREATE INDEX idx_entries_updated_at ON entries(updated_at)');
+          'CREATE INDEX idx_entries_updated_at ON entries(updated_at)',
+        );
         await db.execute(
-            'CREATE INDEX idx_entries_deleted_at ON entries(deleted_at)');
+          'CREATE INDEX idx_entries_deleted_at ON entries(deleted_at)',
+        );
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
+          await db.execute('ALTER TABLE entries ADD COLUMN deleted_at INTEGER');
           await db.execute(
-              'ALTER TABLE entries ADD COLUMN deleted_at INTEGER');
-          await db.execute(
-              'CREATE INDEX IF NOT EXISTS idx_entries_deleted_at ON entries(deleted_at)');
+            'CREATE INDEX IF NOT EXISTS idx_entries_deleted_at ON entries(deleted_at)',
+          );
         }
       },
     );
@@ -208,11 +211,10 @@ class DatabaseService {
 
   static Future<void> saveSetting(String key, String value) async {
     final db = await database;
-    await db.insert(
-      'settings',
-      {'key': key, 'value': value},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('settings', {
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   // ── Reminders Operations ────────────────────────────────────────────────────

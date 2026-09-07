@@ -28,7 +28,8 @@ class PdfPreviewScreen extends StatelessWidget {
       MaterialPageRoute(
         builder: (ctx) => PdfPreviewScreen(
           title: 'Loading Sheet — ${entry.dayKey}',
-          buildPdf: (format) => PdfExportService.generateLoadingSheetPdf(entry, despatcherName),
+          buildPdf: (format) =>
+              PdfExportService.generateLoadingSheetPdf(entry, despatcherName),
         ),
       ),
     );
@@ -44,7 +45,10 @@ class PdfPreviewScreen extends StatelessWidget {
         backgroundColor: isDark ? AppColors.backgroundSecondary : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: isDark ? AppColors.textPrimary : Colors.black87),
+          icon: Icon(
+            Icons.arrow_back_rounded,
+            color: isDark ? AppColors.textPrimary : Colors.black87,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -72,7 +76,10 @@ class PdfPreviewScreen extends StatelessWidget {
         canDebug: false,
         maxPageWidth: 700,
         pdfFileName: '$title.pdf',
-        previewPageMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        previewPageMargin: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         loadingWidget: const Center(
           child: CircularProgressIndicator(color: AppColors.primaryGlow),
         ),

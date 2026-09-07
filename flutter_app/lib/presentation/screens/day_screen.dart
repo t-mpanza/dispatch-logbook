@@ -6,11 +6,12 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/models/entry.dart';
 import '../../data/repositories/entry_repository.dart';
+import '../entry_route.dart';
 import '../viewmodels/entries_viewmodel.dart';
 import '../widgets/swipeable_entry_card.dart';
-import '../entry_route.dart';
-import 'new_entry_screen.dart';
+import '../widgets/ui_kit.dart';
 
+/// Any single day's records, with prev/next navigation and pull-to-refresh.
 class DayScreen extends StatefulWidget {
   final String dayKey;
 
@@ -29,14 +30,13 @@ class _DayScreenState extends State<DayScreen> {
     _currentDayKey = widget.dayKey;
   }
 
-  void _shiftDay(int delta) {
+  void _shiftDay(int days) {
     AppHaptics.light();
     try {
-      final parts = _currentDayKey.split('-');
-      final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-      final next = d.add(Duration(days: delta));
+      final current = DateTime.parse(_currentDayKey);
+      final shifted = current.add(Duration(days: days));
       setState(() {
-        _currentDayKey = AppFormatters.dayKey(next);
+        _currentDayKey = AppFormatters.dayKey(shifted);
       });
     } catch (_) {}
   }
@@ -44,41 +44,22 @@ class _DayScreenState extends State<DayScreen> {
   @override
   Widget build(BuildContext context) {
     final parsedDate = DateTime.tryParse(_currentDayKey) ?? DateTime.now();
-    final isLight = AppColors.isLight(context);
+    final isToday = _currentDayKey == AppFormatters.dayKey(DateTime.now());
 
     return Scaffold(
-      backgroundColor: AppColors.dynamicBackground(context),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          AppHaptics.medium();
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const NewEntryScreen()),
-          );
-        },
-        backgroundColor: AppColors.primary,
-        elevation: 8,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add_rounded, size: 28, color: Colors.white),
-      ),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: AppColors.dynamicTextPrimary(context)),
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () {
             AppHaptics.light();
             Navigator.pop(context);
           },
         ),
-        title: Text(
-          AppFormatters.formatDayLabel(parsedDate.millisecondsSinceEpoch),
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.dynamicTextPrimary(context)),
-        ),
+        title: Text(AppFormatters.formatShortDay(parsedDate)),
       ),
       body: RefreshIndicator(
-        color: isLight ? AppColors.primary : AppColors.primaryGlow,
-        backgroundColor: isLight ? Colors.white : AppColors.backgroundSecondary,
+        color: AppColors.dynamicAccent(context),
+        backgroundColor: AppColors.dynamicBackgroundSecondary(context),
         onRefresh: () async {
           AppHaptics.light();
           try {
@@ -94,86 +75,196 @@ class _DayScreenState extends State<DayScreen> {
               future: vm.getEntriesForDay(_currentDayKey),
               builder: (context, snapshot) {
                 final entries = snapshot.data ?? [];
-                final isLoading = snapshot.connectionState == ConnectionState.waiting;
+                final isLoading =
+                    snapshot.connectionState == ConnectionState.waiting;
 
                 return Column(
                   children: [
-                    // Date navigation bar
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: GlassDecorations.glassCard(context: context, borderRadius: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.chevron_left_rounded, color: AppColors.dynamicTextPrimary(context)),
-                              onPressed: () => _shiftDay(-1),
-                            ),
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today_rounded, size: 14, color: isLight ? AppColors.primary : AppColors.primaryGlow),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _currentDayKey,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.dynamicTextPrimary(context),
-                                    fontFamily: 'monospace',
-                                  ),
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _shiftDay(-1),
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
                                 ),
-                              ],
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.chevron_right_rounded, color: AppColors.dynamicTextPrimary(context)),
-                              onPressed: () => _shiftDay(1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // List
-                    Expanded(
-                      child: isLoading
-                          ? Center(child: CircularProgressIndicator(color: isLight ? AppColors.primary : AppColors.primaryGlow))
-                          : entries.isEmpty
-                              ? ListView(
-                                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                                decoration: GlassDecorations.glassCard(
+                                  context: context,
+                                  borderRadius: 16,
+                                ),
+                                child: Row(
                                   children: [
-                                    SizedBox(height: MediaQuery.of(context).size.height * 0.25),
-                                    Center(
-                                      child: Text(
-                                        'No entries logged for $_currentDayKey',
-                                        style: TextStyle(fontSize: 12, color: AppColors.dynamicTextMuted(context)),
+                                    Icon(
+                                      Icons.chevron_left_rounded,
+                                      color: AppColors.dynamicAccent(context),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Previous',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.dynamicTextPrimary(
+                                          context,
+                                        ),
                                       ),
                                     ),
                                   ],
-                                )
-                              : ListView.builder(
-                                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
-                                  itemCount: entries.length,
-                                  itemBuilder: (context, index) {
-                                    final entry = entries[index];
-                                    return SwipeableEntryCard(
-                                      entry: entry,
-                                      onTap: () {
-                                        AppHaptics.light();
-                                        openEntryDetail(context, entry);
-                                      },
-                                      onEdit: () {
-                                        AppHaptics.light();
-                                        openEntryDetail(context, entry);
-                                      },
-                                      onDelete: () async {
-                                        await vm.deleteEntry(entry.id);
-                                      },
-                                    );
-                                  },
                                 ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          if (!isToday)
+                            GestureDetector(
+                              onTap: () {
+                                AppHaptics.medium();
+                                setState(
+                                  () => _currentDayKey = AppFormatters.dayKey(
+                                    DateTime.now(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: GlassDecorations.frostedPill(
+                                  context: context,
+                                  borderRadius: 100,
+                                ),
+                                child: Text(
+                                  'Back to today',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.dynamicAccent(context),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: isToday ? null : () => _shiftDay(1),
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: GlassDecorations.glassCard(
+                                  context: context,
+                                  borderRadius: 16,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Next',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: isToday
+                                            ? AppColors.dynamicTextDisabled(
+                                                context,
+                                              )
+                                            : AppColors.dynamicTextPrimary(
+                                                context,
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: isToday
+                                          ? AppColors.dynamicTextDisabled(
+                                              context,
+                                            )
+                                          : AppColors.dynamicAccent(context),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : entries.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics(),
+                              ),
+                              padding: const EdgeInsets.all(20),
+                              children: [
+                                const SizedBox(height: 60),
+                                EmptyState(
+                                  icon: Icons.event_busy_rounded,
+                                  title: 'Nothing on this day',
+                                  message:
+                                      'No entries were logged for '
+                                      '$_currentDayKey.',
+                                ),
+                              ],
+                            )
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics(),
+                              ),
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                4,
+                                20,
+                                110,
+                              ),
+                              itemCount: entries.length,
+                              itemBuilder: (context, index) {
+                                final entry = entries[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: SwipeableEntryCard(
+                                    entry: entry,
+                                    onTap: () {
+                                      AppHaptics.light();
+                                      openEntryDetail(context, entry);
+                                    },
+                                    onEdit: () {
+                                      AppHaptics.light();
+                                      openEntryDetail(context, entry);
+                                    },
+                                    onDelete: () async {
+                                      final confirmed =
+                                          await AppDialogs.confirm(
+                                            context,
+                                            title: 'Delete this entry?',
+                                            message:
+                                                'This permanently removes '
+                                                'the entry and its media.',
+                                          );
+                                      if (confirmed) {
+                                        await vm.deleteEntry(entry.id);
+                                        if (context.mounted) {
+                                          AppSnacks.success(
+                                            context,
+                                            'Entry deleted',
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
                     ),
                   ],
                 );

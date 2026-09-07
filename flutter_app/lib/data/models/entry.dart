@@ -83,7 +83,9 @@ class Entry {
       'expected_total': expectedTotal,
       'notes': jsonEncode(notes.map((n) => n.toMap()).toList()),
       'attachments': jsonEncode(attachments.map((a) => a.toMap()).toList()),
-      'trips': trips != null ? jsonEncode(trips!.map((t) => t.toMap()).toList()) : null,
+      'trips': trips != null
+          ? jsonEncode(trips!.map((t) => t.toMap()).toList())
+          : null,
       'loading_sheet_trips': loadingSheetTrips != null
           ? jsonEncode(loadingSheetTrips!.map((t) => t.toMap()).toList())
           : null,
@@ -174,7 +176,9 @@ class Entry {
           final decoded = jsonDecode(loadingData);
           if (decoded is List) {
             parsedLoadingTrips = decoded
-                .map((t) => LoadingSheetTrip.fromMap(Map<String, dynamic>.from(t)))
+                .map(
+                  (t) => LoadingSheetTrip.fromMap(Map<String, dynamic>.from(t)),
+                )
                 .toList();
           }
         } catch (_) {}
@@ -195,8 +199,12 @@ class Entry {
       trips: parsedTrips,
       loadingSheetTrips: parsedLoadingTrips,
       despatcherName: map['despatcher_name'] as String?,
-      createdAt: (map['created_at'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
-      updatedAt: (map['updated_at'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+      createdAt:
+          (map['created_at'] as num?)?.toInt() ??
+          DateTime.now().millisecondsSinceEpoch,
+      updatedAt:
+          (map['updated_at'] as num?)?.toInt() ??
+          DateTime.now().millisecondsSinceEpoch,
       dayKey: map['day_key'] as String? ?? '',
       monthKey: map['month_key'] as String? ?? '',
       yearKey: map['year_key'] as String? ?? '',

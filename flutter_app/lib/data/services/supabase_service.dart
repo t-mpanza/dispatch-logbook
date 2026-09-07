@@ -65,9 +65,11 @@ class SupabaseService {
   /// Build the wire payload for an entry. Exposed (instead of private) so the
   /// tombstone-omit invariant is unit-testable.
   static Map<String, dynamic> formatEntryPayload(Entry entry, String userId) {
-    final cleanNotes =
-        entry.notes.where((n) => n.id != '__meta_sheet__').toList();
-    final hasMeta = (entry.loadingSheetTrips != null &&
+    final cleanNotes = entry.notes
+        .where((n) => n.id != '__meta_sheet__')
+        .toList();
+    final hasMeta =
+        (entry.loadingSheetTrips != null &&
             entry.loadingSheetTrips!.isNotEmpty) ||
         entry.despatcherName != null;
 
@@ -78,11 +80,12 @@ class SupabaseService {
               'id': '__meta_sheet__',
               'text': jsonEncode({
                 'loadingSheetTrips':
-                    entry.loadingSheetTrips?.map((t) => t.toMap()).toList() ?? [],
+                    entry.loadingSheetTrips?.map((t) => t.toMap()).toList() ??
+                    [],
                 'despatcherName': entry.despatcherName ?? 'Theolus',
               }),
               'createdAt': entry.updatedAt,
-            }
+            },
           ]
         : cleanNotes.map((n) => n.toMap()).toList();
 
@@ -118,8 +121,9 @@ class SupabaseService {
     if (userId == null) return false;
 
     try {
-      final payloads =
-          entries.map((e) => formatEntryPayload(e, userId)).toList();
+      final payloads = entries
+          .map((e) => formatEntryPayload(e, userId))
+          .toList();
 
       for (var i = 0; i < payloads.length; i += 50) {
         final chunk = payloads.sublist(
@@ -155,8 +159,9 @@ class SupabaseService {
       final userId = await getUserId();
       if (userId == null) return;
 
-      final payloads =
-          tombstones.map((e) => formatEntryPayload(e, userId)).toList();
+      final payloads = tombstones
+          .map((e) => formatEntryPayload(e, userId))
+          .toList();
       for (var i = 0; i < payloads.length; i += 50) {
         final chunk = payloads.sublist(
           i,
@@ -181,7 +186,9 @@ class SupabaseService {
     final path = '$userId/${att.id}.$ext';
 
     try {
-      await client.storage.from(SupabaseConstants.attachmentsBucket).uploadBinary(
+      await client.storage
+          .from(SupabaseConstants.attachmentsBucket)
+          .uploadBinary(
             path,
             att.bytes!,
             fileOptions: FileOptions(contentType: att.mime, upsert: true),
@@ -238,7 +245,8 @@ class SupabaseService {
         }
       }
 
-      final localEntries = await DatabaseService.getAllEntriesIncludingDeleted();
+      final localEntries =
+          await DatabaseService.getAllEntriesIncludingDeleted();
       final localMap = {for (final e in localEntries) e.id: e};
       final List<Entry> toUpdate = [];
       final List<String> tombstoneIds = [];
@@ -261,8 +269,7 @@ class SupabaseService {
           continue;
         }
 
-        final remoteUpdatedAt =
-            (remote['updated_at'] as num?)?.toInt() ?? 0;
+        final remoteUpdatedAt = (remote['updated_at'] as num?)?.toInt() ?? 0;
 
         final isNewer = local == null || remoteUpdatedAt > local.updatedAt;
         if (!isNewer) continue;
@@ -282,8 +289,11 @@ class SupabaseService {
                   if (parsed is Map) {
                     if (parsed['loadingSheetTrips'] is List) {
                       loadingTrips = (parsed['loadingSheetTrips'] as List)
-                          .map((t) => LoadingSheetTrip.fromMap(
-                              Map<String, dynamic>.from(t)))
+                          .map(
+                            (t) => LoadingSheetTrip.fromMap(
+                              Map<String, dynamic>.from(t),
+                            ),
+                          )
                           .toList();
                     }
                     if (parsed['despatcherName'] is String) {
@@ -299,7 +309,9 @@ class SupabaseService {
         }
 
         // Map attachments, preserving local file paths and bytes
-        final localAttMap = {for (final a in (local?.attachments ?? [])) a.id: a};
+        final localAttMap = {
+          for (final a in (local?.attachments ?? [])) a.id: a,
+        };
 
         final attList = attsByEntryId[id] ?? [];
         final List<Attachment> attachments = attList.map((a) {
@@ -307,7 +319,8 @@ class SupabaseService {
           final localAtt = localAttMap[attId];
           final sPath = a['storage_path'] as String?;
           final directUrl = a['download_url'] as String?;
-          final resolvedUrl = directUrl ??
+          final resolvedUrl =
+              directUrl ??
               (sPath != null
                   ? client.storage.from('attachments').getPublicUrl(sPath)
                   : null);
@@ -322,13 +335,15 @@ class SupabaseService {
             mime: a['mime'] as String? ?? 'application/octet-stream',
             name: a['name'] as String? ?? localAtt?.name,
             caption: a['caption'] as String? ?? localAtt?.caption,
-            durationMs: (a['duration_ms'] as num?)?.toInt() ?? localAtt?.durationMs,
+            durationMs:
+                (a['duration_ms'] as num?)?.toInt() ?? localAtt?.durationMs,
             width: (a['width'] as num?)?.toInt() ?? localAtt?.width,
             height: (a['height'] as num?)?.toInt() ?? localAtt?.height,
             storagePath: sPath ?? localAtt?.storagePath,
             downloadUrl: resolvedUrl ?? localAtt?.downloadUrl,
             localFilePath: localAtt?.localFilePath,
-            createdAt: (a['created_at'] as num?)?.toInt() ?? localAtt?.createdAt ?? 0,
+            createdAt:
+                (a['created_at'] as num?)?.toInt() ?? localAtt?.createdAt ?? 0,
           );
         }).toList();
 
@@ -392,13 +407,15 @@ class SupabaseService {
   static void setupRealtimeSync(VoidCallback onEntryChanged) {
     try {
       _realtimeChannel = client.channel('dispatch_live_sync');
-      _realtimeChannel!.onBroadcast(
-        event: 'entry_changed',
-        callback: (payload) async {
-          await pullAndMerge();
-          onEntryChanged();
-        },
-      ).subscribe();
+      _realtimeChannel!
+          .onBroadcast(
+            event: 'entry_changed',
+            callback: (payload) async {
+              await pullAndMerge();
+              onEntryChanged();
+            },
+          )
+          .subscribe();
     } catch (e) {
       debugPrint('Realtime channel setup error: $e');
     }

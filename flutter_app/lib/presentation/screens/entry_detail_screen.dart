@@ -271,7 +271,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                                 TextField(
                                   controller: _titleController,
                                   style: TextStyle(
-                                    fontSize: 15,
+                                    fontSize: 17,
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.dynamicTextPrimary(
                                       context,
@@ -319,7 +319,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                                     Text(
                                       '${AppFormatters.formatDayLabel(currentEntry.createdAt)} · ${AppFormatters.formatTimeHHmm(currentEntry.createdAt)}',
                                       style: TextStyle(
-                                        fontSize: 10,
+                                        fontSize: 12,
                                         color: AppColors.dynamicTextMuted(
                                           context,
                                         ),
@@ -345,14 +345,14 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                                           children: [
                                             Icon(
                                               Icons.check_rounded,
-                                              size: 10,
+                                              size: 13,
                                               color: AppColors.success,
                                             ),
-                                            SizedBox(width: 2),
+                                            SizedBox(width: 3),
                                             Text(
                                               'Saved',
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: 11,
                                                 fontWeight: FontWeight.bold,
                                                 color: AppColors.success,
                                               ),
@@ -381,6 +381,85 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                                 );
                               },
                             ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: AppColors.error,
+                            ),
+                            tooltip: 'Delete entry',
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.error.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.delete_outline_rounded,
+                                          color: AppColors.error,
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'Delete this entry?',
+                                          style: TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.dynamicTextPrimary(
+                                              context,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  content: const Text(
+                                    'The trip, its counts and media will be '
+                                    'permanently removed.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
+                                      child: Text(
+                                        'Keep it',
+                                        style: TextStyle(
+                                          color: AppColors.dynamicTextSecondary(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    FilledButton(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppColors.error,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(0, 48),
+                                      ),
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed == true && context.mounted) {
+                                await repo.deleteEntry(currentEntry.id);
+                                if (context.mounted) Navigator.pop(context);
+                              }
+                            },
+                          ),
                         ],
                       ),
 
@@ -564,7 +643,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                                         child: Text(
                                           doc.documentNo,
                                           style: const TextStyle(
-                                            fontSize: 10,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.w800,
                                             color: AppColors.primaryGlow,
                                             fontFamily: 'monospace',
@@ -605,7 +684,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
                       Text(
                         'EVENT LOG',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: AppColors.dynamicTextMuted(context),
                           letterSpacing: 1.5,
@@ -768,8 +847,8 @@ class _IbtLineRow extends StatelessWidget {
                     Text(
                       line.size!,
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
                         color: AppColors.dynamicTextPrimary(context),
                         fontFamily: 'monospace',
                       ),
@@ -786,7 +865,7 @@ class _IbtLineRow extends StatelessWidget {
                     Text(
                       line.rubber!,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 14,
                         color: AppColors.dynamicTextSecondary(context),
                       ),
                     ),
@@ -795,7 +874,7 @@ class _IbtLineRow extends StatelessWidget {
                       child: Text(
                         line.description,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 13,
                           color: AppColors.dynamicTextSecondary(context),
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -822,7 +901,7 @@ class _IbtLineRow extends StatelessWidget {
         Text(
           '$loaded / $target',
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 15,
             fontWeight: FontWeight.w800,
             color: isOver
                 ? AppColors.warning

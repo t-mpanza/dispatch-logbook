@@ -2,20 +2,32 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
+/// Shared surface language: layered glass cards, elevated panels and the
+/// floating navigation dock. One set of radii and shadows keeps every
+/// screen visually consistent, in both sunlight and dark mode.
 class GlassDecorations {
+  static const double _cardRadius = 20;
+
   static BoxDecoration glassCard({
     BuildContext? context,
-    double borderRadius = 20,
+    double borderRadius = _cardRadius,
     Color? color,
     Color? borderColor,
   }) {
-    final isLight = context != null && Theme.of(context).brightness == Brightness.light;
-
+    final isLight = context != null && AppColors.isLight(context);
     return BoxDecoration(
-      color: color ?? (isLight ? Colors.white : AppColors.glassSurface),
+      color:
+          color ??
+          (isLight
+              ? AppColors.lightGlassSurface
+              : AppColors.backgroundSecondary),
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(
-        color: borderColor ?? (isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder),
+        color:
+            borderColor ??
+            (isLight
+                ? AppColors.lightGlassBorderLight
+                : AppColors.glassBorderLight),
         width: 1,
       ),
       boxShadow: [
@@ -34,13 +46,14 @@ class GlassDecorations {
     Color? color,
     Color? borderColor,
   }) {
-    final isLight = context != null && Theme.of(context).brightness == Brightness.light;
-
+    final isLight = context != null && AppColors.isLight(context);
     return BoxDecoration(
-      color: color ?? (isLight ? Colors.white : AppColors.glassSurfaceElevated),
+      color: color ?? (isLight ? Colors.white : AppColors.surfaceRaised),
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(
-        color: borderColor ?? (isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder),
+        color:
+            borderColor ??
+            (isLight ? AppColors.lightGlassBorder : AppColors.glassBorder),
         width: 1,
       ),
       boxShadow: [
@@ -57,20 +70,51 @@ class GlassDecorations {
     BuildContext? context,
     double borderRadius = 28,
   }) {
-    final isLight = context != null && Theme.of(context).brightness == Brightness.light;
-
+    final isLight = context != null && AppColors.isLight(context);
     return BoxDecoration(
-      color: isLight ? Colors.white.withValues(alpha: 0.96) : AppColors.dockBackground,
+      color: isLight ? AppColors.lightDockBackground : AppColors.dockBackground,
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(
-        color: isLight ? const Color(0xFFCBD5E1) : AppColors.glassBorder,
+        color: isLight
+            ? AppColors.lightGlassBorder
+            : AppColors.glassBorderLight,
         width: 1,
       ),
       boxShadow: [
         BoxShadow(
-          color: isLight ? const Color(0x1F000000) : const Color(0x66000000),
+          color: isLight ? const Color(0x1F000000) : const Color(0x73000000),
           blurRadius: isLight ? 20 : 30,
           offset: isLight ? const Offset(0, 6) : const Offset(0, 10),
+        ),
+      ],
+    );
+  }
+
+  /// Frosted pill used for status banners floating over content.
+  static BoxDecoration frostedPill({
+    BuildContext? context,
+    double borderRadius = 16,
+    Color? color,
+  }) {
+    final isLight = context != null && AppColors.isLight(context);
+    return BoxDecoration(
+      color:
+          color ??
+          (isLight
+              ? AppColors.lightBackgroundSecondary
+              : AppColors.backgroundSecondary),
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(
+        color: isLight
+            ? AppColors.lightGlassBorderLight
+            : AppColors.glassBorderLight,
+        width: 1,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: isLight ? const Color(0x14000000) : const Color(0x40000000),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
         ),
       ],
     );

@@ -156,7 +156,10 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.close, color: AppColors.dynamicTextSecondary(context)),
+                icon: Icon(
+                  Icons.close,
+                  color: AppColors.dynamicTextSecondary(context),
+                ),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -175,9 +178,17 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildKpiItem('Target', '$totalTarget', AppColors.primaryGlow),
-                Container(height: 24, width: 1, color: AppColors.dynamicBorder(context)),
+                Container(
+                  height: 24,
+                  width: 1,
+                  color: AppColors.dynamicBorder(context),
+                ),
                 _buildKpiItem('Loaded', '$totalLoaded', Colors.greenAccent),
-                Container(height: 24, width: 1, color: AppColors.dynamicBorder(context)),
+                Container(
+                  height: 24,
+                  width: 1,
+                  color: AppColors.dynamicBorder(context),
+                ),
                 _buildKpiItem(
                   'Remaining',
                   '$totalRemaining',
@@ -215,9 +226,9 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: AppColors.dynamicCardSurface(context).withValues(
-                        alpha: 0.6,
-                      ),
+                      color: AppColors.dynamicCardSurface(
+                        context,
+                      ).withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: doc.isComplete
@@ -254,7 +265,9 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                                   Text(
                                     doc.documentNo,
                                     style: TextStyle(
-                                      color: AppColors.dynamicTextPrimary(context),
+                                      color: AppColors.dynamicTextPrimary(
+                                        context,
+                                      ),
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.5,
@@ -298,8 +311,10 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                           physics: const NeverScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(12),
                           itemCount: doc.lineItems.length,
-                          separatorBuilder: (ctx, i) =>
-                              Divider(color: AppColors.dynamicBorder(context), height: 16),
+                          separatorBuilder: (ctx, i) => Divider(
+                            color: AppColors.dynamicBorder(context),
+                            height: 16,
+                          ),
                           itemBuilder: (context, lineIdx) {
                             final line = doc.lineItems[lineIdx];
                             return _buildLineItemRow(doc, line);

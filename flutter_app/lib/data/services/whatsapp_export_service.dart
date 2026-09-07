@@ -42,12 +42,16 @@ class WhatsAppExportService {
       // Itemized IBT Manifest breakdown if attached
       if (t.hasIbtDocuments) {
         for (final doc in t.ibtDocuments!) {
-          buffer.writeln('   📄 *${doc.documentNo}* (${doc.loadedTotal}/${doc.total} tyres)');
+          buffer.writeln(
+            '   📄 *${doc.documentNo}* (${doc.loadedTotal}/${doc.total} tyres)',
+          );
           for (final line in doc.lineItems) {
             final statusStr = line.isOverloaded
                 ? '+${line.overCount} Over'
                 : (line.isShort ? '⚠️ Short ${line.remaining}' : '✓');
-            buffer.writeln('      ▪ ${line.loadedQuantity}/${line.targetTotal}x ${line.description} [$statusStr]');
+            buffer.writeln(
+              '      ▪ ${line.loadedQuantity}/${line.targetTotal}x ${line.description} [$statusStr]',
+            );
           }
         }
       }
@@ -64,7 +68,9 @@ class WhatsAppExportService {
     final hours = totalMinutes ~/ 60;
     final mins = totalMinutes % 60;
     final timeFormatted = totalMinutes > 0
-        ? (hours > 0 ? '${hours}h ${mins}m (${totalMinutes}m)' : '$totalMinutes mins')
+        ? (hours > 0
+              ? '${hours}h ${mins}m (${totalMinutes}m)'
+              : '$totalMinutes mins')
         : '0 mins';
 
     buffer.writeln();
@@ -93,7 +99,9 @@ class WhatsAppExportService {
 
     // 3. Fallback to native system share sheet
     try {
-      await SharePlus.instance.share(ShareParams(text: text, subject: 'Despatch Loading Sheet'));
+      await SharePlus.instance.share(
+        ShareParams(text: text, subject: 'Despatch Loading Sheet'),
+      );
       return true;
     } catch (_) {
       return false;

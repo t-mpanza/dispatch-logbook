@@ -63,12 +63,17 @@ class AppSyncManifestService {
   }
 
   /// Intercept and parse redirect URI from OAuth flow (both token and code response types)
-  static Future<bool> handleRedirectUrl(String url, {http.Client? client}) async {
+  static Future<bool> handleRedirectUrl(
+    String url, {
+    http.Client? client,
+  }) async {
     try {
       final uri = Uri.parse(url);
 
       // Check if redirect matches our scheme or localhost
-      if (uri.scheme == 'myapp' || uri.host == 'localhost' || uri.path.contains('callback')) {
+      if (uri.scheme == 'myapp' ||
+          uri.host == 'localhost' ||
+          uri.path.contains('callback')) {
         // 1. Implicit Token Flow (tokens in URL fragment)
         if (uri.fragment.isNotEmpty) {
           final fragParams = Uri.splitQueryString(uri.fragment);
@@ -110,7 +115,10 @@ class AppSyncManifestService {
   }
 
   /// Exchange authorization code for ID and access tokens
-  static Future<bool> exchangeCodeForTokens(String code, {http.Client? client}) async {
+  static Future<bool> exchangeCodeForTokens(
+    String code, {
+    http.Client? client,
+  }) async {
     final httpClient = client ?? http.Client();
     try {
       final uri = Uri.https(cognitoDomain, '/oauth2/token');
@@ -167,24 +175,27 @@ class AppSyncManifestService {
         body: jsonEncode({
           'AuthFlow': 'USER_PASSWORD_AUTH',
           'ClientId': clientId,
-          'AuthParameters': {
-            'USERNAME': username.trim(),
-            'PASSWORD': password,
-          },
+          'AuthParameters': {'USERNAME': username.trim(), 'PASSWORD': password},
         }),
       );
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode != 200) {
-        final errorType = data['__type']?.toString().split('#').last ?? 'AuthError';
-        final message = data['message'] ?? data['Message'] ?? 'Cognito authentication failed';
+        final errorType =
+            data['__type']?.toString().split('#').last ?? 'AuthError';
+        final message =
+            data['message'] ??
+            data['Message'] ??
+            'Cognito authentication failed';
         throw Exception('$errorType: $message');
       }
 
       final authResult = data['AuthenticationResult'];
       if (authResult == null) {
-        throw Exception('Cognito challenge required: ${data['ChallengeName'] ?? "Unknown Challenge"}');
+        throw Exception(
+          'Cognito challenge required: ${data['ChallengeName'] ?? "Unknown Challenge"}',
+        );
       }
 
       final idToken = authResult['IdToken'] as String;
@@ -230,7 +241,9 @@ class AppSyncManifestService {
           utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
         );
         final exp = (payload['exp'] as num?)?.toInt() ?? 0;
-        final email = payload['email'] as String? ?? payload['cognito:username'] as String?;
+        final email =
+            payload['email'] as String? ??
+            payload['cognito:username'] as String?;
         final username = payload['cognito:username'] as String? ?? email;
         final expiresAt = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
 
@@ -453,12 +466,7 @@ class AppSyncManifestService {
         },
         body: jsonEncode({
           'query': query,
-          'variables': {
-            'ibt': docNo,
-            'inv': '',
-            'dibt': '',
-            'amsInv': '',
-          },
+          'variables': {'ibt': docNo, 'inv': '', 'dibt': '', 'amsInv': ''},
         }),
       );
 
@@ -501,8 +509,9 @@ class AppSyncManifestService {
       final lineTotal = (map['total'] as num?)?.toInt() ?? 0;
 
       final sizeStr = sizeId != null ? sizeMaster[sizeId] : extractSize(desc);
-      final rubberStr =
-          rubberId != null ? rubberMaster[rubberId] : extractRubber(desc);
+      final rubberStr = rubberId != null
+          ? rubberMaster[rubberId]
+          : extractRubber(desc);
 
       totalCount += lineTotal;
 
@@ -521,16 +530,13 @@ class AppSyncManifestService {
       );
     }
 
-    return IbtDocument(
-      documentNo: docNo,
-      total: totalCount,
-      lineItems: items,
-    );
+    return IbtDocument(documentNo: docNo, total: totalCount, lineItems: items);
   }
 
   static String? extractSize(String text) {
-    final match = RegExp(r'\d{3}/\d{2}R\d{2}\.?\d?|\d{1,2}R\d{2}\.?\d?')
-        .firstMatch(text);
+    final match = RegExp(
+      r'\d{3}/\d{2}R\d{2}\.?\d?|\d{1,2}R\d{2}\.?\d?',
+    ).firstMatch(text);
     return match?.group(0);
   }
 
