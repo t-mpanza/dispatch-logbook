@@ -75,5 +75,45 @@ void main() {
       expect(AppSyncManifestService.extractImperialSize('315/80R22.5'), isNull);
       expect(AppSyncManifestService.extractSize('315/80R22.5 RD2+'), '315/80R22.5');
     });
+
+    group('live IBT 122773 ground truth', () {
+      test('12R line resolves to 12R22.5 despite size_id 22', () {
+        expect(
+          AppSyncManifestService.resolveSize(
+            sizeId: 22,
+            description: '12R22.5 M38 STOCK RETREAD',
+          ),
+          '12R22.5',
+        );
+      });
+
+      test('rubber pattern comes from description when master lacks the id', () {
+        expect(
+          AppSyncManifestService.resolveRubber(
+            rubberId: 49,
+            description: '12R22.5 M38 STOCK RETREAD',
+          ),
+          'M38',
+        );
+      });
+
+      test('modern rubber codes all extract correctly', () {
+        expect(AppSyncManifestService.extractRubber('315/80R22.5 M100 STOCK RETREAD'), 'M100');
+        expect(AppSyncManifestService.extractRubber('315/80R22.5 M43 STOCK RETREAD'), 'M43');
+        expect(AppSyncManifestService.extractRubber('315/80R22.5 M90L STOCK RETREAD'), 'M90L');
+        expect(AppSyncManifestService.extractRubber('315/80R22.5 MM65 STOCK RETREAD'), 'MM65');
+        expect(AppSyncManifestService.extractRubber('11R22.5 MM84 STOCK RETREAD'), 'MM84');
+      });
+
+      test('315 lines still resolve via description', () {
+        expect(
+          AppSyncManifestService.resolveSize(
+            sizeId: 70,
+            description: '315/80R22.5 M90L STOCK RETREAD',
+          ),
+          '315/80R22.5',
+        );
+      });
+    });
   });
 }

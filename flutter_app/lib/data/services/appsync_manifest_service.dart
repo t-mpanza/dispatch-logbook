@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../models/ibt_manifest.dart';
+import 'aws_auto_login_service.dart';
 
 class AwsUserInfo {
   final bool isAuthenticated;
@@ -34,10 +35,14 @@ class AppSyncManifestService {
   static const String _keyIdToken = 'appsync_id_token';
   static const String _keyRefreshToken = 'appsync_refresh_token';
 
-  // Master size and rubber master mapping tables from backend
+  // Master size and rubber master mapping tables from backend.
+  // Ground truth from live manifests (IBT 122773): 22=12R22.5, 16=11R22.5,
+  // 70=315/80R22.5. Description always wins; these are fallbacks only.
   static const Map<int, String> sizeMaster = {
-    22: '315/80R22.5',
+    22: '12R22.5',
+    16: '11R22.5',
     45: '11R22.5',
+    70: '315/80R22.5',
     30: '295/80R22.5',
     38: '275/70R22.5',
     15: '385/65R22.5',
@@ -276,10 +281,24 @@ class AppSyncManifestService {
     return const AwsUserInfo(isAuthenticated: false);
   }
 
-  /// Read active ID Token (with automated refresh if expired)
+  /// Read active ID Token (with automated refresh if expired).
+  ///
+  /// When no session exists yet, silently authenticates with the embedded
+  /// internal-dev account so IBT manifests work out-of-the-box.
   static Future<String?> getValidIdToken({http.Client? client}) async {
     final idToken = await _storage.read(key: _keyIdToken);
-    if (idToken == null || idToken.isEmpty) return null;
+    if (idToken == null || idToken.isEmpty) {
+      return AwsAutoLoginService.login(
+        client: client,
+        onTokens: (access, id, refresh) async {
+          await saveAuthTokens(
+            accessToken: access,
+            idToken: id,
+            refreshToken: refresh,
+          );
+        },
+      );
+    }
 
     try {
       final parts = idToken.split('.');
@@ -509,9 +528,7 @@ class AppSyncManifestService {
       final lineTotal = (map['total'] as num?)?.toInt() ?? 0;
 
       final sizeStr = resolveSize(sizeId: sizeId, description: desc);
-      final rubberStr = rubberId != null
-          ? rubberMaster[rubberId]
-          : extractRubber(desc);
+      final rubberStr = resolveRubber(rubberId: rubberId, description: desc);
 
       totalCount += lineTotal;
 
@@ -569,9 +586,20 @@ class AppSyncManifestService {
     return match?.group(0);
   }
 
+  /// Resolve the rubber pattern for a line item. Description first — live
+  /// manifests carry patterns the master map does not know (M38, M43, M100,
+  /// MM65, …), and the description is always authoritative.
+  static String? resolveRubber({int? rubberId, String? description}) {
+    final desc = description?.trim() ?? '';
+    final fromDesc = extractRubber(desc);
+    if (fromDesc != null && fromDesc.isNotEmpty) return fromDesc;
+    if (rubberId != null) return rubberMaster[rubberId];
+    return null;
+  }
+
   static String? extractRubber(String text) {
     final match = RegExp(
-      r'(RD2\+|M90L|MM84|M3|SP571|K-Max|Multiway)',
+      r'\b(?:RD2\+|SP\d{3}|K-Max|Multiway|MM\d{2}|M\d{2,3}L?)\b',
       caseSensitive: false,
     ).firstMatch(text);
     return match?.group(0)?.toUpperCase();

@@ -31,17 +31,45 @@ class NumberPad {
   }
 }
 
+/// Batch-add keypad: the operator types the exact number of tyres they just
+/// loaded (7 = 7), and the returned value is the amount to ADD — never a
+/// total to compute. No steppers, no mental arithmetic, one clean history
+/// entry per batch.
+class BatchPad {
+  static Future<int?> show(
+    BuildContext context, {
+    required int remaining,
+    int defaultBatch = 0,
+    String? title,
+  }) {
+    return showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _NumberPadSheet(
+        initial: defaultBatch > 0 ? defaultBatch : 0,
+        maxValue: remaining > 0 ? remaining : null,
+        title: title,
+        unit: 'to add',
+        batchMode: true,
+      ),
+    );
+  }
+}
+
 class _NumberPadSheet extends StatefulWidget {
   final int initial;
   final int? maxValue;
   final String? title;
   final String? unit;
+  final bool batchMode;
 
   const _NumberPadSheet({
     required this.initial,
     this.maxValue,
     this.title,
     this.unit,
+    this.batchMode = false,
   });
 
   @override
@@ -119,6 +147,7 @@ class _NumberPadSheetState extends State<_NumberPadSheet> {
     final isLight = AppColors.isLight(context);
     final accent = isLight ? AppColors.primary : AppColors.primaryGlow;
     final displayText = _buffer.isEmpty ? '0' : _buffer;
+    final shown = widget.batchMode ? '+$displayText' : displayText;
 
     return Container(
       padding: EdgeInsets.only(
@@ -204,7 +233,7 @@ class _NumberPadSheetState extends State<_NumberPadSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      displayText,
+                      shown,
                       textAlign: TextAlign.right,
                       style: TextStyle(
                         fontSize: 34,
@@ -256,7 +285,9 @@ class _NumberPadSheetState extends State<_NumberPadSheet> {
                   ),
                 ),
                 child: Text(
-                  'CONFIRM — $displayText',
+                  widget.batchMode
+                      ? 'ADD $displayText'
+                      : 'CONFIRM — $displayText',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,

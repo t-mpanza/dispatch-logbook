@@ -209,6 +209,68 @@ void main() {
       expect(result.wasClamped, isTrue);
     });
 
+    test('undoBatch reverts a specific historical batch by event id', () {
+      var trip = _tripWithLines(docNo: 'IBT-1', lines: [
+        const IbtLineItem(
+          id: 'l1',
+          description: 'Item',
+          targetTotal: 20,
+        ),
+      ]);
+
+      trip = IbtLineOps.applyDelta(
+        trip: trip,
+        documentNo: 'IBT-1',
+        lineItemId: 'l1',
+        delta: 7,
+      ).trip;
+      final firstEventId = trip.ibtDocuments!.single.lineItems.single
+          .history
+          .single
+          .id;
+
+      trip = IbtLineOps.applyDelta(
+        trip: trip,
+        documentNo: 'IBT-1',
+        lineItemId: 'l1',
+        delta: 5,
+      ).trip;
+
+      expect(trip.ibtDocuments!.single.lineItems.single.loadedQuantity, 12);
+
+      // Undo the FIRST batch (+7), leaving the +5 intact.
+      final undone = IbtLineOps.undoBatch(
+        trip: trip,
+        documentNo: 'IBT-1',
+        lineItemId: 'l1',
+        eventId: firstEventId,
+      );
+
+      expect(undone, isNotNull);
+      expect(undone!.line.loadedQuantity, 5);
+      expect(undone.line.history.last.delta, -7);
+    });
+
+    test('undoBatch returns null for unknown event id', () {
+      final trip = _tripWithLines(docNo: 'IBT-1', lines: [
+        const IbtLineItem(
+          id: 'l1',
+          description: 'Item',
+          targetTotal: 10,
+        ),
+      ]);
+
+      expect(
+        IbtLineOps.undoBatch(
+          trip: trip,
+          documentNo: 'IBT-1',
+          lineItemId: 'l1',
+          eventId: 'does-not-exist',
+        ),
+        isNull,
+      );
+    });
+
     test('unknown document throws ArgumentError (callers must guard)', () {
       final trip = _tripWithLines(docNo: 'IBT-1', lines: [
         const IbtLineItem(

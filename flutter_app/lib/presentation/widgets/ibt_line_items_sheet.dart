@@ -38,30 +38,42 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
     _currentTrip = widget.trip;
   }
 
-  /// Tap-to-edit: precise numeric entry via the in-app keypad, hard-clamped
-  /// to the manifest target.
-  Future<void> _editLineQuantity({
+  /// Tap-to-add: type the exact number just loaded and add it as one clean
+  /// batch (hard-clamped to the manifest target).
+  Future<void> _addLineBatch({
     required IbtDocument doc,
     required IbtLineItem line,
   }) async {
     AppHaptics.light();
-    final value = await NumberPad.show(
+    var lastPositive = 0;
+    for (final e in line.history.reversed) {
+      if (e.delta > 0) {
+        lastPositive = e.delta;
+        break;
+      }
+    }
+    final value = await BatchPad.show(
       context,
-      initial: line.loadedQuantity,
-      maxValue: line.targetTotal,
-      title: 'TYRES LOADED — ${line.size ?? line.description}',
+      remaining: line.remaining,
+      defaultBatch: lastPositive,
+      title: 'ADD TYRES — ${line.size ?? line.description}',
     );
-    if (value == null || !mounted) return;
+    if (value == null || value == 0 || !mounted) return;
 
     final vm = context.read<LoadingSheetViewModel>();
-    await vm.updateIbtLineQuantity(
+    final result = await vm.applyIbtLineDelta(
       trip: _currentTrip,
       documentNo: doc.documentNo,
       lineItemId: line.id,
-      newQuantity: value,
+      delta: value,
     );
+    if (result == null || !mounted) return;
 
-    if (value == line.targetTotal && line.targetTotal > 0) {
+    if (result.completed) {
+      AppHaptics.success();
+    } else if (result.wasClamped) {
+      AppHaptics.heavy();
+    } else {
       AppHaptics.medium();
     }
 
@@ -489,7 +501,7 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 GestureDetector(
-                  onTap: () => _editLineQuantity(doc: doc, line: line),
+                  onTap: () => _addLineBatch(doc: doc, line: line),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,

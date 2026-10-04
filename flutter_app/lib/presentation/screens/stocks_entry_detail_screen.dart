@@ -180,7 +180,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
       context,
       initial: line.loadedQuantity,
       maxValue: line.targetTotal,
-      title: 'TYRES LOADED — ${line.size ?? line.description}',
+      title: 'EXACT TOTAL — ${line.size ?? line.description}',
     );
     if (value == null || !mounted) return;
 
@@ -191,6 +191,69 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
       lineId: line.id,
       newQuantity: value,
     );
+  }
+
+  /// THE primary interaction: type the exact number just loaded and add it
+  /// in one clean batch. Defaults to the previous batch size so repeat
+  /// patterns load with a single confirm tap.
+  Future<void> _showBatchAddDialog({
+    required Entry currentEntry,
+    required EntryRepository repo,
+    required String docNo,
+    required IbtLineItem line,
+  }) async {
+    var lastPositive = 0;
+    for (final e in line.history.reversed) {
+      if (e.delta > 0) {
+        lastPositive = e.delta;
+        break;
+      }
+    }
+    final value = await BatchPad.show(
+      context,
+      remaining: line.remaining,
+      defaultBatch: lastPositive,
+      title: 'ADD TYRES — ${line.size ?? line.description}',
+    );
+    if (value == null || value == 0 || !mounted) return;
+
+    await _updateLineQuantity(
+      currentEntry: currentEntry,
+      repo: repo,
+      docNo: docNo,
+      lineId: line.id,
+      newQuantity: line.loadedQuantity + value,
+    );
+  }
+
+  /// Undo one specific batch from the line's history.
+  Future<void> _undoBatch({
+    required Entry currentEntry,
+    required EntryRepository repo,
+    required String docNo,
+    required String lineId,
+    required String eventId,
+  }) async {
+    final sheetTrips = <LoadingSheetTrip>[...?currentEntry.loadingSheetTrips];
+    final sheetTripIdx = sheetTrips.indexWhere((t) => !t.isManual);
+    if (sheetTripIdx < 0) return;
+
+    final result = IbtLineOps.undoBatch(
+      trip: sheetTrips[sheetTripIdx],
+      documentNo: docNo,
+      lineItemId: lineId,
+      eventId: eventId,
+    );
+    if (result == null) return;
+
+    sheetTrips[sheetTripIdx] = result.trip;
+    await repo.saveEntry(
+      currentEntry.copyWith(
+        loadingSheetTrips: sheetTrips,
+        expectedTotal: result.trip.ibtTargetTotal,
+      ),
+    );
+    _reactToDelta(result);
   }
 
   Widget _buildAddIbtSection(Entry currentEntry, EntryRepository repo) {
@@ -459,30 +522,20 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                   _focusedLineId = line.id;
                                 });
                               },
-                              onIncrement: (by) => _updateLineQuantity(
+                              onAddBatch: () => _showBatchAddDialog(
+                                currentEntry: currentEntry,
+                                repo: repo,
+                                docNo: doc.documentNo,
+                                line: line,
+                              ),
+                              onUndoBatch: (eventId) => _undoBatch(
                                 currentEntry: currentEntry,
                                 repo: repo,
                                 docNo: doc.documentNo,
                                 lineId: line.id,
-                                newQuantity: line.loadedQuantity + by,
+                                eventId: eventId,
                               ),
-                              onDecrement: (by) => _updateLineQuantity(
-                                currentEntry: currentEntry,
-                                repo: repo,
-                                docNo: doc.documentNo,
-                                lineId: line.id,
-                                newQuantity: line.loadedQuantity - by,
-                              ),
-                              onFill: () {
-                                _updateLineQuantity(
-                                  currentEntry: currentEntry,
-                                  repo: repo,
-                                  docNo: doc.documentNo,
-                                  lineId: line.id,
-                                  newQuantity: line.targetTotal,
-                                );
-                              },
-                              onUndo: () => _undoLineLast(
+                              onUndoLast: () => _undoLineLast(
                                 currentEntry: currentEntry,
                                 repo: repo,
                                 docNo: doc.documentNo,
@@ -662,30 +715,19 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                       ? _TallyBar(
                           docNo: activeDocNo,
                           line: activeLine,
-                          onDecrement: (by) => _updateLineQuantity(
+                          onAddBatch: () => _showBatchAddDialog(
                             currentEntry: currentEntry,
                             repo: repo,
                             docNo: activeDocNo,
-                            lineId: activeLine.id,
-                            newQuantity: activeLine.loadedQuantity - by,
+                            line: activeLine,
                           ),
-                          onIncrement: (by) => _updateLineQuantity(
+                          onEdit: () => _showEditCountDialog(
                             currentEntry: currentEntry,
                             repo: repo,
                             docNo: activeDocNo,
-                            lineId: activeLine.id,
-                            newQuantity: activeLine.loadedQuantity + by,
+                            line: activeLine,
                           ),
-                          onFill: () {
-                            _updateLineQuantity(
-                              currentEntry: currentEntry,
-                              repo: repo,
-                              docNo: activeDocNo,
-                              lineId: activeLine.id,
-                              newQuantity: activeLine.targetTotal,
-                            );
-                          },
-                          onUndo: () => _undoLineLast(
+                          onUndoLast: () => _undoLineLast(
                             currentEntry: currentEntry,
                             repo: repo,
                             docNo: activeDocNo,
@@ -1148,20 +1190,18 @@ class _LineCard extends StatelessWidget {
   final IbtLineItem line;
   final bool isFocused;
   final VoidCallback onTap;
-  final Function(int by) onIncrement;
-  final Function(int by) onDecrement;
-  final VoidCallback onFill;
-  final VoidCallback onUndo;
+  final VoidCallback onAddBatch;
+  final ValueChanged<String> onUndoBatch; // event id
+  final VoidCallback onUndoLast;
   final VoidCallback onEdit;
 
   const _LineCard({
     required this.line,
     required this.isFocused,
     required this.onTap,
-    required this.onIncrement,
-    required this.onDecrement,
-    required this.onFill,
-    required this.onUndo,
+    required this.onAddBatch,
+    required this.onUndoBatch,
+    required this.onUndoLast,
     required this.onEdit,
   });
 
@@ -1178,7 +1218,7 @@ class _LineCard extends StatelessWidget {
         ? AppColors.warning
         : (isDone ? AppColors.success : AppColors.presetStocks);
 
-    // Recent activity — what did I just add to THIS line?
+    // Recent batches — the operator's memory aid. Tap a chip to undo it.
     final recent = line.history.reversed.take(3).toList();
 
     return GestureDetector(
@@ -1241,6 +1281,7 @@ class _LineCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Count — long-press for exact-total edit
                 GestureDetector(
                   onTap: onEdit,
                   child: Container(
@@ -1308,52 +1349,71 @@ class _LineCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                _StepButton(
-                  icon: Icons.remove_rounded,
-                  onTap: loaded > 0
-                      ? () {
-                          AppHaptics.light();
-                          onDecrement(1);
-                        }
-                      : null,
-                ),
-                const SizedBox(width: 8),
-                _StepButton(
-                  icon: Icons.add_rounded,
-                  isPrimary: true,
-                  onTap: () {
-                    AppHaptics.light();
-                    onIncrement(1);
-                  },
-                ),
-                const SizedBox(width: 10),
-                _QuickPill(label: '+2', onTap: () => onIncrement(2)),
-                const SizedBox(width: 6),
-                _QuickPill(label: '+5', onTap: () => onIncrement(5)),
-                if (remaining > 0 &&
-                    remaining != 1 &&
-                    remaining != 2 &&
-                    remaining != 5) ...[
-                  const SizedBox(width: 6),
-                  _QuickPill(
-                    label: 'Fill ($remaining)',
-                    isAccent: true,
-                    onTap: onFill,
+
+            // ── Primary action: type the number, add it as one batch ──
+            GestureDetector(
+              onTap: isDone
+                  ? null
+                  : () {
+                      AppHaptics.medium();
+                      onAddBatch();
+                    },
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: isDone
+                      ? AppColors.dynamicCardSurface(context)
+                      : AppColors.presetStocks.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDone
+                        ? AppColors.dynamicBorder(context)
+                        : AppColors.presetStocks.withValues(alpha: 0.5),
                   ),
-                ],
-                const Spacer(),
-                if (!isDone)
-                  Icon(
-                    Icons.touch_app_rounded,
-                    size: 16,
-                    color: AppColors.dynamicTextMuted(context),
-                  ),
-              ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isDone
+                          ? Icons.check_circle_rounded
+                          : Icons.dialpad_rounded,
+                      size: 18,
+                      color: isDone
+                          ? AppColors.success
+                          : AppColors.presetStocks,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isDone ? 'LINE COMPLETE' : 'ADD TYRES',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                        color: isDone
+                            ? AppColors.success
+                            : AppColors.presetStocks,
+                      ),
+                    ),
+                    if (!isDone && line.lastEvent != null &&
+                        line.lastEvent!.delta > 0) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '(last: +${line.lastEvent!.delta})',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'monospace',
+                          color: AppColors.dynamicTextMuted(context),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
 
-            // ── Mini activity history: what was last added to this line ──
+            // ── Batch history: tap a chip to undo exactly that batch ──
             if (recent.isNotEmpty) ...[
               const SizedBox(height: 12),
               Row(
@@ -1370,49 +1430,54 @@ class _LineCard extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         for (final ev in recent)
-                          _HistoryChip(event: ev),
+                          GestureDetector(
+                            onTap: () {
+                              AppHaptics.medium();
+                              onUndoBatch(ev.id);
+                            },
+                            child: _HistoryChip(event: ev),
+                          ),
                       ],
                     ),
                   ),
-                  if (line.history.isNotEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        AppHaptics.medium();
-                        onUndo();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.warning.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.warning.withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.undo_rounded,
-                              size: 12,
-                              color: AppColors.warning,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Undo',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.warning,
-                              ),
-                            ),
-                          ],
+                  GestureDetector(
+                    onTap: () {
+                      AppHaptics.medium();
+                      onUndoLast();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.warning.withValues(alpha: 0.4),
                         ),
                       ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.undo_rounded,
+                            size: 12,
+                            color: AppColors.warning,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Undo last',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.warning,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                  ),
                 ],
               ),
             ],
@@ -1423,7 +1488,7 @@ class _LineCard extends StatelessWidget {
   }
 }
 
-/// One line-activity chip: "+4 · 07:32" — the operator's memory aid.
+/// One line-activity chip: "+4 · 07:32" — tap to undo that batch.
 class _HistoryChip extends StatelessWidget {
   final IbtLineEvent event;
 
@@ -1469,19 +1534,17 @@ class _HistoryChip extends StatelessWidget {
 class _TallyBar extends StatelessWidget {
   final String docNo;
   final IbtLineItem line;
-  final Function(int by) onIncrement;
-  final Function(int by) onDecrement;
-  final VoidCallback onFill;
-  final VoidCallback onUndo;
+  final VoidCallback onAddBatch;
+  final VoidCallback onEdit;
+  final VoidCallback onUndoLast;
   final VoidCallback onClose;
 
   const _TallyBar({
     required this.docNo,
     required this.line,
-    required this.onIncrement,
-    required this.onDecrement,
-    required this.onFill,
-    required this.onUndo,
+    required this.onAddBatch,
+    required this.onEdit,
+    required this.onUndoLast,
     required this.onClose,
   });
 
@@ -1489,7 +1552,6 @@ class _TallyBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final target = line.targetTotal;
     final loaded = line.loadedQuantity;
-    final remaining = (target - loaded).clamp(0, target);
     final isDone = target > 0 && loaded >= target;
     final last = line.lastEvent;
 
@@ -1563,255 +1625,110 @@ class _TallyBar extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              _TallButton(
-                icon: Icons.remove_rounded,
-                size: 56,
-                onTap: loaded > 0
-                    ? () {
-                        AppHaptics.light();
-                        onDecrement(1);
-                      }
-                    : null,
-                onLongPress: loaded > 0
-                    ? () {
-                        AppHaptics.medium();
-                        onDecrement(5);
-                      }
-                    : null,
-              ),
-              const SizedBox(width: 10),
-              _TallButton(
-                icon: Icons.add_rounded,
-                size: 56,
-                isPrimary: true,
-                onTap: () {
-                  AppHaptics.light();
-                  onIncrement(1);
-                },
-                onLongPress: () {
-                  AppHaptics.medium();
-                  onIncrement(5);
-                },
-              ),
-              const SizedBox(width: 10),
-              _TallButton(
-                label: '+5',
-                size: 56,
-                onTap: () {
-                  AppHaptics.light();
-                  onIncrement(5);
-                },
-              ),
-              const SizedBox(width: 10),
-              _TallButton(
-                label: '+10',
-                size: 56,
-                onTap: () {
-                  AppHaptics.light();
-                  onIncrement(10);
-                },
-              ),
-              const SizedBox(width: 10),
+              // Primary: type the number and add it in one batch
               Expanded(
-                child: _TallButton(
-                  label: remaining > 0 ? 'Fill ($remaining)' : 'FULL',
-                  size: 56,
-                  isAccent: true,
-                  enabled: remaining > 0,
-                  onTap: remaining > 0
-                      ? () {
+                flex: 3,
+                child: GestureDetector(
+                  onTap: isDone
+                      ? null
+                      : () {
                           AppHaptics.medium();
-                          onFill();
-                        }
-                      : null,
+                          onAddBatch();
+                        },
+                  child: Container(
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isDone
+                          ? AppColors.dynamicCardSurface(context)
+                          : AppColors.presetStocks,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: AppColors.presetStocks.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isDone
+                              ? Icons.check_circle_rounded
+                              : Icons.dialpad_rounded,
+                          size: 22,
+                          color: isDone
+                              ? AppColors.success
+                              : AppColors.onAccent,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isDone
+                              ? 'COMPLETE'
+                              : 'ADD TYRES'
+                                  '${last != null && last.delta > 0 ? ' (+${last.delta})' : ''}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: isDone
+                                ? AppColors.success
+                                : AppColors.onAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               if (last != null) ...[
                 const SizedBox(width: 10),
-                _TallButton(
-                  icon: Icons.undo_rounded,
-                  size: 44,
+                GestureDetector(
                   onTap: () {
                     AppHaptics.medium();
-                    onUndo();
+                    onUndoLast();
                   },
-                  onLongPress: () {
-                    AppHaptics.heavy();
-                    onUndo();
-                  },
+                  child: Container(
+                    height: 56,
+                    width: 56,
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: AppColors.warning.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.undo_rounded,
+                      size: 22,
+                      color: AppColors.warning,
+                    ),
+                  ),
                 ),
               ],
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: () {
+                  AppHaptics.light();
+                  onEdit();
+                },
+                child: Container(
+                  height: 56,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.dynamicCardSurface(context),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.dynamicBorder(context),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.tune_rounded,
+                    size: 20,
+                    color: AppColors.dynamicTextSecondary(context),
+                  ),
+                ),
+              ),
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TallButton extends StatelessWidget {
-  final IconData? icon;
-  final String? label;
-  final double size;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
-  final bool isPrimary;
-  final bool isAccent;
-  final bool enabled;
-
-  const _TallButton({
-    this.icon,
-    this.label,
-    required this.size,
-    required this.onTap,
-    this.onLongPress,
-    this.isPrimary = false,
-    this.isAccent = false,
-    this.enabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final Color base = isAccent
-        ? AppColors.success
-        : (isPrimary ? AppColors.presetStocks : Colors.transparent);
-    final Color fg = (isPrimary || isAccent)
-        ? AppColors.onAccent
-        : AppColors.dynamicTextPrimary(context);
-
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      onLongPress: enabled ? onLongPress : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: enabled
-              ? (isPrimary || isAccent
-                    ? base
-                    : AppColors.dynamicCardSurface(context))
-              : AppColors.dynamicCardSurface(context),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isPrimary || isAccent
-                ? base.withValues(alpha: 0.5)
-                : AppColors.dynamicBorder(context),
-          ),
-        ),
-        child: Center(
-          child: icon != null
-              ? Icon(
-                  icon,
-                  size: 26,
-                  color: enabled ? fg : AppColors.dynamicTextDisabled(context),
-                )
-              : Text(
-                  label!,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: enabled
-                        ? fg
-                        : AppColors.dynamicTextDisabled(context),
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Small controls
-// ---------------------------------------------------------------------------
-
-class _StepButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback? onTap;
-  final bool isPrimary;
-
-  const _StepButton({
-    required this.icon,
-    required this.onTap,
-    this.isPrimary = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: onTap == null
-              ? AppColors.dynamicCardSurface(context)
-              : (isPrimary
-                    ? AppColors.presetStocks
-                    : AppColors.dynamicCardSurface(context)),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isPrimary && onTap != null
-                ? AppColors.presetStocks.withValues(alpha: 0.5)
-                : AppColors.dynamicBorder(context),
-          ),
-        ),
-        child: Icon(
-          icon,
-          size: 24,
-          color: onTap == null
-              ? AppColors.dynamicTextDisabled(context)
-              : (isPrimary
-                    ? AppColors.onAccent
-                    : AppColors.dynamicTextPrimary(context)),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickPill extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  final bool isAccent;
-
-  const _QuickPill({
-    required this.label,
-    required this.onTap,
-    this.isAccent = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        AppHaptics.light();
-        onTap();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: isAccent
-              ? AppColors.presetStocks.withValues(alpha: 0.2)
-              : AppColors.dynamicCardSurface(context),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isAccent
-                ? AppColors.presetStocks.withValues(alpha: 0.5)
-                : AppColors.dynamicBorder(context),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-            color: isAccent
-                ? AppColors.presetStocks
-                : AppColors.dynamicTextSecondary(context),
-          ),
-        ),
       ),
     );
   }

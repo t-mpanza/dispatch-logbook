@@ -157,4 +157,42 @@ class IbtLineOps {
       nowMs: nowMs,
     );
   }
+
+  /// Undo ONE specific historical batch (identified by its event id).
+  /// The compensating change is appended to the history so every correction
+  /// stays fully auditable. Returns null when the event no longer exists.
+  static IbtLineDeltaResult? undoBatch({
+    required LoadingSheetTrip trip,
+    required String documentNo,
+    required String lineItemId,
+    required String eventId,
+    int? nowMs,
+  }) {
+    final docs = [...?trip.ibtDocuments];
+    final docIdx = docs.indexWhere(
+      (d) => d.documentNo.toUpperCase() == documentNo.toUpperCase(),
+    );
+    if (docIdx < 0) return null;
+    final line = docs[docIdx].lineItems.firstWhere(
+      (l) => l.id == lineItemId,
+      orElse: () => throw ArgumentError(
+        'IBT line item not found: $lineItemId',
+      ),
+    );
+    IbtLineEvent? event;
+    for (final e in line.history) {
+      if (e.id == eventId) {
+        event = e;
+        break;
+      }
+    }
+    if (event == null) return null;
+    return applyDelta(
+      trip: trip,
+      documentNo: documentNo,
+      lineItemId: lineItemId,
+      delta: -event.delta,
+      nowMs: nowMs,
+    );
+  }
 }
