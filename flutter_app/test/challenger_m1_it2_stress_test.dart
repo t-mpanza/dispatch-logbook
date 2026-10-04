@@ -330,7 +330,8 @@ void main() {
         expect(trips.first.targetQuantity, 50); // 30 + 20
         expect(trips.first.quantityLoaded, 15); // 15 + 0
 
-        // 5. Step line_3 up to 22 (Overloaded by 2)
+        // 5. Step line_3 up to 22 — the manifest target (20) is a hard cap,
+        //    so the line clamps at 20 (v3 strict-cap behaviour).
         await viewModel.updateIbtLineQuantity(
           trip: trips.first,
           documentNo: 'IBT-7702',
@@ -339,7 +340,7 @@ void main() {
         );
 
         trips = await viewModel.getTripsForSelectedDate();
-        expect(trips.first.quantityLoaded, 37); // 15 + 22
+        expect(trips.first.quantityLoaded, 35); // 15 + 20 (clamped)
 
         // 6. Step line_1 down to 0
         await viewModel.updateIbtLineQuantity(
@@ -350,7 +351,7 @@ void main() {
         );
 
         trips = await viewModel.getTripsForSelectedDate();
-        expect(trips.first.quantityLoaded, 22); // 0 + 22
+        expect(trips.first.quantityLoaded, 20); // 0 + 20 (clamped)
 
         // 7. Remove doc2 (IBT-7702) -> Target & quantityLoaded should revert to doc1 stats
         await viewModel.removeIbtDocument(

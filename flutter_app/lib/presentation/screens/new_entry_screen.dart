@@ -11,8 +11,7 @@ import '../viewmodels/entries_viewmodel.dart';
 import '../widgets/ibt_picker.dart';
 import '../widgets/tags_input.dart';
 import '../widgets/ui_kit.dart';
-import 'entry_detail_screen.dart';
-import 'stocks_entry_detail_screen.dart';
+import '../entry_route.dart';
 
 /// Capture a new trip: pick a route or quick template, (optionally) attach
 /// IBT documents, name it and go.
@@ -200,14 +199,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     }
 
     if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => isStocks
-            ? StocksEntryDetailScreen(entryId: entry.id)
-            : EntryDetailScreen(entryId: entry.id),
-      ),
-    );
+    openEntryDetailReplacing(context, entry);
   }
 
   @override

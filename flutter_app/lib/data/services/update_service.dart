@@ -40,47 +40,51 @@ class UpdateService {
 
   static const String releaseChannel = 'Dispatch Diary';
 
-  /// Get current app version (e.g., 'v2.1.0')
+  /// Get current app version (e.g., 'v3.0.0')
   static Future<String> getCurrentVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
       return 'v${info.version}';
     } catch (_) {
-      return 'v2.1.1';
+      return 'v3.0.0';
     }
   }
 
   /// Check GitHub releases for any newer published release with an APK asset.
+  ///
+  /// Strengthened for v3: only releases that are genuinely NEWER than the
+  /// installed version are considered, candidates are compared by semantic
+  /// version (not GitHub publish order), and bogus tags (e.g. "main") are
+  /// ignored — so the updater can never point at an older APK.
   static Future<UpdateInfo> checkForUpdates({http.Client? client}) async {
     final currentVer = await getCurrentVersion();
     final httpClient = client ?? http.Client();
 
     try {
-      final response = await httpClient
-          .get(
-            Uri.parse(releasesApiUrl),
-            headers: {
-              'Accept': 'application/vnd.github.v3+json',
-              'User-Agent': 'DispatchDiary-App',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode != 200) {
-        throw Exception('GitHub API returned ${response.statusCode}');
+      final releases = await _fetchReleases(httpClient);
+      if (releases == null) {
+        return UpdateInfo(
+          hasUpdate: false,
+          currentVersion: currentVer,
+          latestVersion: currentVer,
+          releaseNotes: 'Could not reach the update server.',
+          releaseUrl: releasesPageUrl,
+          releaseChannel: releaseChannel,
+        );
       }
 
-      final releases = jsonDecode(response.body) as List<dynamic>;
-
-      // Pick the newest non-draft release that has an APK asset
+      // Collect eligible candidates: published, stable, APK-carrying, and
+      // tagged with a real semantic version newer than what is installed.
       Map<String, dynamic>? bestRelease;
+      String bestTag = '';
       for (final rel in releases) {
         final map = rel as Map<String, dynamic>;
-        if (map['draft'] == true) continue;
+        if (map['draft'] == true || map['prerelease'] == true) continue;
 
-        // Skip release candidates since we are strictly looking for stable main releases
         final tagName = map['tag_name'] as String? ?? '';
         if (tagName.toLowerCase().contains('-rc')) continue;
+        if (!_looksLikeVersion(tagName)) continue;
+        if (!isNewerVersion(currentVer, tagName)) continue;
 
         final assets = map['assets'] as List<dynamic>? ?? [];
         final hasApk = assets.any(
@@ -88,8 +92,11 @@ class UpdateService {
         );
         if (!hasApk) continue;
 
-        bestRelease = map;
-        break; // GitHub returns newest first
+        if (bestRelease == null ||
+            compareVersions(tagName, bestTag) > 0) {
+          bestRelease = map;
+          bestTag = tagName;
+        }
       }
 
       if (bestRelease == null) {
@@ -122,10 +129,8 @@ class UpdateService {
         }
       }
 
-      final hasUpdate = isNewerVersion(currentVer, latestTag);
-
       return UpdateInfo(
-        hasUpdate: hasUpdate,
+        hasUpdate: true,
         currentVersion: currentVer,
         latestVersion: latestTag.isNotEmpty ? latestTag : currentVer,
         releaseTitle: title,
@@ -148,6 +153,48 @@ class UpdateService {
     } finally {
       if (client == null) httpClient.close();
     }
+  }
+
+  /// Fetch release pages (newest first) until an empty page or a page cap.
+  static Future<List<dynamic>?> _fetchReleases(http.Client httpClient) async {
+    final all = <dynamic>[];
+    for (var page = 1; page <= 5; page++) {
+      final uri = Uri.parse('$releasesApiUrl?per_page=100&page=$page');
+      final response = await httpClient
+          .get(
+            uri,
+            headers: {
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'DispatchDiary-App',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        throw Exception('GitHub API returned ${response.statusCode}');
+      }
+
+      final pageList = jsonDecode(response.body) as List<dynamic>;
+      if (pageList.isEmpty) break;
+      all.addAll(pageList);
+    }
+    return all;
+  }
+
+  /// A release tag is only a valid target when it parses as a version.
+  static bool _looksLikeVersion(String tag) {
+    final cleaned = tag
+        .replaceAll(RegExp(r'-ibt$', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\+\d+$'), '')
+        .replaceFirst('v', '');
+    return RegExp(r'^\d+\.\d+\.\d+').hasMatch(cleaned);
+  }
+
+  /// Three-way version comparison. Returns -1, 0, or 1.
+  static int compareVersions(String a, String b) {
+    if (isNewerVersion(a, b)) return 1;
+    if (isNewerVersion(b, a)) return -1;
+    return 0;
   }
 
   /// Download the APK in-app, streaming progress (0.0 – 1.0) via the returned stream.

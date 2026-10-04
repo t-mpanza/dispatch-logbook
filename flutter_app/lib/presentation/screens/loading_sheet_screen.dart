@@ -13,7 +13,7 @@ import '../viewmodels/loading_sheet_viewmodel.dart';
 import '../widgets/ibt_line_items_sheet.dart';
 import '../widgets/truck_load_dialog.dart';
 import '../widgets/ui_kit.dart';
-import 'entry_detail_screen.dart';
+import '../entry_route.dart';
 import 'pdf_preview_screen.dart';
 import 'settings_screen.dart';
 
@@ -340,14 +340,15 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
                                 trips[i].entryId != null && !trips[i].isManual
                                 ? () {
                                     AppHaptics.light();
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => EntryDetailScreen(
-                                          entryId: trips[i].entryId!,
-                                        ),
-                                      ),
-                                    );
+                                    context
+                                        .read<EntryRepository>()
+                                        .getEntryById(trips[i].entryId!)
+                                        .then((entry) {
+                                          if (entry != null &&
+                                              context.mounted) {
+                                            openEntryDetail(context, entry);
+                                          }
+                                        });
                                   }
                                 : null,
                             onDelete: () async {

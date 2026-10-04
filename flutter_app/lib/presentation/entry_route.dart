@@ -27,3 +27,16 @@ void openEntryDetail(BuildContext context, Entry entry) {
     ),
   );
 }
+
+/// Same smart routing, but replaces the current route (used after creating
+/// a brand-new entry so the back button does not return to the composer).
+void openEntryDetailReplacing(BuildContext context, Entry entry) {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => isStocksEntry(entry)
+          ? StocksEntryDetailScreen(entryId: entry.id)
+          : EntryDetailScreen(entryId: entry.id),
+    ),
+  );
+}

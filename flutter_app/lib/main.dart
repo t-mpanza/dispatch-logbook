@@ -7,7 +7,9 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'data/repositories/entry_repository.dart';
 import 'data/repositories/settings_repository.dart';
+import 'data/services/database_service.dart';
 import 'data/services/migration_service.dart';
+import 'data/services/notification_service.dart';
 import 'data/services/supabase_service.dart';
 import 'presentation/viewmodels/entries_viewmodel.dart';
 import 'presentation/viewmodels/loading_sheet_viewmodel.dart';
@@ -48,6 +50,16 @@ void main() async {
   // One-time data repairs: split squashed entries, reconcile counts, and
   // de-duplicate trucks so Home and Sheet always agree.
   await MigrationService.runIfNeeded();
+
+  // Smart reminders: re-register every pending reminder with the OS scheduler
+  // so notifications survive reboots, updates, and app restarts.
+  try {
+    await NotificationService.ensureInitialized();
+    final pending = await DatabaseService.getAllReminders();
+    await NotificationService.rescheduleAll(pending);
+  } catch (e) {
+    debugPrint('Reminder scheduler init error: $e');
+  }
 
   // Initialize Realtime & initial background sync
   entryRepository.initRealtime();

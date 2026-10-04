@@ -78,6 +78,33 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
     }
   }
 
+  /// Revert the most recent change on a line item.
+  Future<void> _undoLineLast({
+    required IbtDocument doc,
+    required IbtLineItem line,
+  }) async {
+    AppHaptics.medium();
+    final vm = context.read<LoadingSheetViewModel>();
+    final result = await vm.undoIbtLineLast(
+      trip: _currentTrip,
+      documentNo: doc.documentNo,
+      lineItemId: line.id,
+    );
+    if (result == null || !mounted) return;
+
+    final trips = await vm.getTripsForSelectedDate();
+    final updated = trips.firstWhere(
+      (t) => t.id == _currentTrip.id,
+      orElse: () => _currentTrip,
+    );
+
+    if (mounted) {
+      setState(() {
+        _currentTrip = updated;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ibtDocs = _currentTrip.ibtDocuments ?? [];
@@ -454,47 +481,100 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
           ),
         ),
 
-        // Count Display (tap to edit) — [loaded / target]
-        GestureDetector(
-          onTap: () => _editLineQuantity(doc: doc, line: line),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.isLight(context)
-                  ? const Color(0xFFF1F5F9)
-                  : Colors.black.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: isDone
-                    ? Colors.greenAccent.withValues(alpha: 0.4)
-                    : AppColors.dynamicBorder(context),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+        // Count Display (tap to edit) — [loaded / target] with last-added chip
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  '${line.loadedQuantity} / ${line.targetTotal}',
-                  style: TextStyle(
-                    color: isDone
-                        ? Colors.greenAccent
-                        : AppColors.dynamicTextPrimary(context),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
+                GestureDetector(
+                  onTap: () => _editLineQuantity(doc: doc, line: line),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.isLight(context)
+                          ? const Color(0xFFF1F5F9)
+                          : Colors.black.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isDone
+                            ? Colors.greenAccent.withValues(alpha: 0.4)
+                            : AppColors.dynamicBorder(context),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${line.loadedQuantity} / ${line.targetTotal}',
+                          style: TextStyle(
+                            color: isDone
+                                ? Colors.greenAccent
+                                : AppColors.dynamicTextPrimary(context),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 12,
+                          color: AppColors.dynamicTextMuted(context),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.edit_outlined,
-                  size: 12,
-                  color: AppColors.dynamicTextMuted(context),
-                ),
+                if (line.lastEvent != null)
+                  Text(
+                    _lastEventLabel(line.lastEvent!),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w700,
+                      color: line.lastEvent!.delta >= 0
+                          ? Colors.greenAccent
+                          : Colors.orangeAccent,
+                    ),
+                  ),
               ],
             ),
-          ),
+            if (line.lastEvent != null) ...[
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => _undoLineLast(doc: doc, line: line),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.orangeAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: Colors.orangeAccent.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.undo_rounded,
+                    size: 14,
+                    color: Colors.orangeAccent,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ],
     );
+  }
+
+  String _lastEventLabel(IbtLineEvent event) {
+    final t = DateTime.fromMillisecondsSinceEpoch(event.at);
+    final hh = t.hour.toString().padLeft(2, '0');
+    final mm = t.minute.toString().padLeft(2, '0');
+    return 'last: ${event.delta >= 0 ? '+' : ''}${event.delta} · $hh:$mm';
   }
 }

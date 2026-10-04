@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
+import '../../core/utils/id_generator.dart';
+import '../../data/models/reminder.dart';
 import '../../data/models/sync_state.dart';
 import '../../data/repositories/entry_repository.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../../data/services/database_service.dart';
+import '../../data/services/notification_service.dart';
+import '../../data/services/report_service.dart';
 import '../../data/services/update_service.dart';
 import '../widgets/aws_auth_dialog.dart';
 import '../widgets/ui_kit.dart';
@@ -23,6 +29,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _version = '…';
   bool _checking = false;
+  bool _sendingReport = false;
 
   @override
   void initState() {
@@ -33,6 +40,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadVersion() async {
     final v = await UpdateService.getCurrentVersion();
     if (mounted) setState(() => _version = v);
+  }
+
+  Future<void> _sendReportNow() async {
+    if (_sendingReport) return;
+    setState(() => _sendingReport = true);
+    AppHaptics.medium();
+
+    final result = await ReportService.sendNow();
+    if (!mounted) return;
+    setState(() => _sendingReport = false);
+
+    switch (result) {
+      case 'ok':
+        AppHaptics.success();
+        AppSnacks.success(
+          context,
+          'Report triggered — email on its way to '
+          '${ReportService.defaultRecipient}',
+        );
+      case 'missing_token':
+        AppHaptics.error();
+        final configured = await _configureReportToken();
+        if (configured && mounted) {
+          await _sendReportNow();
+        }
+      default:
+        AppHaptics.error();
+        AppSnacks.error(context, 'Could not trigger report. Check your '
+            'network and GitHub token, then try again.');
+    }
+  }
+
+  Future<bool> _configureReportToken() async {
+    final controller = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('GitHub Actions token'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Paste a GitHub personal access token so this app can trigger '
+              'the daily report on demand. The token only needs the '
+              '"Actions" permission (Read and write) on the '
+              't-mpanza/dispatch-logbook repository.',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.dynamicTextMuted(context),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'GitHub token',
+                hintText: 'ghp_… or github_pat_…',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.dynamicTextMuted(context)),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              ReportService.saveToken(controller.text);
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
   }
 
   Future<void> _checkForUpdates() async {
@@ -212,6 +301,108 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           const SizedBox(height: 20),
+          _sectionLabel(context, 'REPORTS'),
+          AppCard(
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.mark_email_read_rounded,
+                    color: AppColors.success,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Daily email report',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.dynamicTextPrimary(context),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Weekday mornings 06:00 · '
+                        '${ReportService.defaultRecipient}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.dynamicTextMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: _sendingReport ? null : _sendReportNow,
+                  child: _sendingReport
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Send now'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          AppCard(
+            onTap: () async {
+              AppHaptics.light();
+              await _configureReportToken();
+              if (context.mounted) {
+                final has = await ReportService.hasToken();
+                if (context.mounted) {
+                  AppSnacks.success(
+                    context,
+                    has
+                        ? 'Report trigger token saved'
+                        : 'Report trigger token cleared',
+                  );
+                }
+              }
+            },
+            child: Row(
+              children: [
+                Icon(
+                  Icons.key_rounded,
+                  color: AppColors.dynamicAccent(context),
+                  size: 24,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Configure report trigger token',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.dynamicTextPrimary(context),
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.dynamicTextMuted(context),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+          _sectionLabel(context, 'REMINDERS'),
+          const _RemindersCard(),
+
+          const SizedBox(height: 20),
           _sectionLabel(context, 'APP CARE'),
           AppCard(
             onTap: _checkForUpdates,
@@ -302,7 +493,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               children: [
                 Text(
-                  'Dispatch Diary · IBT Edition',
+                  'Dispatch Diary',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -390,9 +581,335 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+class _RemindersCard extends StatefulWidget {
+  const _RemindersCard();
+
+  @override
+  State<_RemindersCard> createState() => _RemindersCardState();
+}
+
+class _RemindersCardState extends State<_RemindersCard> {
+  late Future<List<Reminder>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = DatabaseService.getAllReminders();
+  }
+
+  void _reload() {
+    setState(() {
+      _future = DatabaseService.getAllReminders();
+    });
+  }
+
+  Future<void> _addReminder() async {
+    final granted = await NotificationService.requestPermissions();
+    if (!granted && mounted) {
+      AppSnacks.error(
+        context,
+        'Notifications are blocked. Enable them in system settings to '
+        'receive reminders.',
+      );
+      return;
+    }
+
+    final textController = TextEditingController();
+    var date = DateTime.now().add(const Duration(hours: 1));
+    if (!mounted) return;
+    final picked = await showDialog<DateTime>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New reminder'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: textController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Reminder text',
+                hintText: 'e.g. Call branch about STOCKS 2',
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                    label: Text(
+                      AppFormatters.dayKey(date),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    onPressed: () async {
+                      final d = await showDatePicker(
+                        context: ctx,
+                        initialDate: date,
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(
+                          const Duration(days: 365),
+                        ),
+                      );
+                      if (d != null) {
+                        date = DateTime(
+                          d.year,
+                          d.month,
+                          d.day,
+                          date.hour,
+                          date.minute,
+                        );
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.access_time_rounded, size: 16),
+                    label: Text(
+                      '${date.hour.toString().padLeft(2, '0')}:'
+                      '${date.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    onPressed: () async {
+                      final t = await showTimePicker(
+                        context: ctx,
+                        initialTime: TimeOfDay.fromDateTime(date),
+                      );
+                      if (t != null) {
+                        date = DateTime(
+                          date.year,
+                          date.month,
+                          date.day,
+                          t.hour,
+                          t.minute,
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.dynamicTextMuted(context)),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = textController.text.trim();
+              if (text.isEmpty) return;
+              Navigator.pop(ctx, date);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (picked == null || !mounted) return;
+
+    final text = textController.text.trim();
+    if (text.isEmpty) return;
+
+    final reminder = Reminder(
+      id: IdGenerator.generate(),
+      entryId: '',
+      at: picked.millisecondsSinceEpoch,
+      text: text,
+    );
+
+    AppHaptics.success();
+    await DatabaseService.saveReminder(reminder);
+    await NotificationService.scheduleReminder(reminder);
+    _reload();
+    if (mounted) {
+      AppSnacks.success(context, 'Reminder scheduled');
+    }
+  }
+
+  Future<void> _deleteReminder(Reminder r) async {
+    AppHaptics.medium();
+    await NotificationService.cancelReminder(r.id);
+    await DatabaseService.deleteReminder(r.id);
+    _reload();
+  }
+
+  Future<void> _toggleDone(Reminder r) async {
+    AppHaptics.light();
+    final updated = r.copyWith(done: !r.done);
+    await DatabaseService.updateReminder(updated);
+    if (updated.done) {
+      await NotificationService.cancelReminder(updated.id);
+    } else {
+      await NotificationService.scheduleReminder(updated);
+    }
+    _reload();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.alarm_rounded,
+                  color: AppColors.warning,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Smart reminders',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.dynamicTextPrimary(context),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Notifications for anything you need to remember',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.dynamicTextMuted(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton(
+                onPressed: _addReminder,
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          FutureBuilder<List<Reminder>>(
+            future: _future,
+            builder: (context, snapshot) {
+              final reminders = snapshot.data ?? [];
+              if (reminders.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'No reminders yet.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.dynamicTextMuted(context),
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  for (final r in reminders)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.dynamicCardSurface(context),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.dynamicBorder(context),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  r.text,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.dynamicTextPrimary(
+                                      context,
+                                    ),
+                                    decoration: r.done
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${AppFormatters.formatDayLabel(r.at)} · '
+                                  '${AppFormatters.formatTimeHHmm(r.at)}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    color: r.done
+                                        ? AppColors.dynamicTextDisabled(context)
+                                        : AppColors.dynamicTextMuted(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => _toggleDone(r),
+                            tooltip: r.done ? 'Mark pending' : 'Mark done',
+                            icon: Icon(
+                              r.done
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              color: r.done
+                                  ? AppColors.success
+                                  : AppColors.dynamicTextMuted(context),
+                              size: 20,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => _deleteReminder(r),
+                            tooltip: 'Delete reminder',
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: AppColors.error,
+                              size: 20,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SyncCard extends StatelessWidget {
   final EntryRepository repo;
-
   const _SyncCard({required this.repo});
 
   @override

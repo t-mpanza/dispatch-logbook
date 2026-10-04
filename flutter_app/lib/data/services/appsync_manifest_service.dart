@@ -508,7 +508,7 @@ class AppSyncManifestService {
       final rubberId = (map['rubber_id'] as num?)?.toInt();
       final lineTotal = (map['total'] as num?)?.toInt() ?? 0;
 
-      final sizeStr = sizeId != null ? sizeMaster[sizeId] : extractSize(desc);
+      final sizeStr = resolveSize(sizeId: sizeId, description: desc);
       final rubberStr = rubberId != null
           ? rubberMaster[rubberId]
           : extractRubber(desc);
@@ -533,9 +533,38 @@ class AppSyncManifestService {
     return IbtDocument(documentNo: docNo, total: totalCount, lineItems: items);
   }
 
+  /// Resolve the display size for a line item.
+  ///
+  /// The manifest *description* is the ground truth — it always wins over the
+  /// numeric size_id master map. This fixes the 12R bug where imperial tyres
+  /// (e.g. "12R22.5") were being displayed as their metric equivalent
+  /// ("315/80R22.5") because of an ambiguous size_id.
+  static String? resolveSize({int? sizeId, String? description}) {
+    final desc = description?.trim() ?? '';
+    final fromDesc = extractSize(desc);
+    if (fromDesc != null && fromDesc.isNotEmpty) return fromDesc;
+    if (sizeId != null) return sizeMaster[sizeId];
+    return null;
+  }
+
   static String? extractSize(String text) {
+    final imperial = extractImperialSize(text);
+    if (imperial != null) return imperial;
+
+    final metric = RegExp(
+      r'\d{3}/\d{2,3}R\d{2}\.?\d?',
+      caseSensitive: false,
+    ).firstMatch(text);
+    return metric?.group(0);
+  }
+
+  /// Imperial designations like 12R22.5, 11R22.5, 10.00R20 — matched with
+  /// priority so 12R tyres always show their 12R designation. The lookbehind
+  /// prevents false matches inside metric strings like "315/80R22.5".
+  static String? extractImperialSize(String text) {
     final match = RegExp(
-      r'\d{3}/\d{2}R\d{2}\.?\d?|\d{1,2}R\d{2}\.?\d?',
+      r'(?<![\d/])\d{1,2}(?:\.\d{1,2})?R\d{2}\.?\d?\b',
+      caseSensitive: false,
     ).firstMatch(text);
     return match?.group(0);
   }

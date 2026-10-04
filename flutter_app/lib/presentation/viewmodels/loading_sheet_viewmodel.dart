@@ -5,6 +5,7 @@ import '../../data/models/entry.dart';
 import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/repositories/entry_repository.dart';
+import '../../data/services/ibt_line_ops.dart';
 
 class LoadingSheetViewModel extends ChangeNotifier {
   final EntryRepository _repository;
@@ -172,35 +173,64 @@ class LoadingSheetViewModel extends ChangeNotifier {
   }) async {
     if (trip.ibtDocuments == null || trip.ibtDocuments!.isEmpty) return;
 
-    final updatedDocs = <IbtDocument>[];
-    int totalLoadedAcrossAllIbts = 0;
-
-    for (final doc in trip.ibtDocuments!) {
-      if (doc.documentNo.toUpperCase() == documentNo.toUpperCase()) {
-        final updatedLines = <IbtLineItem>[];
-        for (final line in doc.lineItems) {
-          if (line.id == lineItemId) {
-            final clamped = newQuantity < 0 ? 0 : newQuantity;
-            updatedLines.add(line.copyWith(loadedQuantity: clamped));
-          } else {
-            updatedLines.add(line);
-          }
-        }
-        final updatedDoc = doc.copyWith(lineItems: updatedLines);
-        updatedDocs.add(updatedDoc);
-        totalLoadedAcrossAllIbts += updatedDoc.loadedTotal;
-      } else {
-        updatedDocs.add(doc);
-        totalLoadedAcrossAllIbts += doc.loadedTotal;
-      }
+    final IbtLineDeltaResult result;
+    try {
+      result = IbtLineOps.setQuantity(
+        trip: trip,
+        documentNo: documentNo,
+        lineItemId: lineItemId,
+        newQuantity: newQuantity,
+      );
+    } catch (_) {
+      // Unknown document / line item: never crash mid-tally, just no-op.
+      return;
     }
 
-    final updatedTrip = trip.copyWith(
-      ibtDocuments: updatedDocs,
-      quantityLoaded: totalLoadedAcrossAllIbts,
-    );
+    await updateTruckLoad(result.trip);
+  }
 
-    await updateTruckLoad(updatedTrip);
+  /// Apply a +/- delta to an IBT line through the shared tally engine.
+  /// Returns the apply result (clamp/complete flags) for UI haptics & toasts.
+  Future<IbtLineDeltaResult?> applyIbtLineDelta({
+    required LoadingSheetTrip trip,
+    required String documentNo,
+    required String lineItemId,
+    required int delta,
+  }) async {
+    final IbtLineDeltaResult result;
+    try {
+      result = IbtLineOps.applyDelta(
+        trip: trip,
+        documentNo: documentNo,
+        lineItemId: lineItemId,
+        delta: delta,
+      );
+    } catch (_) {
+      return null;
+    }
+    await updateTruckLoad(result.trip);
+    return result;
+  }
+
+  /// Revert the most recent change on an IBT line.
+  Future<IbtLineDeltaResult?> undoIbtLineLast({
+    required LoadingSheetTrip trip,
+    required String documentNo,
+    required String lineItemId,
+  }) async {
+    final IbtLineDeltaResult? result;
+    try {
+      result = IbtLineOps.undoLast(
+        trip: trip,
+        documentNo: documentNo,
+        lineItemId: lineItemId,
+      );
+    } catch (_) {
+      return null;
+    }
+    if (result == null) return null;
+    await updateTruckLoad(result.trip);
+    return result;
   }
 
   /// Attach or replace an IBT document on a trip

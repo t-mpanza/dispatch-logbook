@@ -1,0 +1,40 @@
+name: Daily Dispatch Email Report
+
+# Autonomous weekday-morning report service.
+# 06:00 SAST (04:00 UTC) every Monday–Friday.
+# Each run reports the PREVIOUS WORKING day, so the Monday email
+# automatically carries Friday's report.
+on:
+  schedule:
+    - cron: '0 4 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Report date YYYY-MM-DD (blank = previous working day)'
+        required: false
+  repository_dispatch:
+    types: [send_report]
+
+jobs:
+  send-report:
+    name: Send daily dispatch report
+    runs-on: ubuntu-latest
+    environment: reporting
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Send email report
+        env:
+          REPORT_SENDER_EMAIL: ${{ secrets.REPORT_SENDER_EMAIL }}
+          REPORT_SENDER_APP_PASSWORD: ${{ secrets.REPORT_SENDER_APP_PASSWORD }}
+          REPORT_RECIPIENT_EMAIL: ${{ secrets.REPORT_RECIPIENT_EMAIL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          REPORT_DATE: ${{ github.event.inputs.date }}
+        run: python .github/scripts/send_daily_report.py

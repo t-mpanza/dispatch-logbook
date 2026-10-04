@@ -65,14 +65,14 @@ void main() {
       final mockHttpClient = MockClient((request) async {
         final mockReleases = [
           {
-            "tag_name": "v2.2.0",
-            "name": "Dispatch Diary v2.2.0",
+            "tag_name": "v3.1.0",
+            "name": "Dispatch Diary v3.1.0",
             "body": "New features and bug fixes",
             "assets": [
               {
-                "name": "DispatchDiary-v2.2.0.apk",
+                "name": "DispatchDiary-v3.1.0.apk",
                 "browser_download_url":
-                    "https://github.com/t-mpanza/dispatch-logbook/releases/download/v2.2.0/DispatchDiary-v2.2.0.apk",
+                    "https://github.com/t-mpanza/dispatch-logbook/releases/download/v3.1.0/DispatchDiary-v3.1.0.apk",
               },
             ],
           },
@@ -83,9 +83,60 @@ void main() {
       final updateInfo = await UpdateService.checkForUpdates(
         client: mockHttpClient,
       );
-      expect(updateInfo.latestVersion, equals('v2.2.0'));
-      expect(updateInfo.apkDownloadUrl, contains('DispatchDiary-v2.2.0.apk'));
+      expect(updateInfo.latestVersion, equals('v3.1.0'));
+      expect(updateInfo.apkDownloadUrl, contains('DispatchDiary-v3.1.0.apk'));
       expect(updateInfo.hasUpdate, isTrue);
+    });
+
+    test('Ignores releases with non-version tags like "main"', () async {
+      final mockHttpClient = MockClient((request) async {
+        final mockReleases = [
+          {
+            "tag_name": "main",
+            "name": "Branch snapshot",
+            "draft": false,
+            "assets": [
+              {
+                "name": "DispatchDiary-main.apk",
+                "browser_download_url":
+                    "https://example.com/main.apk",
+              },
+            ],
+          },
+        ];
+        return http.Response(jsonEncode(mockReleases), 200);
+      });
+
+      final updateInfo = await UpdateService.checkForUpdates(
+        client: mockHttpClient,
+      );
+      expect(updateInfo.hasUpdate, isFalse);
+      expect(updateInfo.latestVersion, isNot(equals('main')));
+    });
+
+    test('Only considers releases newer than the installed version', () async {
+      final mockHttpClient = MockClient((request) async {
+        final mockReleases = [
+          {
+            "tag_name": "v2.1.1",
+            "name": "Older release",
+            "draft": false,
+            "assets": [
+              {
+                "name": "DispatchDiary-v2.1.1.apk",
+                "browser_download_url": "https://example.com/old.apk",
+              },
+            ],
+          },
+        ];
+        return http.Response(jsonEncode(mockReleases), 200);
+      });
+
+      final updateInfo = await UpdateService.checkForUpdates(
+        client: mockHttpClient,
+      );
+      expect(updateInfo.hasUpdate, isFalse);
+      expect(updateInfo.apkDownloadUrl, isNull);
     });
   });
 }

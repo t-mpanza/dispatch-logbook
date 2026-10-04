@@ -12,6 +12,7 @@ import '../../data/models/note_block.dart';
 import '../../data/models/preset.dart';
 import '../../data/repositories/entry_repository.dart';
 import '../../data/services/audio_service.dart';
+import '../../data/services/ibt_line_ops.dart';
 import '../widgets/event_log_view.dart';
 import '../widgets/floating_note_bar.dart';
 import '../widgets/ibt_picker.dart';
@@ -87,8 +88,8 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     return null;
   }
 
-  /// Update one line item's loaded count with the strict overshoot cap:
-  /// the manifest target is a hard limit.
+  /// Update one line item's loaded count through the shared tally engine.
+  /// Haptics fire here — the bay is noisy, so every key press must be felt.
   Future<void> _updateLineQuantity({
     required Entry currentEntry,
     required EntryRepository repo,
@@ -96,29 +97,59 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     required String lineId,
     required int newQuantity,
   }) async {
-    var clampedQty = newQuantity < 0 ? 0 : newQuantity;
-
     final sheetTrips = <LoadingSheetTrip>[...?currentEntry.loadingSheetTrips];
     final sheetTripIdx = sheetTrips.indexWhere((t) => !t.isManual);
     if (sheetTripIdx < 0) return;
 
-    final primarySheetTrip = sheetTrips[sheetTripIdx];
-    final docs = <IbtDocument>[...?primarySheetTrip.ibtDocuments];
-
-    final docIdx = docs.indexWhere(
-      (d) => d.documentNo.toUpperCase() == docNo.toUpperCase(),
+    final result = IbtLineOps.setQuantity(
+      trip: sheetTrips[sheetTripIdx],
+      documentNo: docNo,
+      lineItemId: lineId,
+      newQuantity: newQuantity,
     );
-    if (docIdx < 0) return;
 
-    final doc = docs[docIdx];
-    final lines = <IbtLineItem>[...doc.lineItems];
-    final lineIdx = lines.indexWhere((l) => l.id == lineId);
-    if (lineIdx < 0) return;
+    sheetTrips[sheetTripIdx] = result.trip;
+    final updatedEntry = currentEntry.copyWith(
+      loadingSheetTrips: sheetTrips,
+      expectedTotal: result.trip.ibtTargetTotal,
+    );
 
-    final target = lines[lineIdx].targetTotal;
-    if (clampedQty > target) {
+    await repo.saveEntry(updatedEntry);
+    _reactToDelta(result);
+  }
+
+  /// Revert the most recent change on a line (undo the last mistaken tap).
+  Future<void> _undoLineLast({
+    required Entry currentEntry,
+    required EntryRepository repo,
+    required String docNo,
+    required String lineId,
+  }) async {
+    final sheetTrips = <LoadingSheetTrip>[...?currentEntry.loadingSheetTrips];
+    final sheetTripIdx = sheetTrips.indexWhere((t) => !t.isManual);
+    if (sheetTripIdx < 0) return;
+
+    final result = IbtLineOps.undoLast(
+      trip: sheetTrips[sheetTripIdx],
+      documentNo: docNo,
+      lineItemId: lineId,
+    );
+    if (result == null) return;
+
+    sheetTrips[sheetTripIdx] = result.trip;
+    await repo.saveEntry(
+      currentEntry.copyWith(
+        loadingSheetTrips: sheetTrips,
+        expectedTotal: result.trip.ibtTargetTotal,
+      ),
+    );
+    _reactToDelta(result);
+  }
+
+  /// Central haptic feedback for every line change: felt, not just seen.
+  void _reactToDelta(IbtLineDeltaResult result) {
+    if (result.wasClamped) {
       AppHaptics.heavy();
-      clampedQty = target;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -128,35 +159,13 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
           ),
         );
       }
+    } else if (result.completed) {
+      AppHaptics.success();
+    } else if (result.uncompleted) {
+      AppHaptics.medium();
+    } else {
+      AppHaptics.light();
     }
-
-    lines[lineIdx] = lines[lineIdx].copyWith(loadedQuantity: clampedQty);
-    docs[docIdx] = IbtDocument(
-      documentNo: doc.documentNo,
-      total: doc.total,
-      lineItems: lines,
-    );
-
-    int totalLoadedAcrossAllIbts = 0;
-    for (final d in docs) {
-      totalLoadedAcrossAllIbts += d.loadedTotal;
-    }
-
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final updatedSheetTrip = primarySheetTrip.copyWith(
-      ibtDocuments: docs,
-      quantityLoaded: totalLoadedAcrossAllIbts,
-      startTime: primarySheetTrip.startTime ?? nowMs,
-      finishTime: nowMs,
-    );
-    sheetTrips[sheetTripIdx] = updatedSheetTrip;
-
-    final updatedEntry = currentEntry.copyWith(
-      loadingSheetTrips: sheetTrips,
-      expectedTotal: primarySheetTrip.ibtTargetTotal,
-    );
-
-    await repo.saveEntry(updatedEntry);
   }
 
   /// Show precise numeric entry for a line item using the in-app keypad.
@@ -256,22 +265,8 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     );
   }
 
-  /// Order line items: unfinished first (biggest shortfall on top),
-  /// finished ones at the bottom.
-  List<IbtLineItem> _sortedLines(List<IbtLineItem> lines) {
-    final copy = [...lines];
-    copy.sort((a, b) {
-      final aDone = a.isComplete;
-      final bDone = b.isComplete;
-      if (aDone != bDone) return aDone ? 1 : -1;
-      if (!aDone) {
-        final rem = b.remaining.compareTo(a.remaining);
-        if (rem != 0) return rem;
-      }
-      return 0;
-    });
-    return copy;
-  }
+  /// Line items render EXACTLY in the order the manifest was fetched —
+  /// static, stable, predictable. No dynamic re-sorting mid-tally.
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +446,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                         for (final doc in ibtDocs) ...[
                           _DocHeader(doc: doc, remaining: doc.remainingTotal),
                           const SizedBox(height: 8),
-                          for (final line in _sortedLines(doc.lineItems))
+                          for (final line in doc.lineItems)
                             _LineCard(
                               line: line,
                               isFocused:
@@ -479,7 +474,6 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                 newQuantity: line.loadedQuantity - by,
                               ),
                               onFill: () {
-                                AppHaptics.success();
                                 _updateLineQuantity(
                                   currentEntry: currentEntry,
                                   repo: repo,
@@ -488,6 +482,12 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                                   newQuantity: line.targetTotal,
                                 );
                               },
+                              onUndo: () => _undoLineLast(
+                                currentEntry: currentEntry,
+                                repo: repo,
+                                docNo: doc.documentNo,
+                                lineId: line.id,
+                              ),
                               onEdit: () => _showEditCountDialog(
                                 currentEntry: currentEntry,
                                 repo: repo,
@@ -677,7 +677,6 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                             newQuantity: activeLine.loadedQuantity + by,
                           ),
                           onFill: () {
-                            AppHaptics.success();
                             _updateLineQuantity(
                               currentEntry: currentEntry,
                               repo: repo,
@@ -686,6 +685,12 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                               newQuantity: activeLine.targetTotal,
                             );
                           },
+                          onUndo: () => _undoLineLast(
+                            currentEntry: currentEntry,
+                            repo: repo,
+                            docNo: activeDocNo,
+                            lineId: activeLine.id,
+                          ),
                           onClose: () {
                             AppHaptics.light();
                             setState(() {
@@ -1146,6 +1151,7 @@ class _LineCard extends StatelessWidget {
   final Function(int by) onIncrement;
   final Function(int by) onDecrement;
   final VoidCallback onFill;
+  final VoidCallback onUndo;
   final VoidCallback onEdit;
 
   const _LineCard({
@@ -1155,6 +1161,7 @@ class _LineCard extends StatelessWidget {
     required this.onIncrement,
     required this.onDecrement,
     required this.onFill,
+    required this.onUndo,
     required this.onEdit,
   });
 
@@ -1170,6 +1177,9 @@ class _LineCard extends StatelessWidget {
     final Color statusColor = isOver
         ? AppColors.warning
         : (isDone ? AppColors.success : AppColors.presetStocks);
+
+    // Recent activity — what did I just add to THIS line?
+    final recent = line.history.reversed.take(3).toList();
 
     return GestureDetector(
       onTap: onTap,
@@ -1302,13 +1312,21 @@ class _LineCard extends StatelessWidget {
               children: [
                 _StepButton(
                   icon: Icons.remove_rounded,
-                  onTap: loaded > 0 ? () => onDecrement(1) : null,
+                  onTap: loaded > 0
+                      ? () {
+                          AppHaptics.light();
+                          onDecrement(1);
+                        }
+                      : null,
                 ),
                 const SizedBox(width: 8),
                 _StepButton(
                   icon: Icons.add_rounded,
                   isPrimary: true,
-                  onTap: () => onIncrement(1),
+                  onTap: () {
+                    AppHaptics.light();
+                    onIncrement(1);
+                  },
                 ),
                 const SizedBox(width: 10),
                 _QuickPill(label: '+2', onTap: () => onIncrement(2)),
@@ -1334,7 +1352,110 @@ class _LineCard extends StatelessWidget {
                   ),
               ],
             ),
+
+            // ── Mini activity history: what was last added to this line ──
+            if (recent.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    Icons.history_rounded,
+                    size: 13,
+                    color: AppColors.dynamicTextMuted(context),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        for (final ev in recent)
+                          _HistoryChip(event: ev),
+                      ],
+                    ),
+                  ),
+                  if (line.history.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        AppHaptics.medium();
+                        onUndo();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.warning.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.undo_rounded,
+                              size: 12,
+                              color: AppColors.warning,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Undo',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.warning,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One line-activity chip: "+4 · 07:32" — the operator's memory aid.
+class _HistoryChip extends StatelessWidget {
+  final IbtLineEvent event;
+
+  const _HistoryChip({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = DateTime.fromMillisecondsSinceEpoch(event.at);
+    final hh = t.hour.toString().padLeft(2, '0');
+    final mm = t.minute.toString().padLeft(2, '0');
+    final isAdd = event.delta >= 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: isAdd
+            ? AppColors.success.withValues(alpha: 0.12)
+            : AppColors.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: (isAdd ? AppColors.success : AppColors.warning).withValues(
+            alpha: 0.35,
+          ),
+        ),
+      ),
+      child: Text(
+        '${isAdd ? '+' : ''}${event.delta} · $hh:$mm',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          fontFamily: 'monospace',
+          color: isAdd ? AppColors.success : AppColors.warning,
         ),
       ),
     );
@@ -1351,6 +1472,7 @@ class _TallyBar extends StatelessWidget {
   final Function(int by) onIncrement;
   final Function(int by) onDecrement;
   final VoidCallback onFill;
+  final VoidCallback onUndo;
   final VoidCallback onClose;
 
   const _TallyBar({
@@ -1359,6 +1481,7 @@ class _TallyBar extends StatelessWidget {
     required this.onIncrement,
     required this.onDecrement,
     required this.onFill,
+    required this.onUndo,
     required this.onClose,
   });
 
@@ -1368,6 +1491,7 @@ class _TallyBar extends StatelessWidget {
     final loaded = line.loadedQuantity;
     final remaining = (target - loaded).clamp(0, target);
     final isDone = target > 0 && loaded >= target;
+    final last = line.lastEvent;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1390,15 +1514,32 @@ class _TallyBar extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  line.size ?? line.description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.dynamicTextPrimary(context),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      line.size ?? line.description,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.dynamicTextPrimary(context),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (last != null)
+                      Text(
+                        'Last: ${last.delta >= 0 ? '+' : ''}${last.delta}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'monospace',
+                          color: last.delta >= 0
+                              ? AppColors.success
+                              : AppColors.warning,
+                        ),
+                      ),
+                  ],
                 ),
               ),
               Text(
@@ -1425,21 +1566,51 @@ class _TallyBar extends StatelessWidget {
               _TallButton(
                 icon: Icons.remove_rounded,
                 size: 56,
-                onTap: loaded > 0 ? () => onDecrement(1) : null,
-                onLongPress: () => onDecrement(5),
+                onTap: loaded > 0
+                    ? () {
+                        AppHaptics.light();
+                        onDecrement(1);
+                      }
+                    : null,
+                onLongPress: loaded > 0
+                    ? () {
+                        AppHaptics.medium();
+                        onDecrement(5);
+                      }
+                    : null,
               ),
               const SizedBox(width: 10),
               _TallButton(
                 icon: Icons.add_rounded,
                 size: 56,
                 isPrimary: true,
-                onTap: () => onIncrement(1),
-                onLongPress: () => onIncrement(5),
+                onTap: () {
+                  AppHaptics.light();
+                  onIncrement(1);
+                },
+                onLongPress: () {
+                  AppHaptics.medium();
+                  onIncrement(5);
+                },
               ),
               const SizedBox(width: 10),
-              _TallButton(label: '+5', size: 56, onTap: () => onIncrement(5)),
+              _TallButton(
+                label: '+5',
+                size: 56,
+                onTap: () {
+                  AppHaptics.light();
+                  onIncrement(5);
+                },
+              ),
               const SizedBox(width: 10),
-              _TallButton(label: '+10', size: 56, onTap: () => onIncrement(10)),
+              _TallButton(
+                label: '+10',
+                size: 56,
+                onTap: () {
+                  AppHaptics.light();
+                  onIncrement(10);
+                },
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: _TallButton(
@@ -1447,9 +1618,29 @@ class _TallyBar extends StatelessWidget {
                   size: 56,
                   isAccent: true,
                   enabled: remaining > 0,
-                  onTap: remaining > 0 ? onFill : null,
+                  onTap: remaining > 0
+                      ? () {
+                          AppHaptics.medium();
+                          onFill();
+                        }
+                      : null,
                 ),
               ),
+              if (last != null) ...[
+                const SizedBox(width: 10),
+                _TallButton(
+                  icon: Icons.undo_rounded,
+                  size: 44,
+                  onTap: () {
+                    AppHaptics.medium();
+                    onUndo();
+                  },
+                  onLongPress: () {
+                    AppHaptics.heavy();
+                    onUndo();
+                  },
+                ),
+              ],
             ],
           ),
         ],
