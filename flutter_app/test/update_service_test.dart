@@ -65,14 +65,14 @@ void main() {
       final mockHttpClient = MockClient((request) async {
         final mockReleases = [
           {
-            "tag_name": "v3.2.0",
-            "name": "Dispatch Diary v3.2.0",
+            "tag_name": "v3.3.0",
+            "name": "Dispatch Diary v3.3.0",
             "body": "New features and bug fixes",
             "assets": [
               {
-                "name": "DispatchDiary-v3.2.0.apk",
+                "name": "DispatchDiary-v3.3.0.apk",
                 "browser_download_url":
-                    "https://github.com/t-mpanza/dispatch-logbook/releases/download/v3.2.0/DispatchDiary-v3.2.0.apk",
+                    "https://github.com/t-mpanza/dispatch-logbook/releases/download/v3.3.0/DispatchDiary-v3.3.0.apk",
               },
             ],
           },
@@ -83,8 +83,8 @@ void main() {
       final updateInfo = await UpdateService.checkForUpdates(
         client: mockHttpClient,
       );
-      expect(updateInfo.latestVersion, equals('v3.2.0'));
-      expect(updateInfo.apkDownloadUrl, contains('DispatchDiary-v3.2.0.apk'));
+      expect(updateInfo.latestVersion, equals('v3.3.0'));
+      expect(updateInfo.apkDownloadUrl, contains('DispatchDiary-v3.3.0.apk'));
       expect(updateInfo.hasUpdate, isTrue);
     });
 

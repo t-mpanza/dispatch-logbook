@@ -17,6 +17,7 @@ import 'presentation/widgets/app_shell.dart';
 import 'presentation/screens/today_screen.dart';
 import 'presentation/screens/loading_sheet_screen.dart';
 import 'presentation/screens/history_screen.dart';
+import 'presentation/dispatch/dispatch_hub_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -96,6 +97,7 @@ class _DispatchDiaryAppState extends State<DispatchDiaryApp> {
     TodayScreen(),
     LoadingSheetScreen(),
     HistoryScreen(),
+    DispatchHubScreen(),
   ];
 
   @override

@@ -18,7 +18,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -57,6 +57,14 @@ class DatabaseService {
           )
         ''');
 
+        await db.execute('''
+          CREATE TABLE dispatch_decisions (
+            uid TEXT PRIMARY KEY,
+            decision TEXT NOT NULL,
+            at INTEGER NOT NULL
+          )
+        ''');
+
         await db.execute(
           'CREATE INDEX idx_entries_day_key ON entries(day_key)',
         );
@@ -73,6 +81,15 @@ class DatabaseService {
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_entries_deleted_at ON entries(deleted_at)',
           );
+        }
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS dispatch_decisions (
+              uid TEXT PRIMARY KEY,
+              decision TEXT NOT NULL,
+              at INTEGER NOT NULL
+            )
+          ''');
         }
       },
     );
@@ -252,5 +269,33 @@ class DatabaseService {
   static Future<void> deleteRemindersForEntry(String entryId) async {
     final db = await database;
     await db.delete('reminders', where: 'entryId = ?', whereArgs: [entryId]);
+  }
+
+  // ── Dispatch Inspect Decisions (local, per-tyre approve/scrap) ─────────────
+
+  static Future<Map<String, String>> getDispatchDecisions() async {
+    final db = await database;
+    final maps = await db.query('dispatch_decisions');
+    return {
+      for (final m in maps)
+        m['uid'] as String: m['decision'] as String,
+    };
+  }
+
+  static Future<void> saveDispatchDecision({
+    required String uid,
+    required String decision,
+  }) async {
+    final db = await database;
+    await db.insert(
+      'dispatch_decisions',
+      {'uid': uid, 'decision': decision, 'at': DateTime.now().millisecondsSinceEpoch},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> clearDispatchDecision(String uid) async {
+    final db = await database;
+    await db.delete('dispatch_decisions', where: 'uid = ?', whereArgs: [uid]);
   }
 }

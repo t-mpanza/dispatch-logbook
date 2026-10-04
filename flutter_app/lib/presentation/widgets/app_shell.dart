@@ -111,6 +111,13 @@ class _Dock extends StatelessWidget {
             activeIcon: Icons.history_rounded,
             label: 'History',
           ),
+          _navItem(
+            context,
+            index: 3,
+            icon: Icons.radar_rounded,
+            activeIcon: Icons.radar_rounded,
+            label: 'Dispatch',
+          ),
         ],
       ),
     );

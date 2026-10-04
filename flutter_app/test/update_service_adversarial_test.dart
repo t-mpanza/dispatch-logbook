@@ -127,24 +127,24 @@ void main() {
         final mockHttpClient = MockClient((request) async {
           final mockReleases = [
             {
-              "tag_name": "v3.3.0",
+              "tag_name": "v3.5.0",
               "name": "Draft release",
               "draft": true,
               "assets": [
                 {
-                  "name": "DispatchDiary-v3.3.0.apk",
+                  "name": "DispatchDiary-v3.5.0.apk",
                   "browser_download_url": "https://example.com/draft.apk",
                 },
               ],
             },
             {
-              "tag_name": "v3.2.0",
-              "name": "Published release v3.2.0",
+              "tag_name": "v3.4.0",
+              "name": "Published release v3.4.0",
               "draft": false,
               "assets": [
                 {
-                  "name": "DispatchDiary-v3.2.0.apk",
-                  "browser_download_url": "https://example.com/v3.2.0.apk",
+                  "name": "DispatchDiary-v3.4.0.apk",
+                  "browser_download_url": "https://example.com/v3.4.0.apk",
                 },
               ],
             },
@@ -155,9 +155,9 @@ void main() {
         final info = await UpdateService.checkForUpdates(
           client: mockHttpClient,
         );
-        expect(info.latestVersion, equals('v3.2.0'));
-        expect(info.apkDownloadUrl, equals('https://example.com/v3.2.0.apk'));
-        expect(info.releaseTitle, equals('Published release v3.2.0'));
+        expect(info.latestVersion, equals('v3.4.0'));
+        expect(info.apkDownloadUrl, equals('https://example.com/v3.4.0.apk'));
+        expect(info.releaseTitle, equals('Published release v3.4.0'));
       },
     );
 
@@ -167,24 +167,24 @@ void main() {
         final mockHttpClient = MockClient((request) async {
           final mockReleases = [
             {
-              "tag_name": "v3.2.0-rc1",
+              "tag_name": "v3.4.0-rc1",
               "name": "RC Candidate",
               "draft": false,
               "assets": [
                 {
-                  "name": "DispatchDiary-v3.2.0-rc1.apk",
+                  "name": "DispatchDiary-v3.4.0-rc1.apk",
                   "browser_download_url": "https://example.com/rc1.apk",
                 },
               ],
             },
             {
-              "tag_name": "v3.1.5",
-              "name": "Stable Release v3.1.5",
+              "tag_name": "v3.3.5",
+              "name": "Stable Release v3.3.5",
               "draft": false,
               "assets": [
                 {
-                  "name": "DispatchDiary-v3.1.5.apk",
-                  "browser_download_url": "https://example.com/v3.1.5.apk",
+                  "name": "DispatchDiary-v3.3.5.apk",
+                  "browser_download_url": "https://example.com/v3.3.5.apk",
                 },
               ],
             },
@@ -195,8 +195,8 @@ void main() {
         final info = await UpdateService.checkForUpdates(
           client: mockHttpClient,
         );
-        expect(info.latestVersion, equals('v3.1.5'));
-        expect(info.apkDownloadUrl, equals('https://example.com/v3.1.5.apk'));
+        expect(info.latestVersion, equals('v3.3.5'));
+        expect(info.apkDownloadUrl, equals('https://example.com/v3.3.5.apk'));
       },
     );
 
@@ -206,7 +206,7 @@ void main() {
         final mockHttpClient = MockClient((request) async {
           final mockReleases = [
             {
-              "tag_name": "v3.2.0",
+              "tag_name": "v3.4.0",
               "name": "Multi-asset Release",
               "draft": false,
               "assets": [
@@ -219,7 +219,7 @@ void main() {
                   "browser_download_url": "https://example.com/app.aab",
                 },
                 {
-                  "name": "DispatchDiary-v3.2.0.apk",
+                  "name": "DispatchDiary-v3.4.0.apk",
                   "browser_download_url": "https://example.com/valid.apk",
                 },
                 {
@@ -235,7 +235,7 @@ void main() {
         final info = await UpdateService.checkForUpdates(
           client: mockHttpClient,
         );
-        expect(info.latestVersion, equals('v3.2.0'));
+        expect(info.latestVersion, equals('v3.4.0'));
         expect(info.apkDownloadUrl, equals('https://example.com/valid.apk'));
       },
     );
@@ -246,7 +246,7 @@ void main() {
         final mockHttpClient = MockClient((request) async {
           final mockReleases = [
             {
-              "tag_name": "v3.3.0",
+              "tag_name": "v3.5.0",
               "name": "Source only release",
               "draft": false,
               "assets": [
@@ -257,7 +257,7 @@ void main() {
               ],
             },
             {
-              "tag_name": "v3.2.0",
+              "tag_name": "v3.4.0",
               "name": "Release with APK",
               "draft": false,
               "assets": [
@@ -274,7 +274,7 @@ void main() {
         final info = await UpdateService.checkForUpdates(
           client: mockHttpClient,
         );
-        expect(info.latestVersion, equals('v3.2.0'));
+        expect(info.latestVersion, equals('v3.4.0'));
         expect(info.apkDownloadUrl, equals('https://example.com/app.apk'));
       },
     );
