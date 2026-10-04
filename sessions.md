@@ -1,88 +1,60 @@
-# Session Summary: Dispatch Diary v3 — IBT Overhaul, Updates, Email Reports, Reminders
+# Session Summary: Dispatch Diary v3.1.0 + v3.2.0 — IBT Batch Tally, Auto-Login, Dispatch Hub Fusion
 
-**Objective**: Attack every complaint in `user-complaints.md` against the Flutter (canonical) app and ship v3.0.0.
+**Objective**: Attack user complaints, embed auto-login, fuse dispatch-app functionality into Dispatch Diary. All work committed, tagged, released and CI-verified on `t-mpanza/dispatch-logbook`.
 
-**State**: `flutter analyze` clean · 93/93 tests passing · debug APK builds · release build verified locally.
-
----
-
-## 1. IBT System Rework (main user focus)
-
-### Static line ordering
-- `stocks_entry_detail_screen.dart`: removed `_sortedLines()` — line items now render **exactly as fetched**. No more lines jumping around mid-tally.
-
-### Haptics on every key press (noisy bay)
-- Line-card `+/-` steppers: light haptic per tap.
-- Tally bar `+/+5/+10/Fill`: light/medium haptics; long-press `+5`/`-5` = medium; heavy on overshoot clamp; success on line complete; medium on undo.
-- Central `_reactToDelta()` in the screen: clamp → heavy + snackbar, complete → success, uncomplete → medium, else light.
-
-### Per-line mini history ("what did I just add?")
-- New model `IbtLineEvent {id, delta, at}` + `IbtLineItem.history` (JSON-persisted, backwards compatible).
-- New pure engine `lib/data/services/ibt_line_ops.dart` (`IbtLineOps.applyDelta / setQuantity / undoLast`) — single source of truth for clamping, history, and trip totals.
-- UI: last-3 events shown as `+4 · 07:32` chips on each line card; "Last: +N" in the tally bar; undo button (card + tally bar + IBT bottom sheet).
-- `LoadingSheetViewModel.updateIbtLineQuantity/applyIbtLineDelta/undoIbtLineLast` now delegate to the shared engine and **never crash** on missing docs/lines.
-- Strict manifest cap is now consistent everywhere (viewmodel, stocks screen, keypad, bottom sheet).
-
-### 12R tyre size bug
-- `AppSyncManifestService.resolveSize()`: manifest **description wins** over the size_id master map; imperial designations (12R22.5, 11R22.5, 10.00R20) are matched with priority and a negative lookbehind prevents false "80R22.5" matches inside "315/80R22.5".
-- 12R tyres now display as `12R22.5`, never as `315`.
-
-## 2. Incremental Update System → v3
-
-- `pubspec.yaml`: `3.0.0+1`.
-- `UpdateService` strengthened:
-  - Only releases **newer than installed** are candidates (can never point at an older APK).
-  - Best candidate chosen by **semantic version comparison**, not GitHub publish order.
-  - Non-version tags (`main`, etc.) ignored; drafts/prereleases/RCs skipped; paginates up to 5 pages.
-  - Fallback version `v3.0.0`.
-- `.github/workflows/release.yml` fixed:
-  - Pushes to `main` now run **tests only** — the bogus "main" release that broke the updater is gone.
-  - Releases only from `v*` tags or manual `workflow_dispatch` with a version input.
-  - Tag used correctly (`github.ref_name` for tags, input for manual).
-
-## 3. Autonomous Daily Email Report (Mon–Fri, 06:00 SAST)
-
-- New `.github/workflows/daily-report.yml`: scheduled `cron: 0 4 * * 1-5` (weekdays), plus `workflow_dispatch` and `repository_dispatch`.
-- New `.github/scripts/send_daily_report.py`:
-  - Reports the **previous working day** (Monday's email carries Friday's report — Sat/Sun roll back to Friday).
-  - Pulls `entries` from Supabase (service role), aggregates `quantityLoaded` → tyres, entries with sheet trips → trucks.
-  - Sends plain-text email from the owner's personal email (Gmail SMTP) with exactly:
-    `Good Morning, Gizz.\n\nTyres Loaded: {n}\nTotal Trucks: {n}`.
-- In-app manual trigger: Settings → **Reports** → "Send now" calls the GitHub `workflows/daily-report.yml/dispatches` endpoint via a PAT stored in secure storage (configurable in-app). Recipient default `Giz-MarieDP@att-tyres.co.za`.
-
-## 4. Smart Reminders
-
-- Added `flutter_local_notifications` + `timezone`; Android manifest: `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, scheduled receivers; core-library desugaring in `build.gradle.kts`.
-- `NotificationService`: permission requests (Android 13+), `zonedSchedule`, cancel, and **re-register all pending reminders on cold start** (survives reboots/updates).
-- Settings → **Reminders** card: list, create (text + date + time pickers), done-toggle, delete. DB ops added: `updateReminder`, `deleteReminder`, `deleteRemindersForEntry`.
-
-## 5. Cleanup & Consistency
-
-- Single IBT update path (was 3 divergent implementations).
-- Settings branding: "Dispatch Diary · IBT Edition" → "Dispatch Diary".
-- Verified update dialog + welcome sheet carry no stale v2 branding.
-
-## Tests
-
-- New: `ibt_line_ops_test.dart` (clamp, history, undo, serialization, legacy tolerance), `ibt_size_resolution_test.dart` (12R priority, metric regression), update-service tests for v3 fallback, non-version tags, older-release filtering.
-- Updated: `update_service_test.dart`, `update_service_adversarial_test.dart` (v3 fixtures), `challenger_m1_it2_stress_test.dart` (strict-cap expectations).
-- **93/93 passing** (`flutter test`), `flutter analyze` clean.
-
-## Secrets the owner must configure (GitHub Environment `reporting`)
-
-1. `REPORT_SENDER_EMAIL` — personal Gmail used to send reports.
-2. `REPORT_SENDER_APP_PASSWORD` — Gmail App Password (requires 2-Step Verification; create at myaccount.google.com/apppasswords).
-3. `REPORT_RECIPIENT_EMAIL` — `Giz-MarieDP@att-tyres.co.za` (workflow falls back to this if unset).
-4. `SUPABASE_URL` — `https://glxxawxuwusxwjvezugo.supabase.co`.
-5. `SUPABASE_SERVICE_ROLE_KEY` — Supabase dashboard → Project Settings → API.
-
-For the in-app "Send now" button: a fine-grained PAT (Actions: Read & write on `t-mpanza/dispatch-logbook`) pasted once in Settings → Configure report trigger token.
-
-## Pending
-
-- Commit + push (user to confirm), then tag `v3.0.0` so CI publishes the signed APK.
-- Cognito creds for live AppSync testing were rejected (`LAPTOP-E31LQ89M` / `12341!aA1` → NotAuthorizedException); awaiting corrected credentials to validate the 12R fix against live data.
+**State**: `flutter analyze` clean · **134 tests passing** (+2 live-gated) · v3.0.0, v3.1.0, v3.2.0 all released with signed APKs.
 
 ---
 
-*Session log rebuilt after session-store loss.*
+## v3.1.0 — Batch-entry IBT tally + embedded auto-login + live-validated 12R fix
+
+### IBT tally rebuilt around DIRECT ENTRY
+- User: "I prefer manually entering a number than small increments. if its 7 then 7, no clicking on 5 then double clicking the single incrementer leaving +5 +1 +1 on history."
+- Steppers/quick-pills REMOVED from line cards and tally bar.
+- `BatchPad` (number_pad.dart): add-mode keypad — type the exact number loaded, previous batch size pre-filled, manifest cap enforced, "ADD n" confirm.
+- One tap = one clean history entry (`+7 · 07:32`) — no more stepper noise.
+- History chips are now TAP-TO-UNDO per batch (`IbtLineOps.undoBatch` by event id), plus undo-last; same model in the tally bar and the IBT bottom sheet.
+- `IbtLineOps` = single engine for delta/set/undo/undoBatch (stocks screen, viewmodel, bottom sheet all converge).
+
+### Silent auto-login (no manual sign-in)
+- User: "no manual log in now. the app should already be logged in to the system and ready to fetch stuff on demand."
+- `AwsAutoLoginService`: complete Cognito SRP handshake (USER_SRP_AUTH → PASSWORD_VERIFIER, HKDF info "Caldera Derived Key", 16-byte key) in pure Dart — verified against golden vectors AND the live pool.
+- Credentials lightly obfuscated (XOR 0x5A + base64) — internal builds only.
+- `AppSyncManifestService.getValidIdToken` falls back to auto-login when no session exists → IBT manifests fetch out-of-the-box.
+- Debugging journey (recorded for future sessions): corrupted N constant (770 vs 768 hex chars), then `utf8.encode(hexString)` producing ASCII instead of raw bytes for HKDF ikm/salt — fixed with `hexToBytes`.
+
+### 12R size bug — CONFIRMED + FIXED against live data
+- Live IBT 122773: `description: "12R22.5 M38 STOCK RETREAD", size_id: 22` — master map wrongly said 22 = 315/80R22.5. That was the "12R referenced as 315" bug.
+- `resolveSize`: description always wins (imperial first, metric fallback), master map corrected (22→12R22.5, 16/45→11R22.5, 70→315/80R22.5).
+- `resolveRubber`: description first — live patterns (M38, M43, M100, MM65) extract even when rubber_id is unknown.
+- `RUN_LIVE_TESTS=1` integration tests fetch the real manifest and assert 12R resolves to 12R22.5.
+
+## v3.2.0 — Dispatch Hub (dispatch-app fusion)
+
+- User: "Fuse the two apps that one on this one not the other way around… The lite apk didn't have the nfc capability it only used the text input."
+- New 4th dock tab **Dispatch** → hub with 4 inner tabs (Board, Lookup, Inspect, Summary), Obsidian-styled.
+- **Board**: active dispatch session card, stat grid (at dispatch / batches / late / rejects / total), late-batch tiles, customer-grouped tyre tiles.
+- **Lookup**: tyre story by UID / serial / CS / slip with spec card + scan-history timeline.
+- **Inspect**: lite text-input mode (14-hex UID) → live validation → APPROVE/SCRAP with local persistence (`dispatch_decisions` table, DB v3 migration).
+- **Summary**: per-work-cell shift totals with quota bars.
+- `lib/dispatch/` module: defensive DTO parsers (json_helpers), SlipTyre, board DTOs, ScrapMarker, DocumentNumberParser (INV/DIBT/IBT/AMS/REJ), TyreStory usecase, live GraphQL operations catalog via `DispatchApi` (reuses the auto-login token pipeline).
+- dispatch-app studied from `t-mpanza/dispatch-app` (v3 Tyre Inspector, ~21k lines); pure domain/data layer ported, transport rewired onto Dispatch Diary's existing AppSync auth, UI rebuilt in the app's own theme (no bloc/go_router/get_it dragged in).
+
+## Releases shipped (all CI-verified)
+
+| Tag | Release | Tests on CI |
+|---|---|---|
+| v3.0.0 | IBT overhaul, hardened updater, daily email, reminders | ✓ |
+| v3.1.0 | batch-entry tally, auto-login, 12R fix | ✓ 52s |
+| v3.2.0 | Dispatch Hub fusion | ✓ 52s, build 7m23s |
+
+## Known follow-ups
+
+- Daily-report email: environment `reporting` + 5 secrets configured; first autonomous run Monday 06:00 SAST.
+- In-app "Send now" needs a fine-grained PAT (Actions: Read & write) pasted in Settings → Configure report trigger token.
+- dispatch-app's Documents staging + Trucks screens not yet ported (future fusion work).
+- The `main` bogus release was deleted (root cause of old updater behaviour); updater now ignores non-semver tags.
+
+---
+
+*Session log rebuilt after session-store loss; supersedes all earlier entries.*
