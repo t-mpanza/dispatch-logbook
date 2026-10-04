@@ -64,3 +64,34 @@ export function entryToChatBubbles(
 
   return bubbles.sort((a, b) => a.createdAt - b.createdAt);
 }
+
+export interface LightboxState {
+  isOpen: boolean;
+  activeAttachment: Attachment | null;
+  activeIndex: number;
+  totalAttachments: number;
+  zoomLevel: number;
+}
+
+export function createInitialLightboxState(): LightboxState {
+  return {
+    isOpen: false,
+    activeAttachment: null,
+    activeIndex: 0,
+    totalAttachments: 0,
+    zoomLevel: 1.0,
+  };
+}
+
+export function openLightbox(attachments: Attachment[], index: number): LightboxState {
+  if (!attachments || attachments.length === 0 || index < 0 || index >= attachments.length) {
+    return createInitialLightboxState();
+  }
+  return {
+    isOpen: true,
+    activeAttachment: attachments[index],
+    activeIndex: index,
+    totalAttachments: attachments.length,
+    zoomLevel: 1.0,
+  };
+}
