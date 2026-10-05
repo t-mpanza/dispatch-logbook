@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -5,11 +7,11 @@ import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/services/database_service.dart';
 import '../../dispatch/domain/tyre_story.dart';
+import '../../dispatch/hardware/nfc_scan_service.dart';
 
-/// The inspection HUD — lite (text-input) mode: type the tyre's slip
-/// number (cab number) or serial, resolve it live, then APPROVE or SCRAP.
-/// UIDs are invisible to operators, so the lite flow keys on the two
-/// identifiers actually printed on the tyre. Decisions persist locally.
+/// The inspection HUD — NFC-first. Every tyre carries an NFC chip; the app
+/// actively expects a scan and resolves the tag live. Typed slip/serial
+/// entry stays as the fallback for tags that won't read.
 class DispatchInspectScreen extends StatefulWidget {
   const DispatchInspectScreen({super.key});
 
@@ -27,8 +29,13 @@ class _FeedEntry {
 
 class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
   final TextEditingController _controller = TextEditingController();
+  final NfcScanService _nfc = NfcScanService();
+  StreamSubscription<String>? _scanSub;
+
   final List<_FeedEntry> _feed = [];
   bool _busy = false;
+  bool _nfcArmed = false;
+  bool _nfcAvailable = false;
   TyreStory? _last;
   String? _banner;
 
@@ -36,6 +43,73 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
   void initState() {
     super.initState();
     _restoreDecisions();
+    _checkNfc();
+    _scanSub = _nfc.scans.listen(_onNfcScan);
+  }
+
+  @override
+  void dispose() {
+    _scanSub?.cancel();
+    _nfc.stop();
+    _nfc.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkNfc() async {
+    final available = await _nfc.isAvailable;
+    if (!mounted) return;
+    setState(() => _nfcAvailable = available);
+    if (available) {
+      await _armNfc();
+    }
+  }
+
+  Future<void> _armNfc() async {
+    try {
+      await _nfc.start();
+      if (mounted) setState(() => _nfcArmed = true);
+    } catch (_) {
+      if (mounted) setState(() => _nfcArmed = false);
+    }
+  }
+
+  Future<void> _disarmNfc() async {
+    await _nfc.stop();
+    if (mounted) setState(() => _nfcArmed = false);
+  }
+
+  Future<void> _onNfcScan(String uid) async {
+    if (_busy) return;
+    AppHaptics.medium();
+    setState(() {
+      _busy = true;
+      _banner = null;
+      _last = null;
+      _controller.text = uid;
+    });
+
+    try {
+      final story = await const TyreStoryUsecase().byUid(uid);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _last = story;
+        if (story == null) {
+          _banner = 'Tag $uid — no tyre on the system.';
+          AppHaptics.error();
+        } else {
+          AppHaptics.success();
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _banner = 'Scan failed: $e';
+      });
+      AppHaptics.error();
+    }
   }
 
   Future<void> _restoreDecisions() async {
@@ -43,12 +117,16 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
     if (!mounted) return;
     setState(() {
       for (final entry in decisions.entries) {
+        final parts = entry.value.split('|');
+        final label = parts[0] == 'APPROVE'
+            ? 'APPROVED'
+            : 'SCRAPPED${parts.length > 1 ? ' — ${parts[1]}' : ''}';
         _feed.insert(
           0,
           _FeedEntry(
             entry.key,
-            entry.value == 'APPROVE' ? 'APPROVED' : 'SCRAPPED',
-            entry.value == 'APPROVE'
+            label,
+            parts[0] == 'APPROVE'
                 ? AppColors.successStrong(context)
                 : AppColors.errorStrong(context),
           ),
@@ -57,21 +135,17 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
   String _identifierFor(TyreStory story) {
     final slip = story.tyre.slipNumber;
     if (slip != null) return 'SLIP $slip';
     final serial = story.tyre.serial;
     if (serial != null && serial.isNotEmpty) return serial;
+    final uid = story.tyre.uid;
+    if (uid != null && uid.isNotEmpty) return 'TAG $uid';
     return _controller.text.trim().toUpperCase();
   }
 
-  Future<void> _scan() async {
+  Future<void> _typedLookup() async {
     final input = _controller.text.trim().toUpperCase();
     if (input.isEmpty) return;
     AppHaptics.medium();
@@ -108,14 +182,14 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
     }
   }
 
-  Future<void> _decide(String decision) async {
+  Future<void> _approve() async {
     final story = _last;
     if (story == null) return;
     final identifier = _identifierFor(story);
     AppHaptics.success();
     await DatabaseService.saveDispatchDecision(
       uid: identifier,
-      decision: decision,
+      decision: 'APPROVE',
     );
     if (!mounted) return;
     setState(() {
@@ -123,15 +197,91 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
         0,
         _FeedEntry(
           identifier,
-          decision == 'APPROVE' ? 'APPROVED' : 'SCRAPPED',
-          decision == 'APPROVE'
-              ? AppColors.successStrong(context)
-              : AppColors.errorStrong(context),
+          'APPROVED',
+          AppColors.successStrong(context),
         ),
       );
       _last = null;
       _controller.clear();
     });
+  }
+
+  Future<void> _scrap() async {
+    final story = _last;
+    if (story == null) return;
+    final reason = await _pickScrapReason();
+    if (reason == null || !mounted) return;
+    final identifier = _identifierFor(story);
+    AppHaptics.success();
+    await DatabaseService.saveDispatchDecision(
+      uid: identifier,
+      decision: 'SCRAP',
+      reason: reason,
+    );
+    if (!mounted) return;
+    setState(() {
+      _feed.insert(
+        0,
+        _FeedEntry(
+          identifier,
+          'SCRAPPED — $reason',
+          AppColors.errorStrong(context),
+        ),
+      );
+      _last = null;
+      _controller.clear();
+    });
+  }
+
+  Future<String?> _pickScrapReason() async {
+    var selected = 'DAMAGED';
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            title: const Text('Scrap reason'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final reason in const [
+                      'DAMAGED',
+                      'WRONG TYRE',
+                      'DUMP',
+                      'NOT ON DOCUMENT',
+                      'OTHER',
+                    ])
+                      ChoiceChip(
+                        label: Text(reason),
+                        selected: selected == reason,
+                        onSelected: (_) =>
+                            setDialogState(() => selected = reason),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: AppColors.dynamicTextMuted(context)),
+                ),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, selected),
+                child: const Text('Scrap it'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -142,6 +292,63 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
       children: [
+        // ── NFC STATUS ──────────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: GlassDecorations.glassCard(
+            context: context,
+            borderRadius: 16,
+            borderColor: (_nfcArmed ? AppColors.successStrong(context) : AppColors.warningStrong(context))
+                .withValues(alpha: 0.4),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.nfc_rounded,
+                size: 22,
+                color: _nfcArmed
+                    ? AppColors.successStrong(context)
+                    : AppColors.warningStrong(context),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _nfcArmed ? 'SCANNING — WAITING FOR TAG' : 'NFC OFF',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                        color: _nfcArmed
+                            ? AppColors.successStrong(context)
+                            : AppColors.warningStrong(context),
+                      ),
+                    ),
+                    Text(
+                      _nfcAvailable
+                          ? 'Hold the tyre tag to the reader'
+                          : 'No NFC hardware on this device',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.dynamicTextMuted(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_nfcAvailable)
+                TextButton(
+                  onPressed: _nfcArmed ? _disarmNfc : _armNfc,
+                  child: Text(_nfcArmed ? 'Stop' : 'Arm'),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Typed fallback ─────────────────────────────────────────────────
         Container(
           decoration: GlassDecorations.glassCard(context: context, borderRadius: 16),
           child: Row(
@@ -158,11 +365,11 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
                     color: AppColors.dynamicTextPrimary(context),
                   ),
                   decoration: InputDecoration(
-                    hintText: 'SLIP NUMBER OR SERIAL',
+                    hintText: 'SLIP / SERIAL / UID FALLBACK',
                     hintStyle: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: AppColors.dynamicTextMuted(context),
-                      letterSpacing: 1,
+                      letterSpacing: 0.6,
                     ),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
@@ -171,20 +378,19 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
                     ),
                     border: InputBorder.none,
                   ),
-                  onSubmitted: (_) => _scan(),
+                  onSubmitted: (_) => _typedLookup(),
                 ),
               ),
               IconButton(
-                onPressed: _busy ? null : _scan,
+                onPressed: _busy ? null : _typedLookup,
                 icon: _busy
                     ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.qr_code_scanner_rounded,
-                        color: AppColors.info),
-                tooltip: 'Resolve tyre',
+                    : const Icon(Icons.search_rounded, color: AppColors.info),
+                tooltip: 'Resolve',
               ),
             ],
           ),
@@ -220,21 +426,31 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
             child: Column(
               children: [
                 Text(
-                  story.tyre.displayLabel,
+                  story.tyre.customerName ?? 'Unknown customer',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: AppColors.dynamicTextPrimary(context),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
-                  '${story.tyre.customerName ?? 'Unknown customer'} · '
-                  'CS ${story.tyre.csNumber ?? '—'} · '
-                  'slip ${story.tyre.slipNumber ?? '—'}',
+                  story.tyre.displayLabel,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.dynamicTextSecondary(context),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'SLIP ${story.tyre.slipNumber ?? '—'} · '
+                  'CS ${story.tyre.csNumber ?? '—'}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.dynamicTextMuted(context),
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'monospace',
+                    color: AppColors.infoStrong(context),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -245,7 +461,7 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
                         label: 'APPROVE',
                         icon: Icons.check_rounded,
                         color: AppColors.successStrong(context),
-                        onTap: () => _decide('APPROVE'),
+                        onTap: _approve,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -254,7 +470,7 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
                         label: 'SCRAP',
                         icon: Icons.close_rounded,
                         color: AppColors.errorStrong(context),
-                        onTap: () => _decide('SCRAP'),
+                        onTap: _scrap,
                       ),
                     ),
                   ],

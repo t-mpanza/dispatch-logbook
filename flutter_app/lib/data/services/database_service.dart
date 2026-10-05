@@ -18,7 +18,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -61,6 +61,7 @@ class DatabaseService {
           CREATE TABLE dispatch_decisions (
             uid TEXT PRIMARY KEY,
             decision TEXT NOT NULL,
+            reason TEXT,
             at INTEGER NOT NULL
           )
         ''');
@@ -90,6 +91,11 @@ class DatabaseService {
               at INTEGER NOT NULL
             )
           ''');
+        }
+        if (oldVersion < 4) {
+          await db.execute(
+            'ALTER TABLE dispatch_decisions ADD COLUMN reason TEXT',
+          );
         }
       },
     );
@@ -273,23 +279,33 @@ class DatabaseService {
 
   // ── Dispatch Inspect Decisions (local, per-tyre approve/scrap) ─────────────
 
+  /// Returns uid → 'APPROVE' or 'SCRAP|reason' (reason may be absent).
   static Future<Map<String, String>> getDispatchDecisions() async {
     final db = await database;
     final maps = await db.query('dispatch_decisions');
     return {
       for (final m in maps)
-        m['uid'] as String: m['decision'] as String,
+        m['uid'] as String:
+            m['decision'] == 'SCRAP' && m['reason'] != null
+            ? 'SCRAP|${m['reason']}'
+            : m['decision'] as String,
     };
   }
 
   static Future<void> saveDispatchDecision({
     required String uid,
     required String decision,
+    String? reason,
   }) async {
     final db = await database;
     await db.insert(
       'dispatch_decisions',
-      {'uid': uid, 'decision': decision, 'at': DateTime.now().millisecondsSinceEpoch},
+      {
+        'uid': uid,
+        'decision': decision,
+        'reason': reason,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }

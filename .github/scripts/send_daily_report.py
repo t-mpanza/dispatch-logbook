@@ -117,8 +117,9 @@ def aggregate(entries):
 def send_email(sender, app_password, recipient, subject, body):
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = subject
-    msg["From"] = sender
+    msg["From"] = f"Dispatch Diary <{sender}>"
     msg["To"] = recipient
+    msg["Reply-To"] = sender
 
     with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
         server.ehlo()

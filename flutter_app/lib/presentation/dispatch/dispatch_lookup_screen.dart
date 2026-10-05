@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -5,10 +7,11 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
 import '../../dispatch/domain/tyre_story.dart';
+import '../../dispatch/hardware/nfc_scan_service.dart';
 import '../../dispatch/models/dispatch_models.dart';
 
-/// Tyre lookup: slip number (the "cab number" on the tyre) or serial —
-/// the only two identifiers visible to operators in the field.
+/// Tyre lookup: scan the NFC tag or type a slip number (the "cab number")
+/// or serial. Customer, make and slip number lead the story.
 class DispatchLookupScreen extends StatefulWidget {
   const DispatchLookupScreen({super.key});
 
@@ -20,15 +23,77 @@ enum _LookupMode { slip, serial }
 
 class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
   final TextEditingController _controller = TextEditingController();
+  final NfcScanService _nfc = NfcScanService();
+  StreamSubscription<String>? _scanSub;
+
   _LookupMode _mode = _LookupMode.slip;
   bool _busy = false;
+  bool _nfcArmed = false;
+  bool _nfcAvailable = false;
   String? _error;
   TyreStory? _story;
 
   @override
+  void initState() {
+    super.initState();
+    _checkNfc();
+    _scanSub = _nfc.scans.listen(_onNfcScan);
+  }
+
+  @override
   void dispose() {
+    _scanSub?.cancel();
+    _nfc.stop();
+    _nfc.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkNfc() async {
+    final available = await _nfc.isAvailable;
+    if (!mounted) return;
+    setState(() => _nfcAvailable = available);
+  }
+
+  Future<void> _armNfc() async {
+    try {
+      await _nfc.start();
+      if (mounted) setState(() => _nfcArmed = true);
+    } catch (_) {
+      if (mounted) setState(() => _nfcArmed = false);
+    }
+  }
+
+  Future<void> _disarmNfc() async {
+    await _nfc.stop();
+    if (mounted) setState(() => _nfcArmed = false);
+  }
+
+  Future<void> _onNfcScan(String uid) async {
+    if (_busy) return;
+    AppHaptics.medium();
+    setState(() {
+      _busy = true;
+      _error = null;
+      _story = null;
+      _controller.text = uid;
+    });
+
+    try {
+      final story = await const TyreStoryUsecase().byUid(uid);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _story = story;
+        if (story == null) _error = 'Tag $uid — no tyre on the system.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Scan failed: $e';
+      });
+    }
   }
 
   Future<void> _search() async {
@@ -71,6 +136,47 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
       children: [
+        if (_nfcAvailable)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: GlassDecorations.glassCard(
+              context: context,
+              borderRadius: 16,
+              borderColor: (_nfcArmed
+                      ? AppColors.successStrong(context)
+                      : AppColors.infoStrong(context))
+                  .withValues(alpha: 0.4),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.nfc_rounded,
+                  size: 20,
+                  color: _nfcArmed
+                      ? AppColors.successStrong(context)
+                      : AppColors.infoStrong(context),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _nfcArmed ? 'SCANNING — hold tag to reader' : 'Tap to scan a tyre tag',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: _nfcArmed
+                          ? AppColors.successStrong(context)
+                          : AppColors.dynamicTextPrimary(context),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _nfcArmed ? _disarmNfc : _armNfc,
+                  child: Text(_nfcArmed ? 'Stop' : 'Scan'),
+                ),
+              ],
+            ),
+          ),
         Container(
           decoration: GlassDecorations.glassCard(context: context, borderRadius: 16),
           child: Row(
@@ -149,11 +255,11 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
           ),
         if (_story != null) ...[
           _SpecCard(story: _story!),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           _SectionLabel(
             'SCAN HISTORY · ${_story!.history.length}',
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           if (_story!.history.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -166,7 +272,12 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
               ),
             )
           else
-            for (final entry in _story!.history) _HistoryTile(entry: entry),
+            for (var i = 0; i < _story!.history.length; i++)
+              _TimelineTile(
+                entry: _story!.history[i],
+                isFirst: i == 0,
+                isLast: i == _story!.history.length - 1,
+              ),
         ],
       ],
     );
@@ -209,6 +320,8 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
   }
 }
 
+/// Customer, make and slip lead the story — that is what the operator is
+/// looking for.
 class _SpecCard extends StatelessWidget {
   final TyreStory story;
 
@@ -231,13 +344,56 @@ class _SpecCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  tyre.displayLabel,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.dynamicTextPrimary(context),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tyre.customerName ?? 'Unknown customer',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.3,
+                        color: AppColors.dynamicTextPrimary(context),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        tyre.make,
+                        tyre.size,
+                        tyre.pattern,
+                      ].whereType<String>().where((s) => s.isNotEmpty).join(' · '),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.dynamicTextSecondary(context),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.infoStrong(context).withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: AppColors.infoStrong(context).withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Text(
+                        'SLIP ${tyre.slipNumber ?? '—'}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'monospace',
+                          letterSpacing: 0.5,
+                          color: AppColors.infoStrong(context),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Container(
@@ -262,9 +418,7 @@ class _SpecCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _row(context, 'Slip', '${tyre.slipNumber ?? '—'}'),
           _row(context, 'CS', tyre.csNumber ?? '—'),
-          _row(context, 'Customer', tyre.customerName ?? '—'),
           _row(context, 'Serial', tyre.serial ?? '—'),
           if (tyre.invoiceNumber != null)
             _row(context, 'Invoice', tyre.invoiceNumber!),
@@ -308,10 +462,17 @@ class _SpecCard extends StatelessWidget {
   }
 }
 
-class _HistoryTile extends StatelessWidget {
+/// One stop on the tyre's journey — a real timeline: rail, dot, event.
+class _TimelineTile extends StatelessWidget {
   final TyreHistoryEntry entry;
+  final bool isFirst;
+  final bool isLast;
 
-  const _HistoryTile({required this.entry});
+  const _TimelineTile({
+    required this.entry,
+    required this.isFirst,
+    required this.isLast,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -320,52 +481,100 @@ class _HistoryTile extends StatelessWidget {
         (entry.workCellName ?? '').toUpperCase().contains('DELIVERY');
     final color = isReject
         ? AppColors.errorStrong(context)
-        : (isDelivery ? AppColors.successStrong(context) : AppColors.infoStrong(context));
+        : (isDelivery
+              ? AppColors.successStrong(context)
+              : AppColors.infoStrong(context));
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
+    return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
+          // ── Rail: connector + dot ──
+          SizedBox(
+            width: 26,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  entry.workCellName ?? 'Unknown cell',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.dynamicTextPrimary(context),
+                // top connector (hidden for the newest entry)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: isFirst
+                        ? Colors.transparent
+                        : AppColors.dynamicBorder(context),
                   ),
                 ),
-                Text(
-                  entry.operatorName,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.dynamicTextMuted(context),
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.5),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                ),
+                // bottom connector (hidden for the oldest entry)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: isLast
+                        ? Colors.transparent
+                        : AppColors.dynamicBorder(context),
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            entry.newestTimestamp ?? '',
-            style: TextStyle(
-              fontSize: 10,
-              fontFamily: 'monospace',
-              color: AppColors.dynamicTextMuted(context),
+          const SizedBox(width: 10),
+          // ── Event card ──
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          entry.workCellName ?? 'Unknown cell',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.dynamicTextPrimary(context),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        entry.newestTimestamp ?? '',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                          color: AppColors.dynamicTextMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    entry.operatorName,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.dynamicTextMuted(context),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

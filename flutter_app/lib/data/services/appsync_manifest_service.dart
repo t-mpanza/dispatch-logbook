@@ -587,8 +587,8 @@ class AppSyncManifestService {
   }
 
   /// Resolve the rubber pattern for a line item. Description first — live
-  /// manifests carry patterns the master map does not know (M38, M43, M100,
-  /// MM65, …), and the description is always authoritative.
+  /// manifests carry patterns the master map does not know, and the
+  /// description is always authoritative.
   static String? resolveRubber({int? rubberId, String? description}) {
     final desc = description?.trim() ?? '';
     final fromDesc = extractRubber(desc);
@@ -597,7 +597,66 @@ class AppSyncManifestService {
     return null;
   }
 
+  /// Words that never denote a tread pattern in a manifest description.
+  static const Set<String> _rubberFillers = {
+    'STOCK',
+    'RETREAD',
+    'RETREADED',
+    'RETREADS',
+    'DRIVE',
+    'STEER',
+    'TRAILER',
+    'TRUCK',
+    'TYRE',
+    'TYRES',
+    'TIRE',
+    'TIRES',
+    'INFO',
+    'ITEM',
+    'UNKNOWN',
+    'PATTERN',
+    'N/A',
+    'NA',
+  };
+
+  static String? _cleanWord(String word) {
+    final cleaned = word.replaceAll(RegExp(r'[^A-Za-z0-9+\-]'), '').toUpperCase();
+    if (cleaned.isEmpty) return null;
+    return cleaned;
+  }
+
+  /// Extract the tread pattern from a manifest description.
+  ///
+  /// Strategy: strip the size token, then take the first remaining word
+  /// that is not a filler ("STOCK", "RETREAD", …). This catches arbitrary
+  /// pattern codes (M38, MM65, R1, MS3, …) that a closed regex list can
+  /// never know. A regex sweep is the fallback for exotic layouts.
   static String? extractRubber(String text) {
+    var desc = text.trim();
+    if (desc.isEmpty) return null;
+
+    final size = extractSize(desc);
+    if (size != null) {
+      desc = desc.replaceFirst(size, ' ');
+    }
+
+    final words = desc
+        .split(RegExp(r'[\s,;()]+'))
+        .map(_cleanWord)
+        .whereType<String>()
+        .where((w) => w.length > 1 || w == '+' || w.contains('+'))
+        .toList();
+
+    for (final word in words) {
+      if (word.contains('R') && RegExp(r'^\d.*R\d').hasMatch(word)) {
+        continue; // stray size token
+      }
+      if (_rubberFillers.contains(word)) continue;
+      if (word.length > 12) continue; // sentence fragments, not patterns
+      return word;
+    }
+
+    // Fallback: known pattern families anywhere in the string.
     final match = RegExp(
       r'\b(?:RD2\+|SP\d{3}|K-Max|Multiway|MM\d{2}|M\d{2,3}L?)\b',
       caseSensitive: false,

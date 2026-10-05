@@ -1,15 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/glass_decorations.dart';
-import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
-import '../../data/models/preset.dart';
-import '../screens/entry_detail_screen.dart';
 import '../screens/new_entry_screen.dart';
-import '../viewmodels/entries_viewmodel.dart';
-import '../viewmodels/loading_sheet_viewmodel.dart';
-import 'truck_load_dialog.dart';
 import 'ui_kit.dart';
 
 /// The capture menu — the jobs a despatch worker does all day, with the
@@ -48,7 +40,8 @@ class CaptureActionSheet extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Pick an action — everything saves offline and syncs later.',
+            'One entry flow for everything — truck loads, stocks runs, '
+            'counts and notes.',
             style: TextStyle(
               fontSize: 13,
               color: AppColors.dynamicTextMuted(context),
@@ -56,83 +49,18 @@ class CaptureActionSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Primary action: STOCKS run with IBT manifest tracking
+          // ONE entry point: all kinds live inside NewEntryScreen
           _PrimaryAction(
-            icon: Icons.inventory_2_rounded,
+            icon: Icons.add_rounded,
             color: AppColors.presetStocks,
-            title: 'Stocks Run',
-            subtitle: 'Fetch IBT docs & tally tyres per line item',
-            onTap: () {
-              AppHaptics.medium();
-              Navigator.pop(context);
-              Navigator.push(
-                hostContext,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const NewEntryScreen(initialPreset: PresetKey.STOCKS),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-
-          _Action(
-            icon: Icons.local_shipping_rounded,
-            color: AppColors.dynamicAccent(context),
-            title: 'Truck Load',
-            subtitle: 'Add a truck to today\'s loading sheet',
-            onTap: () async {
-              final vm = context.read<LoadingSheetViewModel>();
-              final trips = await vm.getTripsForSelectedDate();
-              if (!hostContext.mounted) return;
-              Navigator.pop(context);
-              await TruckLoadDialog.show(
-                hostContext,
-                dayKey: vm.selectedDate,
-                existingTrips: trips,
-                onSave: (trip) => vm.addTruckLoad(trip),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-
-          _Action(
-            icon: Icons.note_add_rounded,
-            color: AppColors.presetNlh,
-            title: 'Trip Entry',
-            subtitle: 'Start a route trip (DBN, NLS, PLK…)',
+            title: 'New Entry',
+            subtitle: 'Truck load · stocks run · count · note',
             onTap: () {
               AppHaptics.medium();
               Navigator.pop(context);
               Navigator.push(
                 hostContext,
                 MaterialPageRoute(builder: (_) => const NewEntryScreen()),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-
-          _Action(
-            icon: Icons.exposure_plus_1_rounded,
-            color: AppColors.presetDbn,
-            title: 'Count Session',
-            subtitle: 'Tally tyres with the live counter',
-            onTap: () async {
-              final vm = context.read<EntriesViewModel>();
-              final now = DateTime.now();
-              final entry = await vm.createEntry(
-                title:
-                    'COUNT - ${AppFormatters.formatTimeHHmm(now.millisecondsSinceEpoch)}',
-                tags: const ['tyres', 'count'],
-                withCounter: true,
-              );
-              if (!hostContext.mounted) return;
-              Navigator.pop(context);
-              Navigator.push(
-                hostContext,
-                MaterialPageRoute(
-                  builder: (_) => EntryDetailScreen(entryId: entry.id),
-                ),
               );
             },
           ),
@@ -237,86 +165,6 @@ class _PrimaryAction extends StatelessWidget {
                 Icons.chevron_right_rounded,
                 color: AppColors.dynamicTextMuted(context),
                 size: 26,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Action extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _Action({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          AppHaptics.medium();
-          onTap();
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: GlassDecorations.glassCard(
-            context: context,
-            borderRadius: 20,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: color.withValues(alpha: 0.45)),
-                ),
-                child: Icon(icon, size: 28, color: color),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.dynamicTextPrimary(context),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.dynamicTextSecondary(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.dynamicTextMuted(context),
-                size: 24,
               ),
             ],
           ),

@@ -76,6 +76,64 @@ void main() {
       expect(AppSyncManifestService.extractSize('315/80R22.5 RD2+'), '315/80R22.5');
     });
 
+    group('rubber extraction — word-based with filler filtering', () {
+      test('patterns after the size token are extracted', () {
+        expect(
+          AppSyncManifestService.extractRubber('12R22.5 M38 STOCK RETREAD'),
+          'M38',
+        );
+        expect(
+          AppSyncManifestService.extractRubber('315/80R22.5 M100 STOCK RETREAD'),
+          'M100',
+        );
+        expect(
+          AppSyncManifestService.extractRubber('315/80R22.5 MM65 STOCK RETREAD'),
+          'MM65',
+        );
+      });
+
+      test('arbitrary pattern codes the closed list can never know', () {
+        expect(
+          AppSyncManifestService.extractRubber('315/80R22.5 R1 STOCK'),
+          'R1',
+        );
+        expect(
+          AppSyncManifestService.extractRubber('11R22.5 MS3 RETREAD'),
+          'MS3',
+        );
+        expect(
+          AppSyncManifestService.extractRubber('12R22.5 B2'),
+          'B2',
+        );
+      });
+
+      test('filler words are skipped, never returned', () {
+        expect(AppSyncManifestService.extractRubber('Unknown pattern'), isNull);
+        expect(AppSyncManifestService.extractRubber('TYRE ITEM'), isNull);
+        expect(
+          AppSyncManifestService.extractRubber('12R22.5 STOCK RETREAD'),
+          isNull,
+        );
+      });
+
+      test('legacy regex families still resolve', () {
+        expect(
+          AppSyncManifestService.extractRubber('315/80R22.5 RD2+ RETREAD'),
+          'RD2+',
+        );
+        expect(
+          AppSyncManifestService.extractRubber('295/80R22.5 SP571 DRIVE'),
+          'SP571',
+        );
+        expect(
+          AppSyncManifestService.extractRubber('385/65R22.5 Multiway Trailer'),
+          'MULTIWAY',
+        );
+        expect(AppSyncManifestService.extractRubber('M90L TREAD'), 'M90L');
+        expect(AppSyncManifestService.extractRubber('K-Max S STEER'), 'K-MAX');
+      });
+    });
+
     group('live IBT 122773 ground truth', () {
       test('12R line resolves to 12R22.5 despite size_id 22', () {
         expect(
