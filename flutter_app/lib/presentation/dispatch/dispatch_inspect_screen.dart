@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/services/database_service.dart';
-import '../../dispatch/dispatch_api.dart';
-import '../../dispatch/models/slip_tyre.dart';
+import '../../dispatch/domain/tyre_story.dart';
 
-/// The inspection HUD — lite (text-input) mode: type a tyre UID, validate
-/// it live, then APPROVE or SCRAP it. Decisions persist locally per tyre
-/// (green/red) and survive restarts. No NFC hardware required.
+/// The inspection HUD — lite (text-input) mode: type the tyre's slip
+/// number (cab number) or serial, resolve it live, then APPROVE or SCRAP.
+/// UIDs are invisible to operators, so the lite flow keys on the two
+/// identifiers actually printed on the tyre. Decisions persist locally.
 class DispatchInspectScreen extends StatefulWidget {
   const DispatchInspectScreen({super.key});
 
@@ -19,9 +18,9 @@ class DispatchInspectScreen extends StatefulWidget {
 }
 
 class _FeedEntry {
-  const _FeedEntry(this.uid, this.label, this.color);
+  const _FeedEntry(this.identifier, this.label, this.color);
 
-  final String uid;
+  final String identifier;
   final String label;
   final Color color;
 }
@@ -30,7 +29,7 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
   final TextEditingController _controller = TextEditingController();
   final List<_FeedEntry> _feed = [];
   bool _busy = false;
-  SlipTyre? _last;
+  TyreStory? _last;
   String? _banner;
 
   @override
@@ -49,7 +48,9 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
           _FeedEntry(
             entry.key,
             entry.value == 'APPROVE' ? 'APPROVED' : 'SCRAPPED',
-            entry.value == 'APPROVE' ? AppColors.success : AppColors.error,
+            entry.value == 'APPROVE'
+                ? AppColors.successStrong(context)
+                : AppColors.errorStrong(context),
           ),
         );
       }
@@ -62,9 +63,17 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
     super.dispose();
   }
 
+  String _identifierFor(TyreStory story) {
+    final slip = story.tyre.slipNumber;
+    if (slip != null) return 'SLIP $slip';
+    final serial = story.tyre.serial;
+    if (serial != null && serial.isNotEmpty) return serial;
+    return _controller.text.trim().toUpperCase();
+  }
+
   Future<void> _scan() async {
-    final uid = _controller.text.trim().toUpperCase();
-    if (uid.isEmpty) return;
+    final input = _controller.text.trim().toUpperCase();
+    if (input.isEmpty) return;
     AppHaptics.medium();
     setState(() {
       _busy = true;
@@ -73,13 +82,17 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
     });
 
     try {
-      final tyre = await DispatchApi.fetchTyreByUid(uid);
+      const usecase = TyreStoryUsecase();
+      final asNumber = int.tryParse(input);
+      final story = asNumber != null
+          ? await usecase.bySlipOrJobNumber(asNumber)
+          : await usecase.bySerial(input);
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _last = tyre;
-        if (tyre == null) {
-          _banner = 'No tyre found for UID $uid';
+        _last = story;
+        if (story == null) {
+          _banner = 'No tyre found for "$input".';
           AppHaptics.error();
         } else {
           AppHaptics.light();
@@ -89,18 +102,19 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _banner = 'Scan failed: $e';
+        _banner = 'Lookup failed: $e';
       });
       AppHaptics.error();
     }
   }
 
   Future<void> _decide(String decision) async {
-    final tyre = _last;
-    if (tyre == null || tyre.uid == null) return;
+    final story = _last;
+    if (story == null) return;
+    final identifier = _identifierFor(story);
     AppHaptics.success();
     await DatabaseService.saveDispatchDecision(
-      uid: tyre.uid!,
+      uid: identifier,
       decision: decision,
     );
     if (!mounted) return;
@@ -108,9 +122,11 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
       _feed.insert(
         0,
         _FeedEntry(
-          tyre.uid!,
+          identifier,
           decision == 'APPROVE' ? 'APPROVED' : 'SCRAPPED',
-          decision == 'APPROVE' ? AppColors.success : AppColors.error,
+          decision == 'APPROVE'
+              ? AppColors.successStrong(context)
+              : AppColors.errorStrong(context),
         ),
       );
       _last = null;
@@ -120,8 +136,8 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tyre = _last;
-    final scrap = tyre?.isScrap ?? false;
+    final story = _last;
+    final scrap = story?.isScrapWithHistory ?? false;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
@@ -134,19 +150,15 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
                 child: TextField(
                   controller: _controller,
                   textCapitalization: TextCapitalization.characters,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp('[0-9A-Fa-f]')),
-                    LengthLimitingTextInputFormatter(14),
-                  ],
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                     fontFamily: 'monospace',
-                    letterSpacing: 2,
+                    letterSpacing: 1.4,
                     color: AppColors.dynamicTextPrimary(context),
                   ),
                   decoration: InputDecoration(
-                    hintText: 'TYPE TYRE UID (14-HEX)',
+                    hintText: 'SLIP NUMBER OR SERIAL',
                     hintStyle: TextStyle(
                       fontSize: 12,
                       color: AppColors.dynamicTextMuted(context),
@@ -172,7 +184,7 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
                       )
                     : const Icon(Icons.qr_code_scanner_rounded,
                         color: AppColors.info),
-                tooltip: 'Validate tyre',
+                tooltip: 'Resolve tyre',
               ),
             ],
           ),
@@ -193,20 +205,22 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
             ),
           ),
 
-        if (tyre != null) ...[
+        if (story != null) ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: GlassDecorations.glassCard(
               context: context,
               borderRadius: 18,
-              borderColor: (scrap ? AppColors.error : AppColors.success)
+              borderColor: (scrap
+                      ? AppColors.errorStrong(context)
+                      : AppColors.successStrong(context))
                   .withValues(alpha: 0.5),
             ),
             child: Column(
               children: [
                 Text(
-                  tyre.displayLabel,
+                  story.tyre.displayLabel,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
@@ -215,8 +229,9 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${tyre.customerName ?? 'Unknown customer'} · '
-                  'CS ${tyre.csNumber ?? '—'} · slip ${tyre.slipNumber ?? '—'}',
+                  '${story.tyre.customerName ?? 'Unknown customer'} · '
+                  'CS ${story.tyre.csNumber ?? '—'} · '
+                  'slip ${story.tyre.slipNumber ?? '—'}',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.dynamicTextMuted(context),
@@ -229,7 +244,7 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
                       child: _DecisionButton(
                         label: 'APPROVE',
                         icon: Icons.check_rounded,
-                        color: AppColors.success,
+                        color: AppColors.successStrong(context),
                         onTap: () => _decide('APPROVE'),
                       ),
                     ),
@@ -238,7 +253,7 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
                       child: _DecisionButton(
                         label: 'SCRAP',
                         icon: Icons.close_rounded,
-                        color: AppColors.error,
+                        color: AppColors.errorStrong(context),
                         onTap: () => _decide('SCRAP'),
                       ),
                     ),
@@ -293,7 +308,7 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              entry.uid,
+              entry.identifier,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,

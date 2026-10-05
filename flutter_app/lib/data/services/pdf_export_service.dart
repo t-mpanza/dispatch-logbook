@@ -29,8 +29,6 @@ class PdfExportService {
               : '$totalMinutes mins')
         : '0 mins';
 
-    final hasAnyIbts = trips.any((t) => t.hasIbtDocuments);
-
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -172,65 +170,9 @@ class PdfExportService {
               },
             ),
 
-            // Itemized IBT Breakdown Section
-            if (hasAnyIbts) ...[
-              pw.SizedBox(height: 16),
-              pw.Text(
-                'ITEMIZED IBT MANIFEST BREAKDOWN',
-                style: pw.TextStyle(
-                  fontSize: 10,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blue900,
-                ),
-              ),
-              pw.SizedBox(height: 6),
-              pw.TableHelper.fromTextArray(
-                headers: [
-                  'IBT DOC',
-                  'TRIP',
-                  'SPECIFICATION / PATTERN',
-                  'RCS CODE',
-                  'LOADED / TARGET',
-                  'STATUS',
-                ],
-                data: [
-                  for (final t in trips)
-                    if (t.hasIbtDocuments)
-                      for (final doc in t.ibtDocuments!)
-                        for (final line in doc.lineItems)
-                          [
-                            doc.documentNo,
-                            t.tripId,
-                            line.description,
-                            line.rcsCode ?? '-',
-                            '${line.loadedQuantity} / ${line.targetTotal}',
-                            line.isOverloaded
-                                ? '+${line.overCount} OVER'
-                                : (line.isShort
-                                      ? 'SHORT (${line.remaining})'
-                                      : 'COMPLETE'),
-                          ],
-                ],
-                headerStyle: pw.TextStyle(
-                  fontSize: 7.5,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.white,
-                ),
-                headerDecoration: const pw.BoxDecoration(
-                  color: PdfColors.grey800,
-                ),
-                cellStyle: const pw.TextStyle(fontSize: 7.5),
-                cellAlignment: pw.Alignment.center,
-                columnWidths: {
-                  0: const pw.FlexColumnWidth(1.5),
-                  1: const pw.FlexColumnWidth(1.2),
-                  2: const pw.FlexColumnWidth(3.0),
-                  3: const pw.FlexColumnWidth(1.2),
-                  4: const pw.FlexColumnWidth(1.5),
-                  5: const pw.FlexColumnWidth(1.5),
-                },
-              ),
-            ],
+            // (Itemized IBT manifest breakdown intentionally omitted —
+            //  the loading sheet is a compliance document, not a manifest
+            //  ledger. IBT detail lives in-app.)
 
             pw.SizedBox(height: 20),
 

@@ -38,10 +38,11 @@ class _DispatchSummaryScreenState extends State<DispatchSummaryScreen> {
 
   Future<void> _refresh() async {
     try {
+      final (start, end) = DispatchApi.todayRange();
       final results = await Future.wait([
-        DispatchApi.fetchShiftTotals('TODAY'),
-        DispatchApi.fetchRejectsAmount('TODAY'),
-        DispatchApi.fetchTotalTyres('TODAY'),
+        DispatchApi.fetchShiftTotals(start, end),
+        DispatchApi.fetchRejectsAmount(start, end),
+        DispatchApi.fetchTotalTyres(start, end),
       ]);
       if (!mounted) return;
       setState(() {

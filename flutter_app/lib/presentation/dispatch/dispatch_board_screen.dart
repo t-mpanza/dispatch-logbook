@@ -47,13 +47,14 @@ class _DispatchBoardScreenState extends State<DispatchBoardScreen> {
   Future<void> _refresh() async {
     if (mounted) setState(() => _loading = true);
     try {
+      final (start, end) = DispatchApi.todayRange();
       final results = await Future.wait([
         DispatchApi.fetchActiveDispatchSession(),
         DispatchApi.fetchTyresAtDispatch(),
         DispatchApi.fetchOutstandingBatches(),
         DispatchApi.fetchLateBatches(),
-        DispatchApi.fetchRejectsAmount('TODAY'),
-        DispatchApi.fetchTotalTyres('TODAY'),
+        DispatchApi.fetchRejectsAmount(start, end),
+        DispatchApi.fetchTotalTyres(start, end),
       ]);
       if (!mounted) return;
       setState(() {

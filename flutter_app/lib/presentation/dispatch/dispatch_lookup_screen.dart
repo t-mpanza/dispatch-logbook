@@ -4,12 +4,11 @@ import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
-import '../../dispatch/dispatch_api.dart';
 import '../../dispatch/domain/tyre_story.dart';
 import '../../dispatch/models/dispatch_models.dart';
 
-/// Tyre lookup: search by UID, serial, CS number or slip number and read
-/// the tyre's full story — spec, customer, invoice and scan history.
+/// Tyre lookup: slip number (the "cab number" on the tyre) or serial —
+/// the only two identifiers visible to operators in the field.
 class DispatchLookupScreen extends StatefulWidget {
   const DispatchLookupScreen({super.key});
 
@@ -17,11 +16,11 @@ class DispatchLookupScreen extends StatefulWidget {
   State<DispatchLookupScreen> createState() => _DispatchLookupScreenState();
 }
 
-enum _LookupMode { uid, serial, cs, slip }
+enum _LookupMode { slip, serial }
 
 class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
   final TextEditingController _controller = TextEditingController();
-  _LookupMode _mode = _LookupMode.uid;
+  _LookupMode _mode = _LookupMode.slip;
   bool _busy = false;
   String? _error;
   TyreStory? _story;
@@ -33,7 +32,7 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
   }
 
   Future<void> _search() async {
-    final q = _controller.text.trim();
+    final q = _controller.text.trim().toUpperCase();
     if (q.isEmpty) return;
     AppHaptics.medium();
     setState(() {
@@ -46,22 +45,11 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
       const usecase = TyreStoryUsecase();
       TyreStory? story;
       switch (_mode) {
-        case _LookupMode.uid:
-          story = await usecase.byUid(q.toUpperCase());
-        case _LookupMode.serial:
-          story = await usecase.bySerial(q.toUpperCase());
-        case _LookupMode.cs:
-          final cs = await DispatchLookupCs.fetchByCsNumber(q);
-          if (cs != null) {
-            story = TyreStory(
-              tyre: cs.$1,
-              history: cs.$2,
-              slip: cs.$3,
-            );
-          }
         case _LookupMode.slip:
           final n = int.tryParse(q);
           if (n != null) story = await usecase.bySlipOrJobNumber(n);
+        case _LookupMode.serial:
+          story = await usecase.bySerial(q);
       }
       if (!mounted) return;
       setState(() {
@@ -105,7 +93,9 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
                     color: AppColors.dynamicTextPrimary(context),
                   ),
                   decoration: InputDecoration(
-                    hintText: _hintFor(_mode),
+                    hintText: _mode == _LookupMode.slip
+                        ? 'Slip number (cab number)'
+                        : 'Tyre serial number',
                     hintStyle: TextStyle(
                       fontSize: 12,
                       color: AppColors.dynamicTextMuted(context),
@@ -138,12 +128,9 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
         const SizedBox(height: 10),
         Row(
           children: [
-            for (final mode in _LookupMode.values) ...[
-              Expanded(
-                child: _modeChip(mode),
-              ),
-              if (mode != _LookupMode.values.last) const SizedBox(width: 6),
-            ],
+            Expanded(child: _modeChip(_LookupMode.slip, 'SLIP NUMBER')),
+            const SizedBox(width: 6),
+            Expanded(child: _modeChip(_LookupMode.serial, 'SERIAL')),
           ],
         ),
         const SizedBox(height: 14),
@@ -185,20 +172,7 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
     );
   }
 
-  String _hintFor(_LookupMode mode) {
-    switch (mode) {
-      case _LookupMode.uid:
-        return 'Tyre UID — 14-hex NFC tag, e.g. 04A3F9E1C2B4D5';
-      case _LookupMode.serial:
-        return 'Tyre serial number';
-      case _LookupMode.cs:
-        return 'CS number';
-      case _LookupMode.slip:
-        return 'Slip number (cab number)';
-    }
-  }
-
-  Widget _modeChip(_LookupMode mode) {
+  Widget _modeChip(_LookupMode mode, String label) {
     final active = _mode == mode;
     return GestureDetector(
       onTap: () {
@@ -219,14 +193,14 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
           ),
         ),
         child: Text(
-          mode.name.toUpperCase(),
+          label,
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,
             fontWeight: active ? FontWeight.w900 : FontWeight.w600,
             letterSpacing: 0.8,
             color: active
-                ? AppColors.info
+                ? AppColors.infoStrong(context)
                 : AppColors.dynamicTextMuted(context),
           ),
         ),
@@ -245,8 +219,8 @@ class _SpecCard extends StatelessWidget {
     final tyre = story.tyre;
     final scrap = story.isScrapWithHistory;
     final statusColor = story.hasDispatchDelivery
-        ? AppColors.success
-        : (scrap ? AppColors.error : AppColors.info);
+        ? AppColors.successStrong(context)
+        : (scrap ? AppColors.errorStrong(context) : AppColors.infoStrong(context));
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -292,7 +266,6 @@ class _SpecCard extends StatelessWidget {
           _row(context, 'CS', tyre.csNumber ?? '—'),
           _row(context, 'Customer', tyre.customerName ?? '—'),
           _row(context, 'Serial', tyre.serial ?? '—'),
-          _row(context, 'UID', tyre.uid ?? '—'),
           if (tyre.invoiceNumber != null)
             _row(context, 'Invoice', tyre.invoiceNumber!),
           if (story.slip?.casingGrade != null)
@@ -346,8 +319,8 @@ class _HistoryTile extends StatelessWidget {
     final isDelivery =
         (entry.workCellName ?? '').toUpperCase().contains('DELIVERY');
     final color = isReject
-        ? AppColors.error
-        : (isDelivery ? AppColors.success : AppColors.info);
+        ? AppColors.errorStrong(context)
+        : (isDelivery ? AppColors.successStrong(context) : AppColors.infoStrong(context));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -417,29 +390,5 @@ class _SectionLabel extends StatelessWidget {
         color: AppColors.dynamicTextMuted(context),
       ),
     );
-  }
-}
-
-/// CS-number resolution helper for the lookup screen.
-class DispatchLookupCs {
-  static Future<(dynamic, List<TyreHistoryEntry>, SlipDetail?)?>
-  fetchByCsNumber(String csNumber) async {
-    final sheet = await DispatchApi.fetchConfirmationSheetByCsNumber(csNumber);
-    if (sheet == null) return null;
-    final csId = sheet['idConfirmation_Sheet'];
-    if (csId == null) return null;
-    final tyres = await DispatchApi.fetchTyreByCsId(csId as int?);
-    if (tyres.isEmpty) return null;
-    final first = tyres.first;
-    final slipNumber = first.slipNumber;
-    SlipDetail? slip;
-    List<TyreHistoryEntry> history = const [];
-    if (slipNumber != null) {
-      slip = await DispatchApi.fetchSlipWithNumber(slipNumber);
-      if (slip?.idSlip != null) {
-        history = await DispatchApi.fetchTyreHistory(slip!.idSlip!);
-      }
-    }
-    return (first, history, slip);
   }
 }

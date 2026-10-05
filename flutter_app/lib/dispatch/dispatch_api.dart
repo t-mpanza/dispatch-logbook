@@ -226,6 +226,20 @@ class DispatchApi {
 
   // ── Dispatch board ─────────────────────────────────────────────────────────
 
+  /// The backend's `times!` input: an object with epoch-second bounds.
+  /// Today's range = start of local day → now.
+  static (int, int) todayRange([DateTime? now]) {
+    final t = now ?? DateTime.now();
+    final nowSec = t.millisecondsSinceEpoch ~/ 1000;
+    final startSec = nowSec - (nowSec % 86400);
+    return (startSec, nowSec);
+  }
+
+  static Map<String, dynamic> timesInput(int start, int end) => {
+    'start_time': start,
+    'end_time': end,
+  };
+
   static Future<List<DispatchTyre>> fetchTyresAtDispatch() async {
     const q = r'''
     query MyQuery {
@@ -272,7 +286,7 @@ class DispatchApi {
         .toList();
   }
 
-  static Future<int?> fetchRejectsAmount(String timeRange) async {
+  static Future<int?> fetchRejectsAmount(int startTime, int endTime) async {
     const q = r'''
     query MyQuery($getAmountOfRejects: times!) {
       getAmountOfRejects(getAmountOfRejects: $getAmountOfRejects) {
@@ -282,13 +296,13 @@ class DispatchApi {
     ''';
     final data = await _post(
       query: q,
-      variables: {'getAmountOfRejects': timeRange},
+      variables: {'getAmountOfRejects': timesInput(startTime, endTime)},
     );
     final rows = jsonMapList(data['getAmountOfRejects']);
     return rows.isEmpty ? null : jsonInt(rows.first['number_of_tyres']);
   }
 
-  static Future<int?> fetchTotalTyres(String timeRange) async {
+  static Future<int?> fetchTotalTyres(int startTime, int endTime) async {
     const q = r'''
     query MyQuery($getTotalNumTyres: times!) {
       getTotalNumTyres(getTotalNumTyres: $getTotalNumTyres) {
@@ -298,13 +312,16 @@ class DispatchApi {
     ''';
     final data = await _post(
       query: q,
-      variables: {'getTotalNumTyres': timeRange},
+      variables: {'getTotalNumTyres': timesInput(startTime, endTime)},
     );
     final rows = jsonMapList(data['getTotalNumTyres']);
     return rows.isEmpty ? null : jsonInt(rows.first['amounts']);
   }
 
-  static Future<List<ShiftTotal>> fetchShiftTotals(String timeRange) async {
+  static Future<List<ShiftTotal>> fetchShiftTotals(
+    int startTime,
+    int endTime,
+  ) async {
     const q = r'''
     query MyQuery($getShiftTotal: times!) {
       getShiftTotal(getShiftTotal: $getShiftTotal) {
@@ -314,7 +331,7 @@ class DispatchApi {
     ''';
     final data = await _post(
       query: q,
-      variables: {'getShiftTotal': timeRange},
+      variables: {'getShiftTotal': timesInput(startTime, endTime)},
     );
     return jsonMapList(data['getShiftTotal'])
         .map((m) => ShiftTotal.fromJson(m))
