@@ -194,25 +194,16 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
   }
 
   /// THE primary interaction: type the exact number just loaded and add it
-  /// in one clean batch. Defaults to the previous batch size so repeat
-  /// patterns load with a single confirm tap.
+  /// in one clean batch. The pad always starts EMPTY — no stale batches.
   Future<void> _showBatchAddDialog({
     required Entry currentEntry,
     required EntryRepository repo,
     required String docNo,
     required IbtLineItem line,
   }) async {
-    var lastPositive = 0;
-    for (final e in line.history.reversed) {
-      if (e.delta > 0) {
-        lastPositive = e.delta;
-        break;
-      }
-    }
     final value = await BatchPad.show(
       context,
       remaining: line.remaining,
-      defaultBatch: lastPositive,
       title: 'ADD TYRES — ${line.size ?? line.description}',
     );
     if (value == null || value == 0 || !mounted) return;
@@ -1215,121 +1206,117 @@ class _LineCard extends StatelessWidget {
     final remaining = (target - loaded).clamp(0, target);
 
     final Color statusColor = isOver
-        ? AppColors.warning
-        : (isDone ? AppColors.success : AppColors.presetStocks);
-
-    // Recent batches — the operator's memory aid. Tap a chip to undo it.
-    final recent = line.history.reversed.take(3).toList();
+        ? AppColors.warningStrong(context)
+        : (isDone
+              ? AppColors.successStrong(context)
+              : AppColors.presetStocksStrong(context));
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: isDone ? null : onAddBatch,
+      onLongPress: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: GlassDecorations.glassCard(
           context: context,
-          borderRadius: 18,
+          borderRadius: 14,
           borderColor: isFocused
-              ? AppColors.presetStocks.withValues(alpha: 0.9)
+              ? AppColors.presetStocksStrong(context).withValues(alpha: 0.9)
               : (isDone
-                    ? AppColors.success.withValues(alpha: 0.35)
+                    ? AppColors.successStrong(context).withValues(alpha: 0.35)
                     : (isOver
-                          ? AppColors.warning.withValues(alpha: 0.5)
+                          ? AppColors.warningStrong(context).withValues(alpha: 0.5)
                           : null)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Header: SIZE + PATTERN prominent, RCS as a footnote ──
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(
-                        line.size ?? line.description,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.dynamicTextPrimary(context),
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      if (line.rubber != null)
-                        Text(
-                          line.rubber!,
+                      Flexible(
+                        child: Text(
+                          line.size ?? line.description,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.dynamicTextSecondary(context),
-                            fontWeight: FontWeight.w600,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.2,
+                            color: AppColors.dynamicTextPrimary(context),
                           ),
                         ),
-                      if (line.rcsCode != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'RCS: ${line.rcsCode}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.dynamicTextMuted(context),
+                      ),
+                      if (line.rubber != null) ...[
+                        const SizedBox(width: 7),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.presetStocksStrong(
+                              context,
+                            ).withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppColors.presetStocksStrong(
+                                context,
+                              ).withValues(alpha: 0.45),
+                            ),
+                          ),
+                          child: Text(
+                            line.rubber!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.3,
+                              color: AppColors.presetStocksStrong(context),
+                            ),
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                // Count — long-press for exact-total edit
+                // Count — tap for exact-total edit
                 GestureDetector(
                   onTap: onEdit,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                      horizontal: 9,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(9),
                       border: Border.all(
                         color: statusColor.withValues(alpha: 0.4),
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              '$loaded',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
-                                color: statusColor,
-                              ),
-                            ),
-                            Text(
-                              ' / $target',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.dynamicTextMuted(context),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          '$loaded',
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                            color: statusColor,
+                          ),
                         ),
                         Text(
-                          isOver
-                              ? '+${loaded - target} over'
-                              : (isDone ? 'Complete' : '$remaining left'),
+                          ' / $target',
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: statusColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.dynamicTextMuted(context),
                           ),
                         ),
                       ],
@@ -1338,147 +1325,119 @@ class _LineCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            if (line.rcsCode != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Text(
+                  'RCS ${line.rcsCode}',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                    color: AppColors.dynamicTextDisabled(context),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 7),
             ClipRRect(
-              borderRadius: BorderRadius.circular(5),
+              borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
                 value: pct,
-                minHeight: 7,
+                minHeight: 4,
                 backgroundColor: Colors.white.withValues(alpha: 0.08),
                 valueColor: AlwaysStoppedAnimation<Color>(statusColor),
               ),
             ),
-            const SizedBox(height: 14),
-
-            // ── Primary action: type the number, add it as one batch ──
-            GestureDetector(
-              onTap: isDone
-                  ? null
-                  : () {
-                      AppHaptics.medium();
-                      onAddBatch();
-                    },
-              child: Container(
-                height: 52,
-                decoration: BoxDecoration(
-                  color: isDone
-                      ? AppColors.dynamicCardSurface(context)
-                      : AppColors.presetStocks.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDone
-                        ? AppColors.dynamicBorder(context)
-                        : AppColors.presetStocks.withValues(alpha: 0.5),
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    isOver
+                        ? '+${loaded - target} over'
+                        : (isDone ? 'Complete' : '$remaining left'),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: statusColor,
+                    ),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isDone
-                          ? Icons.check_circle_rounded
-                          : Icons.dialpad_rounded,
-                      size: 18,
-                      color: isDone
-                          ? AppColors.success
-                          : AppColors.presetStocks,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isDone ? 'LINE COMPLETE' : 'ADD TYRES',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                        color: isDone
-                            ? AppColors.success
-                            : AppColors.presetStocks,
-                      ),
-                    ),
-                    if (!isDone && line.lastEvent != null &&
-                        line.lastEvent!.delta > 0) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '(last: +${line.lastEvent!.delta})',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'monospace',
-                          color: AppColors.dynamicTextMuted(context),
-                        ),
-                      ),
-                    ],
-                  ],
+                Text(
+                  'TAP TO ADD · HOLD TO DOCK',
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: AppColors.dynamicTextDisabled(context),
+                  ),
                 ),
-              ),
+              ],
             ),
 
-            // ── Batch history: tap a chip to undo exactly that batch ──
-            if (recent.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.history_rounded,
-                    size: 13,
-                    color: AppColors.dynamicTextMuted(context),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        for (final ev in recent)
-                          GestureDetector(
-                            onTap: () {
-                              AppHaptics.medium();
-                              onUndoBatch(ev.id);
-                            },
-                            child: _HistoryChip(event: ev),
-                          ),
-                      ],
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      AppHaptics.medium();
-                      onUndoLast();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.warning.withValues(alpha: 0.4),
+            // ── Full batch history: scrollable strip, tap a chip to undo ──
+            if (line.history.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 22,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final ev in line.history.reversed)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 5),
+                        child: GestureDetector(
+                          onTap: () {
+                            AppHaptics.medium();
+                            onUndoBatch(ev.id);
+                          },
+                          child: _HistoryChip(event: ev),
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.undo_rounded,
-                            size: 12,
-                            color: AppColors.warning,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Undo last',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.warning,
+                    Padding(
+                      padding: const EdgeInsets.only(right: 5),
+                      child: GestureDetector(
+                        onTap: () {
+                          AppHaptics.medium();
+                          onUndoLast();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7),
+                          decoration: BoxDecoration(
+                            color: AppColors.warningStrong(
+                              context,
+                            ).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppColors.warningStrong(
+                                context,
+                              ).withValues(alpha: 0.4),
                             ),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.undo_rounded,
+                                size: 10,
+                                color: AppColors.warningStrong(context),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                'undo last',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.warningStrong(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ],
@@ -1502,25 +1461,28 @@ class _HistoryChip extends StatelessWidget {
     final isAdd = event.delta >= 0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
       decoration: BoxDecoration(
         color: isAdd
-            ? AppColors.success.withValues(alpha: 0.12)
-            : AppColors.warning.withValues(alpha: 0.12),
+            ? AppColors.successStrong(context).withValues(alpha: 0.14)
+            : AppColors.warningStrong(context).withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: (isAdd ? AppColors.success : AppColors.warning).withValues(
-            alpha: 0.35,
-          ),
+          color: (isAdd
+                  ? AppColors.successStrong(context)
+                  : AppColors.warningStrong(context))
+              .withValues(alpha: 0.4),
         ),
       ),
       child: Text(
         '${isAdd ? '+' : ''}${event.delta} · $hh:$mm',
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 9.5,
           fontWeight: FontWeight.w800,
           fontFamily: 'monospace',
-          color: isAdd ? AppColors.success : AppColors.warning,
+          color: isAdd
+              ? AppColors.successStrong(context)
+              : AppColors.warningStrong(context),
         ),
       ),
     );
@@ -1553,13 +1515,15 @@ class _TallyBar extends StatelessWidget {
     final target = line.targetTotal;
     final loaded = line.loadedQuantity;
     final isDone = target > 0 && loaded >= target;
-    final last = line.lastEvent;
+    final statusColor = isDone
+        ? AppColors.successStrong(context)
+        : AppColors.presetStocksStrong(context);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       decoration: GlassDecorations.glassDock(
         context: context,
-        borderRadius: 26,
+        borderRadius: 22,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1570,37 +1534,37 @@ class _TallyBar extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: isDone ? AppColors.success : AppColors.presetStocks,
+                  color: statusColor,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      line.size ?? line.description,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.dynamicTextPrimary(context),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (last != null)
-                      Text(
-                        'Last: ${last.delta >= 0 ? '+' : ''}${last.delta}',
+                    Flexible(
+                      child: Text(
+                        line.size ?? line.description,
                         style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'monospace',
-                          color: last.delta >= 0
-                              ? AppColors.success
-                              : AppColors.warning,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.dynamicTextPrimary(context),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (line.rubber != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        line.rubber!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.presetStocksStrong(context),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -1622,7 +1586,7 @@ class _TallyBar extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Row(
             children: [
               // Primary: type the number and add it in one batch
@@ -1636,14 +1600,16 @@ class _TallyBar extends StatelessWidget {
                           onAddBatch();
                         },
                   child: Container(
-                    height: 56,
+                    height: 52,
                     decoration: BoxDecoration(
                       color: isDone
                           ? AppColors.dynamicCardSurface(context)
-                          : AppColors.presetStocks,
-                      borderRadius: BorderRadius.circular(18),
+                          : AppColors.presetStocksStrong(context),
+                      borderRadius: BorderRadius.circular(15),
                       border: Border.all(
-                        color: AppColors.presetStocks.withValues(alpha: 0.5),
+                        color: AppColors.presetStocksStrong(
+                          context,
+                        ).withValues(alpha: 0.5),
                       ),
                     ),
                     child: Row(
@@ -1653,23 +1619,20 @@ class _TallyBar extends StatelessWidget {
                           isDone
                               ? Icons.check_circle_rounded
                               : Icons.dialpad_rounded,
-                          size: 22,
+                          size: 20,
                           color: isDone
-                              ? AppColors.success
+                              ? AppColors.successStrong(context)
                               : AppColors.onAccent,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          isDone
-                              ? 'COMPLETE'
-                              : 'ADD TYRES'
-                                  '${last != null && last.delta > 0 ? ' (+${last.delta})' : ''}',
+                          isDone ? 'COMPLETE' : 'ADD TYRES',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.8,
                             color: isDone
-                                ? AppColors.success
+                                ? AppColors.successStrong(context)
                                 : AppColors.onAccent,
                           ),
                         ),
@@ -1678,56 +1641,76 @@ class _TallyBar extends StatelessWidget {
                   ),
                 ),
               ),
-              if (last != null) ...[
-                const SizedBox(width: 10),
+              if (line.history.isNotEmpty) ...[
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () {
                     AppHaptics.medium();
                     onUndoLast();
                   },
                   child: Container(
-                    height: 56,
-                    width: 56,
+                    height: 52,
+                    width: 52,
                     decoration: BoxDecoration(
-                      color: AppColors.warning.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(18),
+                      color: AppColors.warningStrong(
+                        context,
+                      ).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(15),
                       border: Border.all(
-                        color: AppColors.warning.withValues(alpha: 0.5),
+                        color: AppColors.warningStrong(
+                          context,
+                        ).withValues(alpha: 0.5),
                       ),
                     ),
                     child: Icon(
                       Icons.undo_rounded,
-                      size: 22,
-                      color: AppColors.warning,
+                      size: 20,
+                      color: AppColors.warningStrong(context),
                     ),
                   ),
                 ),
               ],
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () {
                   AppHaptics.light();
                   onEdit();
                 },
                 child: Container(
-                  height: 56,
-                  width: 56,
+                  height: 52,
+                  width: 52,
                   decoration: BoxDecoration(
                     color: AppColors.dynamicCardSurface(context),
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(15),
                     border: Border.all(
                       color: AppColors.dynamicBorder(context),
                     ),
                   ),
                   child: Icon(
                     Icons.tune_rounded,
-                    size: 20,
+                    size: 18,
                     color: AppColors.dynamicTextSecondary(context),
                   ),
                 ),
               ),
             ],
           ),
+          if (line.history.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 20,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  for (final ev in line.history.reversed)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 5),
+                      child: _HistoryChip(event: ev),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

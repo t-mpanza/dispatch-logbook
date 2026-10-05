@@ -39,23 +39,15 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
   }
 
   /// Tap-to-add: type the exact number just loaded and add it as one clean
-  /// batch (hard-clamped to the manifest target).
+  /// batch (hard-clamped to the manifest target). Pad always starts empty.
   Future<void> _addLineBatch({
     required IbtDocument doc,
     required IbtLineItem line,
   }) async {
     AppHaptics.light();
-    var lastPositive = 0;
-    for (final e in line.history.reversed) {
-      if (e.delta > 0) {
-        lastPositive = e.delta;
-        break;
-      }
-    }
     final value = await BatchPad.show(
       context,
       remaining: line.remaining,
-      defaultBatch: lastPositive,
       title: 'ADD TYRES — ${line.size ?? line.description}',
     );
     if (value == null || value == 0 || !mounted) return;
@@ -397,79 +389,85 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
     final isDone = line.isComplete;
     final isOver = line.isOverloaded;
     final remaining = line.remaining;
+    final statusColor = isDone
+        ? AppColors.successStrong(context)
+        : (isOver
+              ? AppColors.warningStrong(context)
+              : AppColors.presetStocksStrong(context));
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Spec Details
+        // Spec Details — SIZE + PATTERN prominent
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                line.description,
-                style: TextStyle(
-                  color: AppColors.dynamicTextPrimary(context),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 4),
               Row(
                 children: [
-                  if (line.size != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.dynamicBorder(context),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        line.size!,
-                        style: TextStyle(
-                          color: AppColors.dynamicTextPrimary(context),
-                          fontSize: 11,
-                        ),
+                  Flexible(
+                    child: Text(
+                      line.size ?? line.description,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.dynamicTextPrimary(context),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    SizedBox(width: 6),
-                  ],
+                  ),
                   if (line.rubber != null) ...[
+                    const SizedBox(width: 7),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
+                        horizontal: 7,
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryGlow.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
+                        color: AppColors.presetStocksStrong(
+                          context,
+                        ).withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(
+                          color: AppColors.presetStocksStrong(
+                            context,
+                          ).withValues(alpha: 0.45),
+                        ),
                       ),
                       child: Text(
                         line.rubber!,
                         style: TextStyle(
-                          color: AppColors.primaryGlow,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                          color: AppColors.presetStocksStrong(context),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
-                    SizedBox(width: 6),
                   ],
-                  // Status Badge
+                ],
+              ),
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  if (line.rcsCode != null) ...[
+                    Text(
+                      'RCS ${line.rcsCode}',
+                      style: TextStyle(
+                        color: AppColors.dynamicTextDisabled(context),
+                        fontSize: 9.5,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  // Status
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
-                      vertical: 2,
+                      vertical: 1.5,
                     ),
                     decoration: BoxDecoration(
-                      color: isDone
-                          ? Colors.greenAccent.withValues(alpha: 0.15)
-                          : (isOver
-                                ? Colors.redAccent.withValues(alpha: 0.15)
-                                : Colors.orangeAccent.withValues(alpha: 0.15)),
+                      color: statusColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -479,11 +477,9 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                                 ? '+${line.overCount} Over'
                                 : '$remaining left'),
                       style: TextStyle(
-                        color: isDone
-                            ? Colors.greenAccent
-                            : (isOver ? Colors.redAccent : Colors.orangeAccent),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        color: statusColor,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -493,7 +489,7 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
           ),
         ),
 
-        // Count Display (tap to edit) — [loaded / target] with last-added chip
+        // Count Display (tap to add) — [loaded / target] with last-added chip
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -513,9 +509,7 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                           : Colors.black.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: isDone
-                            ? Colors.greenAccent.withValues(alpha: 0.4)
-                            : AppColors.dynamicBorder(context),
+                        color: statusColor.withValues(alpha: 0.4),
                       ),
                     ),
                     child: Row(
@@ -524,9 +518,7 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                         Text(
                           '${line.loadedQuantity} / ${line.targetTotal}',
                           style: TextStyle(
-                            color: isDone
-                                ? Colors.greenAccent
-                                : AppColors.dynamicTextPrimary(context),
+                            color: statusColor,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             fontFamily: 'monospace',
@@ -534,7 +526,7 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                         ),
                         const SizedBox(width: 4),
                         Icon(
-                          Icons.edit_outlined,
+                          Icons.dialpad_rounded,
                           size: 12,
                           color: AppColors.dynamicTextMuted(context),
                         ),
@@ -546,12 +538,12 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                   Text(
                     _lastEventLabel(line.lastEvent!),
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 9.5,
                       fontFamily: 'monospace',
                       fontWeight: FontWeight.w700,
                       color: line.lastEvent!.delta >= 0
-                          ? Colors.greenAccent
-                          : Colors.orangeAccent,
+                          ? AppColors.successStrong(context)
+                          : AppColors.warningStrong(context),
                     ),
                   ),
               ],
@@ -563,16 +555,20 @@ class _IbtLineItemsSheetState extends State<IbtLineItemsSheet> {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.orangeAccent.withValues(alpha: 0.15),
+                    color: AppColors.warningStrong(
+                      context,
+                    ).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: Colors.orangeAccent.withValues(alpha: 0.4),
+                      color: AppColors.warningStrong(
+                        context,
+                      ).withValues(alpha: 0.4),
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.undo_rounded,
                     size: 14,
-                    color: Colors.orangeAccent,
+                    color: AppColors.warningStrong(context),
                   ),
                 ),
               ),

@@ -88,7 +88,7 @@ class TyreStoryUsecase {
     return TyreStory(tyre: tyre, history: history);
   }
 
-  /// Most recent activity first; capped so long histories stay readable.
+  /// Most recent activity first. No cap — the whole story stays visible.
   static List<TyreHistoryEntry> _newestFirst(List<TyreHistoryEntry> history) {
     final sorted = List<TyreHistoryEntry>.of(history);
     sorted.sort((a, b) {
@@ -96,6 +96,6 @@ class TyreStoryUsecase {
       final bTime = b.newestTimestamp ?? '';
       return bTime.compareTo(aTime);
     });
-    return sorted.take(50).toList();
+    return sorted;
   }
 }

@@ -122,4 +122,21 @@ class AppColors {
   /// Brand accent that stays readable on the current theme's surfaces.
   static Color dynamicAccent(BuildContext context) =>
       isLight(context) ? primary : primaryGlow;
+
+  /// High-contrast status colours — the pastel glows wash out under bay
+  /// lighting / direct sun, so light mode uses saturated dark inks.
+  static Color successStrong(BuildContext context) =>
+      isLight(context) ? const Color(0xFF007A4D) : success;
+
+  static Color warningStrong(BuildContext context) =>
+      isLight(context) ? const Color(0xFF9A5B00) : warning;
+
+  static Color errorStrong(BuildContext context) =>
+      isLight(context) ? const Color(0xFFB3261E) : error;
+
+  static Color infoStrong(BuildContext context) =>
+      isLight(context) ? const Color(0xFF00639B) : info;
+
+  static Color presetStocksStrong(BuildContext context) =>
+      isLight(context) ? const Color(0xFF1D4ED8) : presetStocks;
 }

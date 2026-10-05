@@ -33,13 +33,12 @@ class NumberPad {
 
 /// Batch-add keypad: the operator types the exact number of tyres they just
 /// loaded (7 = 7), and the returned value is the amount to ADD — never a
-/// total to compute. No steppers, no mental arithmetic, one clean history
-/// entry per batch.
+/// total to compute. Starts EMPTY every time: no stale batch pre-filled,
+/// no accidental digit-appending, one clean history entry per batch.
 class BatchPad {
   static Future<int?> show(
     BuildContext context, {
     required int remaining,
-    int defaultBatch = 0,
     String? title,
   }) {
     return showModalBottomSheet<int>(
@@ -47,7 +46,7 @@ class BatchPad {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _NumberPadSheet(
-        initial: defaultBatch > 0 ? defaultBatch : 0,
+        initial: 0,
         maxValue: remaining > 0 ? remaining : null,
         title: title,
         unit: 'to add',
