@@ -411,8 +411,12 @@ class SupabaseService {
           .onBroadcast(
             event: 'entry_changed',
             callback: (payload) async {
-              await pullAndMerge();
-              onEntryChanged();
+              try {
+                await pullAndMerge();
+                onEntryChanged();
+              } catch (e) {
+                debugPrint('Realtime pull error: $e');
+              }
             },
           )
           .subscribe();
