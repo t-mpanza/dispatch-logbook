@@ -31,6 +31,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _checking = false;
   bool _sendingReport = false;
 
+  static const String _dispatchPasscode = '72010604';
+  int _versionTaps = 0;
+  DateTime? _lastVersionTapAt;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +44,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadVersion() async {
     final v = await UpdateService.getCurrentVersion();
     if (mounted) setState(() => _version = v);
+  }
+
+  /// Hidden Dispatch-tab ritual: tap the version label 7x, then enter the
+  /// passcode. Unlock lasts only for this launch.
+  void _onVersionTap() {
+    final now = DateTime.now();
+    if (_lastVersionTapAt != null &&
+        now.difference(_lastVersionTapAt!) > const Duration(seconds: 3)) {
+      _versionTaps = 0;
+    }
+    _lastVersionTapAt = now;
+    _versionTaps++;
+
+    if (_versionTaps >= 7) {
+      _versionTaps = 0;
+      _promptDispatchPasscode();
+    } else {
+      AppHaptics.light();
+    }
+  }
+
+  Future<void> _promptDispatchPasscode() async {
+    AppHaptics.medium();
+    final controller = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Dispatch access'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Enter the dispatch passcode to reveal the Dispatch tab '
+              'for this launch.',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.dynamicTextMuted(context),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                letterSpacing: 8,
+                fontFamily: 'monospace',
+              ),
+              decoration: const InputDecoration(
+                hintText: '••••••••',
+              ),
+              onSubmitted: (val) {
+                Navigator.pop(ctx, val.trim() == _dispatchPasscode);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.dynamicTextMuted(context)),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx, controller.text.trim() == _dispatchPasscode);
+            },
+            child: const Text('Unlock'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true && mounted) {
+      final settings = context.read<SettingsRepository>();
+      settings.unlockDispatch();
+      AppHaptics.success();
+      AppSnacks.success(context, 'Dispatch tab unlocked for this launch');
+    } else if (mounted) {
+      AppHaptics.error();
+      AppSnacks.error(context, 'Wrong passcode');
+    }
   }
 
   Future<void> _sendReportNow() async {
@@ -200,6 +291,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (_) {
                     AppHaptics.medium();
                     settings.toggleSunlightMode();
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+          AppCard(
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: AppColors.info.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.nfc_rounded,
+                    color: settings.nfcEnabled
+                        ? AppColors.infoStrong(context)
+                        : AppColors.dynamicTextDisabled(context),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'NFC tyre scanning',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.dynamicTextPrimary(context),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Kill switch — tyre-tag reading in Dispatch',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.dynamicTextMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: settings.nfcEnabled,
+                  onChanged: (val) {
+                    AppHaptics.medium();
+                    settings.setNfcEnabled(val);
                   },
                 ),
               ],
@@ -501,12 +645,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  'Version $_version',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.dynamicTextDisabled(context),
-                    fontFamily: 'monospace',
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _onVersionTap,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(
+                      'Version $_version',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.dynamicTextDisabled(context),
+                        fontFamily: 'monospace',
+                      ),
+                    ),
                   ),
                 ),
               ],

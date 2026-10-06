@@ -7,6 +7,7 @@ import '../../core/utils/id_generator.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/preset.dart';
 import 'number_pad.dart';
+import 'time_entry_field.dart';
 
 class TruckLoadDialog extends StatefulWidget {
   final LoadingSheetTrip? existingTrip;
@@ -58,6 +59,9 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
   late TextEditingController _startController;
   late TextEditingController _finishController;
   late TextEditingController _targetController;
+
+  int? _startTime;
+  int? _finishTime;
   int _quantityLoaded = 0;
   int _targetQuantity = 0;
 
@@ -83,6 +87,8 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       _finishController = TextEditingController(
         text: AppFormatters.formatTimeHHmm(t.finishTime),
       );
+      _startTime = t.startTime;
+      _finishTime = t.finishTime;
       _targetQuantity = t.targetQuantity ?? 0;
       _targetController = TextEditingController(
         text: _targetQuantity > 0 ? '$_targetQuantity' : '',
@@ -193,14 +199,10 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
         widget.existingTrip?.createdAt ??
         (DateTime.tryParse(widget.dayKey)?.millisecondsSinceEpoch ?? now);
 
-    var startMs = AppFormatters.timeStringToMs(
-      _startController.text,
-      baseDateMs,
-    );
-    var finishMs = AppFormatters.timeStringToMs(
-      _finishController.text,
-      baseDateMs,
-    );
+    var startMs = _startTime ??
+        AppFormatters.timeStringToMs(_startController.text, baseDateMs);
+    var finishMs = _finishTime ??
+        AppFormatters.timeStringToMs(_finishController.text, baseDateMs);
 
     // Timestamp persistence: a truck with a loaded quantity must never show
     // "No timestamps" on the Sheet.
@@ -753,24 +755,37 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
             ],
             const SizedBox(height: 12),
 
-            // Start & Finish Times
+            // Start & Finish Times — smart entry: type digits, colon
+            // auto-inserts; NOW / +15m / +30m / +1h quick chips.
             Row(
               children: [
                 Expanded(
-                  child: _buildTextField(
+                  child: TimeEntryField(
                     label: 'START TIME',
-                    controller: _startController,
-                    hint: 'HH:mm (e.g. 08:30)',
-                    isMonospace: true,
+                    value: _startTime,
+                    onChanged: (ms) {
+                      AppHaptics.light();
+                      setState(() {
+                        _startTime = ms;
+                        _startController.text =
+                            AppFormatters.formatTimeHHmm(ms);
+                      });
+                    },
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _buildTextField(
+                  child: TimeEntryField(
                     label: 'FINISH TIME',
-                    controller: _finishController,
-                    hint: 'HH:mm (e.g. 09:15)',
-                    isMonospace: true,
+                    value: _finishTime,
+                    onChanged: (ms) {
+                      AppHaptics.light();
+                      setState(() {
+                        _finishTime = ms;
+                        _finishController.text =
+                            AppFormatters.formatTimeHHmm(ms);
+                      });
+                    },
                   ),
                 ),
               ],

@@ -6,6 +6,7 @@ class SettingsRepository extends ChangeNotifier {
   static const String _keyDespatcherName = 'despatcher_name';
   static const String _keySunlightMode = 'is_sunlight_mode';
   static const String _keyWelcomeSeen = 'welcome_seen_v3';
+  static const String _keyNfcEnabled = 'nfc_enabled';
 
   String _despatcherName = 'Theolus';
   String get despatcherName => _despatcherName;
@@ -15,6 +16,15 @@ class SettingsRepository extends ChangeNotifier {
 
   bool _welcomeSeen = false;
   bool get welcomeSeen => _welcomeSeen;
+
+  /// NFC tyre-scanning kill switch (persisted).
+  bool _nfcEnabled = true;
+  bool get nfcEnabled => _nfcEnabled;
+
+  /// Dispatch tab unlock — IN MEMORY ONLY. Closing the app re-hides the
+  /// tab (night shift can't stumble onto it).
+  bool _dispatchUnlocked = false;
+  bool get dispatchUnlocked => _dispatchUnlocked;
 
   Future<void> loadSettings() async {
     final sp = await SharedPreferences.getInstance();
@@ -38,6 +48,11 @@ class SettingsRepository extends ChangeNotifier {
     }
 
     _welcomeSeen = sp.getBool(_keyWelcomeSeen) ?? false;
+
+    final nfcVal = sp.getBool(_keyNfcEnabled);
+    if (nfcVal != null) {
+      _nfcEnabled = nfcVal;
+    }
     notifyListeners();
   }
 
@@ -64,6 +79,19 @@ class SettingsRepository extends ChangeNotifier {
     _welcomeSeen = true;
     final sp = await SharedPreferences.getInstance();
     await sp.setBool(_keyWelcomeSeen, true);
+    notifyListeners();
+  }
+
+  Future<void> setNfcEnabled(bool enabled) async {
+    _nfcEnabled = enabled;
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool(_keyNfcEnabled, enabled);
+    notifyListeners();
+  }
+
+  /// Unlock the Dispatch tab for this launch only.
+  void unlockDispatch() {
+    _dispatchUnlocked = true;
     notifyListeners();
   }
 }

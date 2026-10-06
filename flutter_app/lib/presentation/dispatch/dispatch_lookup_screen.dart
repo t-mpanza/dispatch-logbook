@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../dispatch/domain/tyre_story.dart';
 import '../../dispatch/hardware/nfc_scan_service.dart';
 import '../../dispatch/models/dispatch_models.dart';
@@ -21,7 +23,8 @@ class DispatchLookupScreen extends StatefulWidget {
 
 enum _LookupMode { slip, serial }
 
-class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
+class _DispatchLookupScreenState extends State<DispatchLookupScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
   final NfcScanService _nfc = NfcScanService();
   StreamSubscription<String>? _scanSub;
@@ -36,12 +39,14 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkNfc();
     _scanSub = _nfc.scans.listen(_onNfcScan);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scanSub?.cancel();
     _nfc.stop();
     _nfc.dispose();
@@ -49,13 +54,26 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Never keep the NFC session alive in the background — that is what
+    // crashed the app on leave/reopen.
+    if (state != AppLifecycleState.resumed && _nfcArmed) {
+      _disarmNfc();
+    }
+  }
+
   Future<void> _checkNfc() async {
+    final settings = context.read<SettingsRepository>();
+    if (!settings.nfcEnabled) return;
     final available = await _nfc.isAvailable;
     if (!mounted) return;
     setState(() => _nfcAvailable = available);
   }
 
   Future<void> _armNfc() async {
+    final settings = context.read<SettingsRepository>();
+    if (!settings.nfcEnabled) return;
     try {
       await _nfc.start();
       if (mounted) setState(() => _nfcArmed = true);
@@ -70,6 +88,8 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
   }
 
   Future<void> _onNfcScan(String uid) async {
+    // One read is enough — disarm immediately so the session never lingers.
+    await _disarmNfc();
     if (_busy) return;
     AppHaptics.medium();
     setState(() {

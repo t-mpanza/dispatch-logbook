@@ -6,7 +6,6 @@ import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/models/ibt_manifest.dart';
 import '../../data/services/appsync_manifest_service.dart';
-import 'aws_auth_dialog.dart';
 
 /// Unified "Add IBT" control.
 ///
@@ -108,11 +107,6 @@ class _IbtPickerState extends State<IbtPicker> {
         SnackBar(
           content: Text(firstFailure),
           backgroundColor: Colors.redAccent,
-          action: SnackBarAction(
-            label: 'AWS Login',
-            textColor: Colors.white,
-            onPressed: () => AwsAuthDialog.show(context),
-          ),
         ),
       );
     }

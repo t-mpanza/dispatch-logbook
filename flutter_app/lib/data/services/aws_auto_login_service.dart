@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 /// Silent AppSync auto-login.
@@ -56,8 +57,110 @@ class AwsAutoLoginService {
   static const String _cognitoEndpoint =
       'https://cognito-idp.eu-central-1.amazonaws.com';
 
+  /// Own token keys — kept SEPARATE from the hosted-UI session keys so the
+  /// two pools never cross-refresh (that mismatch is what forced a manual
+  /// login on the released build).
+  static final FlutterSecureStorage _autoStorage = FlutterSecureStorage();
+  static const String _autoIdKey = 'auto_aws_id_token';
+  static const String _autoAccessKey = 'auto_aws_access_token';
+  static const String _autoRefreshKey = 'auto_aws_refresh_token';
+
+  static Future<String?> _safeRead(String key) async {
+    try {
+      return await _autoStorage.read(key: key);
+    } catch (e) {
+      debugPrint('AWS auto storage read error ($key): $e');
+      return null;
+    }
+  }
+
+  static Future<void> _safeWrite(String key, String value) async {
+    try {
+      await _autoStorage.write(key: key, value: value);
+    } catch (e) {
+      // Persistence failure must never block authentication — the token
+      // is still returned to the caller.
+      debugPrint('AWS auto storage write error ($key): $e');
+    }
+  }
+
+  /// Read the current auto session token, refreshing it against THIS pool
+  /// when it has expired. Never touches the hosted-UI token keys.
+  static Future<String?> getValidToken({http.Client? client}) async {
+    final idToken = await _safeRead(_autoIdKey);
+    if (idToken == null || idToken.isEmpty) return null;
+
+    try {
+      final parts = idToken.split('.');
+      if (parts.length == 3) {
+        final payload = jsonDecode(
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+        );
+        final exp = (payload['exp'] as num?)?.toInt() ?? 0;
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        if (exp < now + 300) {
+          final refreshed = await refreshSession(client: client);
+          if (refreshed != null) return refreshed;
+        }
+      }
+    } catch (e) {
+      debugPrint('AWS auto token inspect error: $e');
+    }
+    return idToken;
+  }
+
+  /// Refresh the auto session with REFRESH_TOKEN_AUTH against the SAME
+  /// pool that issued it (the ATT Supervisor pool).
+  static Future<String?> refreshSession({http.Client? client}) async {
+    final refreshToken = await _safeRead(_autoRefreshKey);
+    if (refreshToken == null || refreshToken.isEmpty) return null;
+
+    final httpClient = client ?? http.Client();
+    try {
+      final clientId = _reveal(_clientId);
+      final res = await httpClient.post(
+        Uri.parse(_cognitoEndpoint),
+        headers: {
+          'Content-Type': 'application/x-amz-json-1.1',
+          'X-Amz-Target':
+              'AWSCognitoIdentityProviderService.InitiateAuth',
+        },
+        body: jsonEncode({
+          'AuthFlow': 'REFRESH_TOKEN_AUTH',
+          'ClientId': clientId,
+          'AuthParameters': {'REFRESH_TOKEN': refreshToken},
+        }),
+      );
+
+      if (res.statusCode != 200) {
+        debugPrint('AWS auto refresh failed (${res.statusCode})');
+        return null;
+      }
+
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final auth = data['AuthenticationResult'];
+      if (auth == null) return null;
+
+      final newId = auth['IdToken'] as String?;
+      final newAccess = auth['AccessToken'] as String?;
+      if (newId == null || newId.isEmpty) return null;
+
+      await _safeWrite(_autoIdKey, newId);
+      if (newAccess != null && newAccess.isNotEmpty) {
+        await _safeWrite(_autoAccessKey, newAccess);
+      }
+      return newId;
+    } catch (e) {
+      debugPrint('AWS auto refresh error: $e');
+      return null;
+    } finally {
+      if (client == null) httpClient.close();
+    }
+  }
+
   /// Authenticate silently and return the session ID token, or null.
-  /// [onTokens] receives (accessToken, idToken, refreshToken) for storage.
+  /// Tokens are stored under the AUTO keys; the hosted-UI session is
+  /// never clobbered.
   static Future<String?> login({
     http.Client? client,
     Future<void> Function(String access, String id, String? refresh)?
@@ -168,6 +271,16 @@ class AwsAutoLoginService {
       final refreshToken = authResult['RefreshToken'] as String?;
 
       if (idToken == null || idToken.isEmpty) return null;
+
+      // Store under the AUTO keys — never the hosted-UI keys.
+      await _safeWrite(_autoIdKey, idToken);
+      if (accessToken.isNotEmpty) {
+        await _safeWrite(_autoAccessKey, accessToken);
+      }
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _safeWrite(_autoRefreshKey, refreshToken);
+      }
+
       await onTokens?.call(accessToken, idToken, refreshToken);
       return idToken;
     } catch (e) {

@@ -13,6 +13,7 @@ import '../../data/models/preset.dart';
 import '../../data/repositories/entry_repository.dart';
 import '../../data/services/audio_service.dart';
 import '../../data/services/ibt_line_ops.dart';
+import '../../dispatch/domain/ibt_search.dart';
 import '../widgets/event_log_view.dart';
 import '../widgets/floating_note_bar.dart';
 import '../widgets/ibt_picker.dart';
@@ -53,12 +54,18 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
   String? _focusedDocNo;
   String? _focusedLineId;
 
+  /// Smart line search — the star feature.
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String? _activePattern;
+
   @override
   void dispose() {
     _audioService.dispose();
     _titleController.dispose();
     _regController.dispose();
     _driverController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -497,48 +504,94 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
+                        _IbtSearchBar(
+                          controller: _searchController,
+                          query: _searchQuery,
+                          patterns: IbtSearch.patternCounts([
+                            for (final d in ibtDocs) ...d.lineItems,
+                          ]),
+                          activePattern: _activePattern,
+                          onQueryChanged: (q) {
+                            AppHaptics.light();
+                            setState(() => _searchQuery = q);
+                          },
+                          onPatternToggled: (p) {
+                            AppHaptics.light();
+                            setState(() =>
+                                _activePattern = _activePattern == p ? null : p);
+                          },
+                          onClear: () {
+                            AppHaptics.light();
+                            _searchController.clear();
+                            setState(() {
+                              _searchQuery = '';
+                              _activePattern = null;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 14),
                         for (final doc in ibtDocs) ...[
                           _DocHeader(doc: doc, remaining: doc.remainingTotal),
                           const SizedBox(height: 8),
-                          for (final line in doc.lineItems)
-                            _LineCard(
-                              line: line,
-                              isFocused:
-                                  activeLine != null &&
-                                  activeLine.id == line.id,
-                              onTap: () {
-                                AppHaptics.light();
-                                setState(() {
-                                  _focusedDocNo = doc.documentNo;
-                                  _focusedLineId = line.id;
-                                });
-                              },
-                              onAddBatch: () => _showBatchAddDialog(
-                                currentEntry: currentEntry,
-                                repo: repo,
-                                docNo: doc.documentNo,
-                                line: line,
+                          if (IbtSearch.search(
+                            doc.lineItems,
+                            query: _searchQuery,
+                            patternFilter: _activePattern,
+                          ).isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Text(
+                                'No lines match — tap × to clear the search.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.dynamicTextMuted(context),
+                                ),
                               ),
-                              onUndoBatch: (eventId) => _undoBatch(
-                                currentEntry: currentEntry,
-                                repo: repo,
-                                docNo: doc.documentNo,
-                                lineId: line.id,
-                                eventId: eventId,
+                            )
+                          else
+                            for (final hit in IbtSearch.search(
+                              doc.lineItems,
+                              query: _searchQuery,
+                              patternFilter: _activePattern,
+                            ))
+                              _LineCard(
+                                line: hit.line,
+                                isFocused:
+                                    activeLine != null &&
+                                    activeLine.id == hit.line.id,
+                                onTap: () {
+                                  AppHaptics.light();
+                                  setState(() {
+                                    _focusedDocNo = doc.documentNo;
+                                    _focusedLineId = hit.line.id;
+                                  });
+                                },
+                                onAddBatch: () => _showBatchAddDialog(
+                                  currentEntry: currentEntry,
+                                  repo: repo,
+                                  docNo: doc.documentNo,
+                                  line: hit.line,
+                                ),
+                                onUndoBatch: (eventId) => _undoBatch(
+                                  currentEntry: currentEntry,
+                                  repo: repo,
+                                  docNo: doc.documentNo,
+                                  lineId: hit.line.id,
+                                  eventId: eventId,
+                                ),
+                                onUndoLast: () => _undoLineLast(
+                                  currentEntry: currentEntry,
+                                  repo: repo,
+                                  docNo: doc.documentNo,
+                                  lineId: hit.line.id,
+                                ),
+                                onEdit: () => _showEditCountDialog(
+                                  currentEntry: currentEntry,
+                                  repo: repo,
+                                  docNo: doc.documentNo,
+                                  line: hit.line,
+                                ),
                               ),
-                              onUndoLast: () => _undoLineLast(
-                                currentEntry: currentEntry,
-                                repo: repo,
-                                docNo: doc.documentNo,
-                                lineId: line.id,
-                              ),
-                              onEdit: () => _showEditCountDialog(
-                                currentEntry: currentEntry,
-                                repo: repo,
-                                docNo: doc.documentNo,
-                                line: line,
-                              ),
-                            ),
                           const SizedBox(height: 14),
                         ],
                       ],
@@ -1712,6 +1765,153 @@ class _TallyBar extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Subtle but smart IBT search — free-text tokens + pattern chips with
+/// counts. The star feature: find one line among 14 patterns in a tap.
+class _IbtSearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final String query;
+  final List<(String, int)> patterns;
+  final String? activePattern;
+  final ValueChanged<String> onQueryChanged;
+  final ValueChanged<String> onPatternToggled;
+  final VoidCallback onClear;
+
+  const _IbtSearchBar({
+    required this.controller,
+    required this.query,
+    required this.patterns,
+    required this.activePattern,
+    required this.onQueryChanged,
+    required this.onPatternToggled,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final filtering = query.trim().isNotEmpty || activePattern != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: GlassDecorations.glassCard(
+            context: context,
+            borderRadius: 14,
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 14),
+              Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: filtering
+                    ? AppColors.presetStocksStrong(context)
+                    : AppColors.dynamicTextMuted(context),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  onChanged: onQueryChanged,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.dynamicTextPrimary(context),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Search size, pattern, RCS…',
+                    hintStyle: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.dynamicTextMuted(context),
+                    ),
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              if (filtering)
+                GestureDetector(
+                  onTap: onClear,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: AppColors.dynamicTextMuted(context),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (patterns.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 30,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final (pattern, count) in patterns)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _patternChip(context, pattern, count),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _patternChip(BuildContext context, String pattern, int count) {
+    final active = activePattern == pattern;
+    return GestureDetector(
+      onTap: () => onPatternToggled(pattern),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11),
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.presetStocksStrong(context).withValues(alpha: 0.2)
+              : AppColors.dynamicCardSurface(context),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: active
+                ? AppColors.presetStocksStrong(context).withValues(alpha: 0.6)
+                : AppColors.dynamicBorder(context),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              pattern,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.3,
+                color: active
+                    ? AppColors.presetStocksStrong(context)
+                    : AppColors.dynamicTextSecondary(context),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '×$count',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: AppColors.dynamicTextMuted(context),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

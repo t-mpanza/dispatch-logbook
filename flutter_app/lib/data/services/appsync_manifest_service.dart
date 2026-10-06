@@ -285,20 +285,27 @@ class AppSyncManifestService {
   ///
   /// When no session exists yet, silently authenticates with the embedded
   /// internal-dev account so IBT manifests work out-of-the-box.
+  ///
+  /// Order: hosted-UI session (own keys, own pool refresh) → auto-login
+  /// session (own keys, own pool refresh) → fresh silent SRP login.
+  /// The two sessions never cross-refresh.
   static Future<String?> getValidIdToken({http.Client? client}) async {
+    // 1) Manual / hosted-UI session
+    final manual = await _validManualToken(client: client);
+    if (manual != null && manual.isNotEmpty) return manual;
+
+    // 2) Auto-login session (embedded creds pool)
+    final auto = await AwsAutoLoginService.getValidToken(client: client);
+    if (auto != null && auto.isNotEmpty) return auto;
+
+    // 3) Fresh silent login — never prompts, never stores over the
+    //    hosted-UI keys.
+    return AwsAutoLoginService.login(client: client);
+  }
+
+  static Future<String?> _validManualToken({http.Client? client}) async {
     final idToken = await _storage.read(key: _keyIdToken);
-    if (idToken == null || idToken.isEmpty) {
-      return AwsAutoLoginService.login(
-        client: client,
-        onTokens: (access, id, refresh) async {
-          await saveAuthTokens(
-            accessToken: access,
-            idToken: id,
-            refreshToken: refresh,
-          );
-        },
-      );
-    }
+    if (idToken == null || idToken.isEmpty) return null;
 
     try {
       final parts = idToken.split('.');
@@ -405,8 +412,43 @@ class AppSyncManifestService {
     }
   }
 
-  /// Fetch IBT document contents directly from AWS AppSync GraphQL API
+  /// Fetch IBT document contents directly from AWS AppSync GraphQL API.
+  ///
+  /// Self-healing: on any auth-flavoured failure the app silently
+  /// re-authenticates once and retries — the operator never sees a login
+  /// prompt for IBT fetching.
   static Future<IbtDocument> fetchIbtDocument(
+    String documentNoInput, {
+    http.Client? client,
+    String? explicitIdToken,
+  }) async {
+    try {
+      return await _fetchIbtDocumentOnce(
+        documentNoInput,
+        client: client,
+        explicitIdToken: explicitIdToken,
+      );
+    } catch (e) {
+      final message = e.toString();
+      final isAuthIssue = message.contains('Authentication') ||
+          message.contains('Unauthorized') ||
+          message.contains('401') ||
+          message.contains('token');
+      if (!isAuthIssue || explicitIdToken != null) rethrow;
+
+      // Fresh silent login, then one retry.
+      debugPrint('IBT fetch auth issue — silently re-authenticating. $e');
+      final fresh = await AwsAutoLoginService.login(client: client);
+      if (fresh == null || fresh.isEmpty) rethrow;
+      return await _fetchIbtDocumentOnce(
+        documentNoInput,
+        client: client,
+        explicitIdToken: fresh,
+      );
+    }
+  }
+
+  static Future<IbtDocument> _fetchIbtDocumentOnce(
     String documentNoInput, {
     http.Client? client,
     String? explicitIdToken,

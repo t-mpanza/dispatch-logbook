@@ -17,7 +17,7 @@ import 'presentation/widgets/app_shell.dart';
 import 'presentation/screens/today_screen.dart';
 import 'presentation/screens/loading_sheet_screen.dart';
 import 'presentation/screens/history_screen.dart';
-import 'presentation/dispatch/dispatch_hub_screen.dart';
+import 'presentation/dispatch/dispatch_lookup_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,17 +93,25 @@ class DispatchDiaryApp extends StatefulWidget {
 class _DispatchDiaryAppState extends State<DispatchDiaryApp> {
   int _currentIndex = 0;
 
-  static const List<Widget> _screens = [
+  static const List<Widget> _baseScreens = [
     TodayScreen(),
     LoadingSheetScreen(),
     HistoryScreen(),
-    DispatchHubScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Consumer<SettingsRepository>(
       builder: (context, settings, _) {
+        final screens = [
+          ..._baseScreens,
+          if (settings.dispatchUnlocked) const DispatchLookupScreen(),
+        ];
+        // When the Dispatch tab disappears (relock on restart), fall back
+        // to Home.
+        if (_currentIndex >= screens.length) {
+          _currentIndex = 0;
+        }
         return MaterialApp(
           title: 'Dispatch Diary',
           debugShowCheckedModeBanner: false,
@@ -112,12 +120,13 @@ class _DispatchDiaryAppState extends State<DispatchDiaryApp> {
           themeMode: settings.isSunlightMode ? ThemeMode.light : ThemeMode.dark,
           home: AppShell(
             currentIndex: _currentIndex,
+            showDispatch: settings.dispatchUnlocked,
             onTabSelected: (index) {
               setState(() {
                 _currentIndex = index;
               });
             },
-            child: IndexedStack(index: _currentIndex, children: _screens),
+            child: IndexedStack(index: _currentIndex, children: screens),
           ),
         );
       },

@@ -5,18 +5,21 @@ import '../../core/utils/haptics.dart';
 import 'connection_status_banner.dart';
 import 'capture_action_sheet.dart';
 
-/// App frame: content area, floating status banner and a three-tab dock
-/// (Home / Sheet / History) with a thumb-reachable capture button.
+/// App frame: content area, floating status banner and a dock
+/// (Home / Sheet / History, plus a hidden Dispatch tab that only appears
+/// after the 7-tap version ritual + passcode).
 class AppShell extends StatelessWidget {
   final Widget child;
   final int currentIndex;
   final ValueChanged<int> onTabSelected;
+  final bool showDispatch;
 
   const AppShell({
     super.key,
     required this.child,
     required this.currentIndex,
     required this.onTabSelected,
+    this.showDispatch = false,
   });
 
   @override
@@ -55,6 +58,7 @@ class AppShell extends StatelessWidget {
               top: false,
               child: _Dock(
                 currentIndex: currentIndex,
+                showDispatch: showDispatch,
                 onTabSelected: onTabSelected,
               ),
             ),
@@ -76,8 +80,13 @@ class AppShell extends StatelessWidget {
 class _Dock extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTabSelected;
+  final bool showDispatch;
 
-  const _Dock({required this.currentIndex, required this.onTabSelected});
+  const _Dock({
+    required this.currentIndex,
+    required this.onTabSelected,
+    required this.showDispatch,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -111,13 +120,14 @@ class _Dock extends StatelessWidget {
             activeIcon: Icons.history_rounded,
             label: 'History',
           ),
-          _navItem(
-            context,
-            index: 3,
-            icon: Icons.radar_rounded,
-            activeIcon: Icons.radar_rounded,
-            label: 'Dispatch',
-          ),
+          if (showDispatch)
+            _navItem(
+              context,
+              index: 3,
+              icon: Icons.radar_rounded,
+              activeIcon: Icons.radar_rounded,
+              label: 'Dispatch',
+            ),
         ],
       ),
     );

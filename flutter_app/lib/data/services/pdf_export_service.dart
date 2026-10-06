@@ -31,7 +31,7 @@ class PdfExportService {
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
+        pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(28),
         build: (pw.Context context) {
           return [
@@ -39,26 +39,13 @@ class PdfExportService {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'DESPATCH LOADING SHEET',
-                      style: pw.TextStyle(
-                        fontSize: 18,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.blue900,
-                      ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      'DAILY COMPLIANCE & LOGISTICS AUDIT',
-                      style: const pw.TextStyle(
-                        fontSize: 9,
-                        color: PdfColors.grey700,
-                      ),
-                    ),
-                  ],
+                pw.Text(
+                  'DESPATCH LOADING SHEET',
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.blue900,
+                  ),
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -129,18 +116,14 @@ class PdfExportService {
                 return [
                   '$idx',
                   tripLabel,
-                  t.reg.isEmpty ? '-' : t.reg,
-                  t.driverName.isEmpty ? '-' : t.driverName,
+                  t.reg.isEmpty ? '' : t.reg,
+                  t.driverName.isEmpty ? '' : t.driverName,
                   '${t.quantityLoaded}',
-                  AppFormatters.formatTimeHHmm(t.startTime).isEmpty
-                      ? '-'
-                      : AppFormatters.formatTimeHHmm(t.startTime),
-                  AppFormatters.formatTimeHHmm(t.finishTime).isEmpty
-                      ? '-'
-                      : AppFormatters.formatTimeHHmm(t.finishTime),
+                  AppFormatters.formatTimeHHmm(t.startTime),
+                  AppFormatters.formatTimeHHmm(t.finishTime),
                   t.durationMinutes != null && t.durationMinutes! > 0
                       ? '${t.durationMinutes}m'
-                      : '-',
+                      : '',
                 ];
               }).toList(),
               headerStyle: pw.TextStyle(
@@ -156,17 +139,17 @@ class PdfExportService {
                   bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
                 ),
               ),
-              cellStyle: const pw.TextStyle(fontSize: 8),
+              cellStyle: const pw.TextStyle(fontSize: 9),
               cellAlignment: pw.Alignment.center,
               columnWidths: {
-                0: const pw.FixedColumnWidth(20),
-                1: const pw.FlexColumnWidth(2.5),
-                2: const pw.FlexColumnWidth(1.8),
-                3: const pw.FlexColumnWidth(1.8),
-                4: const pw.FixedColumnWidth(36),
-                5: const pw.FixedColumnWidth(36),
-                6: const pw.FixedColumnWidth(36),
-                7: const pw.FixedColumnWidth(40),
+                0: const pw.FixedColumnWidth(24),
+                1: const pw.FlexColumnWidth(3.2),
+                2: const pw.FlexColumnWidth(2.2),
+                3: const pw.FlexColumnWidth(2.2),
+                4: const pw.FixedColumnWidth(44),
+                5: const pw.FixedColumnWidth(44),
+                6: const pw.FixedColumnWidth(44),
+                7: const pw.FixedColumnWidth(48),
               },
             ),
 
@@ -176,61 +159,9 @@ class PdfExportService {
 
             pw.SizedBox(height: 20),
 
-            // Signatures
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Container(
-                      width: 150,
-                      decoration: const pw.BoxDecoration(
-                        border: pw.Border(
-                          bottom: pw.BorderSide(
-                            color: PdfColors.black,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      'Despatcher Signature',
-                      style: const pw.TextStyle(
-                        fontSize: 8,
-                        color: PdfColors.grey700,
-                      ),
-                    ),
-                  ],
-                ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Container(
-                      width: 150,
-                      decoration: const pw.BoxDecoration(
-                        border: pw.Border(
-                          bottom: pw.BorderSide(
-                            color: PdfColors.black,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      'Warehouse Manager Signature',
-                      style: const pw.TextStyle(
-                        fontSize: 8,
-                        color: PdfColors.grey700,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 8),
+            // (No signature blocks — the sheet is filled in by hand where
+            //  needed after printing.)
+
             pw.Text(
               'Generated via Dispatch Diary on ${DateTime.now().toLocal()}',
               style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey500),
