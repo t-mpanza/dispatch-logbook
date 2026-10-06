@@ -216,6 +216,13 @@ function RootComponent() {
       }
     });
 
+    // Resume from background: resync defensively and never let failures escape
+    const appStateHandler = CapApp.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) {
+        fullSync(queryClient).catch(console.error);
+      }
+    });
+
     const handleOnline = () => {
       fullSync(queryClient).catch(console.error);
     };
@@ -233,8 +240,9 @@ function RootComponent() {
       subscription.unsubscribe();
       cleanupRealtime();
       window.removeEventListener("online", handleOnline);
-      networkHandler.then((h) => h.remove());
-      backHandler.then((h) => h.remove());
+      networkHandler.then((h) => h.remove()).catch(console.error);
+      backHandler.then((h) => h.remove()).catch(console.error);
+      appStateHandler.then((h) => h.remove()).catch(console.error);
     };
   }, [router, queryClient]);
 

@@ -511,10 +511,14 @@ export function setupRealtimeSync(queryClient: QueryClient): () => void {
     realtimeChannel = supabase
       .channel("dispatch_live_sync")
       .on("broadcast", { event: "entry_changed" }, async () => {
-        const { hasUpdates } = await pullAndMerge();
-        if (hasUpdates) {
-          queryClient.invalidateQueries({ queryKey: ["entries"] });
-          queryClient.invalidateQueries({ queryKey: ["entry"] });
+        try {
+          const { hasUpdates } = await pullAndMerge();
+          if (hasUpdates) {
+            queryClient.invalidateQueries({ queryKey: ["entries"] });
+            queryClient.invalidateQueries({ queryKey: ["entry"] });
+          }
+        } catch (e) {
+          console.error("Realtime pull failed:", e);
         }
       })
       .subscribe();
@@ -524,7 +528,7 @@ export function setupRealtimeSync(queryClient: QueryClient): () => void {
 
   return () => {
     if (realtimeChannel) {
-      supabase.removeChannel(realtimeChannel);
+      Promise.resolve(supabase.removeChannel(realtimeChannel)).catch(console.error);
       realtimeChannel = null;
     }
   };
@@ -533,11 +537,13 @@ export function setupRealtimeSync(queryClient: QueryClient): () => void {
 export function broadcastEntryChange(entryId: string) {
   if (!realtimeChannel) return;
   try {
-    realtimeChannel.send({
-      type: "broadcast",
-      event: "entry_changed",
-      payload: { entryId, timestamp: Date.now() },
-    });
+    Promise.resolve(
+      realtimeChannel.send({
+        type: "broadcast",
+        event: "entry_changed",
+        payload: { entryId, timestamp: Date.now() },
+      }),
+    ).catch((e: unknown) => console.error("Broadcast entry change failed:", e));
   } catch (e) {
     console.error("Broadcast entry change failed:", e);
   }
