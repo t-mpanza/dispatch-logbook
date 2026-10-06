@@ -21,7 +21,7 @@ class DispatchLookupScreen extends StatefulWidget {
 
 enum _LookupMode { slip, serial }
 
-class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
+class _DispatchLookupScreenState extends State<DispatchLookupScreen> with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
   final NfcScanService _nfc = NfcScanService();
   StreamSubscription<String>? _scanSub;
@@ -36,17 +36,38 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkNfc();
     _scanSub = _nfc.scans.listen(_onNfcScan);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scanSub?.cancel();
     _nfc.stop();
     _nfc.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  bool _resumeNfc = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_resumeNfc && _nfcAvailable) {
+        _resumeNfc = false;
+        _armNfc();
+      }
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      if (_nfcArmed) {
+        _resumeNfc = true;
+        _disarmNfc();
+      }
+    }
   }
 
   Future<void> _checkNfc() async {

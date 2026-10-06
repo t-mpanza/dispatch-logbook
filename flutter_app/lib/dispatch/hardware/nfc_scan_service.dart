@@ -21,8 +21,18 @@ class NfcScanService {
   Future<bool> get isAvailable async =>
       await NfcManager.instance.checkAvailability() == NfcAvailability.enabled;
 
+  // NfcManager is a process-wide singleton: only one session can exist, so
+  // track which service owns it.
+  static NfcScanService? _owner;
+
+  bool get isActive => identical(_owner, this);
+
   Future<void> start() async {
+    if (isActive) return;
     try {
+      // Take over from any other screen's session instead of colliding with it.
+      await _owner?.stop();
+      _owner = this;
       await NfcManager.instance.startSession(
         pollingOptions: const {
           NfcPollingOption.iso14443,
@@ -43,21 +53,29 @@ class NfcScanService {
           }
           _lastUid = normalized;
           _lastUidAt = now;
-          _controller.add(normalized);
+          if (!_controller.isClosed) _controller.add(normalized);
         },
       );
-    } on Exception catch (e) {
+    } catch (e) {
+      if (identical(_owner, this)) _owner = null;
       debugPrint('Failed to start NFC session: $e');
       rethrow;
     }
   }
 
   Future<void> stop() async {
-    await NfcManager.instance.stopSession();
+    if (!isActive) return;
+    _owner = null;
+    try {
+      await NfcManager.instance.stopSession();
+    } catch (e) {
+      // The OS may already have ended the session (e.g. app backgrounded).
+      debugPrint('Failed to stop NFC session: $e');
+    }
   }
 
   void dispose() {
-    _controller.close();
+    if (!_controller.isClosed) _controller.close();
   }
 }
 

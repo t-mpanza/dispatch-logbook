@@ -27,7 +27,7 @@ class _FeedEntry {
   final Color color;
 }
 
-class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
+class _DispatchInspectScreenState extends State<DispatchInspectScreen> with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
   final NfcScanService _nfc = NfcScanService();
   StreamSubscription<String>? _scanSub;
@@ -42,6 +42,7 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _restoreDecisions();
     _checkNfc();
     _scanSub = _nfc.scans.listen(_onNfcScan);
@@ -49,11 +50,31 @@ class _DispatchInspectScreenState extends State<DispatchInspectScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scanSub?.cancel();
     _nfc.stop();
     _nfc.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  bool _resumeNfc = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_resumeNfc && _nfcAvailable) {
+        _resumeNfc = false;
+        _armNfc();
+      }
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      if (_nfcArmed) {
+        _resumeNfc = true;
+        _disarmNfc();
+      }
+    }
   }
 
   Future<void> _checkNfc() async {
