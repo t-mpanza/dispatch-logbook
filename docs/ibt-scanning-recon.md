@@ -3,7 +3,9 @@
 > Full reconnaissance of how tyres are identified as STOCKS vs customer vs
 > dump when scanned under an IBT document. Sources: `dispatch-app` source +
 > `docs/backend-reality.md` (live probes 2026-09), the reverse-engineered
-> **ATT Supervisor** APK (factory side), and our own Dispatch Diary.
+> **ATT Supervisor** APK (factory side), the **dispatch_control_test** APK
+> (app-05 — the previous version of the scan-out app, definitive IBT scan
+> contract), and our own Dispatch Diary.
 >
 > The two open bugs (sheet-side edit wiping IBT data; slow IBT
 > materialization) are documented at the end — not fixed yet, per request.
@@ -90,6 +92,47 @@ are matched via `StagedDocument.containsUid(uid)`.)
   `Tyre Not Scanned` · `No Rubber` · `No Tyre Data` · `Not authorised` ·
   `Work cell not selected yet`.
 
+## 2.5 THE ANSWER — the previous scan-out app's IBT contract (app-05)
+
+`dispatch_control_test.apk` (`com.example.dispatch_loading_app_new`,
+v0.1.0, the older generation of the app the floor scans tyres with) has
+the IBT path recovered **verbatim** from its Dart AOT (Blutter):
+
+```
+scan (14-hex UID)
+ └─ getSlipTyreWithUID(uid) → { size_id, rubber_id, job, … }
+     ├─ tyre.job == "Client Retread"   ← HARD GATE (wrong_tyre.mp3 otherwise)
+     ├─ checkIfInIbt(tyre):
+     │     line_items.any(
+     │       line.size_id  == tyre.size_id &&
+     │       line.rubber_id == tyre.rubber_id &&
+     │       line.total    >  line.tyres.length)     ← capacity remains
+     └─ createDispatchDeliveryINV_V2 {
+           uid, registration, personnel_id,
+           document_no: "IBTxxxxx", loaded: 1, location_id: 12 }
+         ├─ successful == 1     → success.mp3, tyre appended to the line
+         └─ duplicate_scan == 1 → "Previously loaded by <name> on <scan_time>"
+```
+
+**So a tyre "falls under stocks" when:**
+1. `getSlipTyreWithUID` returns `job == "Client Retread"` — the system's
+   actual language for a stocks/IBT tyre (not "stocks", not a GRV number),
+2. its `size_id` + `rubber_id` match an IBT manifest line, and
+3. that line still has capacity (`total > scanned-so-far`).
+
+The `rcs_code` is the manifest line's identifier, NOT a per-tyre mark —
+slip rows never carry it. There is **no UID matching** for IBT (the
+manifest has no tyre list); the trust lives in the staged document +
+the committed scan's `document_no = IBTxxxxx`.
+
+Adjacent vocabulary from the same build: job strings
+`Client Retread` · `STOCK RETREAD` · `STOCK RINGTREAD` · `RETREAD`;
+delivery mutations hardcode `location_id = 12` ("In Transit" in the
+location table); a test leftover special-cases `IBT83077`; AMS INV is
+sent as `inv` (quirk); offload is the same mutation with `loaded: 0`.
+Scan-side guards: `"NO PERSONNEL SCANNED"`, `"Tyre Not Found. Please try
+again"`, `"Please Scan a Valid Tag"`, `"Previously loaded by …"`.
+
 ## 3. Data-side fingerprints — how OUR app can identify a stocks tyre
 
 After scanning a UID, the system can answer "is this tyre stock?" with
@@ -97,6 +140,7 @@ these signals (highest confidence first):
 
 | # | Signal | Where | Meaning |
 |---|---|---|---|
+| 0 | `job == "Client Retread"` | slip row (`getSlipTyreWithUID`) | **the scanner's own gate for IBT/stocks tyres** |
 | 1 | `description` contains `STOCK` (STOCK RETREAD / STOCK RINGTREAD) | manifest / slip pattern | stock-transfer tyre |
 | 2 | `rcs_code` present on its manifest line | `getDeliveryInfo.ibt` only (NOT on slip rows) | stock-line id ("GRV") |
 | 3 | `location_id == 008` | slip row | **Stock Tyre Bay / Stock Storage Yard** (location vocabulary; 091 = Bulk Bay, 090 = Factory) |
@@ -117,14 +161,15 @@ does when counting.
 
 ```
 scan uid → getSlipTyreWithUID + getTyreHistory
+  ├─ job == "Client Retread"
+  │    └─ size_id+rubber_id match an IBT line with capacity → STOCKS (IBT)
   ├─ dump==1 or REJECT DUMP cell                 → DUMP
   ├─ reject_accepted==2 or REJECT cells or DUD   → SCRAP
   ├─ job "Claim…" / pattern CLAIM                → CLAIM
   ├─ invoice_number INV/CRN or DISPATCH DELIVERY → CUSTOMER
   ├─ latest cell DISPATCH STOCK TAKE
   │    OR location_id 008
-  │    OR size+rubber matches an IBT Stock_Info line (RCS code)
-  │    OR description contains STOCK             → STOCKS (IBT)
+  │    OR description contains STOCK             → STOCKS (in yard)
   └─ otherwise                                   → IN FACTORY
 ```
 
@@ -149,6 +194,7 @@ auto-session up front, and avoid re-fetch storms on `notifyListeners`.
 
 ---
 
-*Recon complete. Next step candidates: (a) confirm the RCS code on the
-physical IBT slip with the floor, (b) build the scan→classify engine
-from §4, (c) then fix 5.1/5.2.*
+*Recon complete (v2 — app-05 contract added). Next step candidates:
+(a) confirm the `job`/RCS vocabulary on the physical IBT slip with the
+floor, (b) build the scan→classify engine from §4, (c) then fix the
+sheet-wipe and slow-materialization bugs.*
