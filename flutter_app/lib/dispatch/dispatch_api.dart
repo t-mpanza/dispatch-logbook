@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../data/services/appsync_manifest_service.dart';
+import '../data/services/aws_auto_login_service.dart';
 import 'models/dispatch_models.dart';
 import 'models/json_helpers.dart';
 import 'models/slip_tyre.dart';
@@ -20,7 +21,36 @@ class DispatchApi {
     required String query,
     Map<String, dynamic> variables = const {},
   }) async {
-    final idToken = await AppSyncManifestService.getValidIdToken();
+    try {
+      return await _postOnce(query: query, variables: variables);
+    } on Exception catch (e) {
+      // Self-healing session: expired tokens are silently renewed and the
+      // request retried once — the lookup must feel as persistent as the
+      // IBT system, never a login wall.
+      final message = e.toString();
+      final isAuthIssue = message.contains('Authentication') ||
+          message.contains('Unauthorized') ||
+          message.contains('401') ||
+          message.contains('token');
+      if (!isAuthIssue) rethrow;
+
+      final fresh = await AwsAutoLoginService.login();
+      if (fresh == null || fresh.isEmpty) rethrow;
+      return await _postOnce(
+        query: query,
+        variables: variables,
+        explicitToken: fresh,
+      );
+    }
+  }
+
+  static Future<Map<String, dynamic>> _postOnce({
+    required String query,
+    Map<String, dynamic> variables = const {},
+    String? explicitToken,
+  }) async {
+    final idToken =
+        explicitToken ?? await AppSyncManifestService.getValidIdToken();
     if (idToken == null || idToken.isEmpty) {
       throw Exception('No AppSync session — sign in or check connectivity.');
     }

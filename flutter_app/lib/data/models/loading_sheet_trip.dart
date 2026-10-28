@@ -40,6 +40,18 @@ class LoadingSheetTrip {
 
   bool get hasIbtDocuments => ibtDocuments != null && ibtDocuments!.isNotEmpty;
 
+  /// The duration actually spent loading: the stored value when present,
+  /// otherwise derived from start/finish timestamps. IBT/STOCKS trips only
+  /// carry timestamps, so every time aggregation must go through here or
+  /// stocks loads silently vanish from the time counter.
+  int? get effectiveDurationMinutes {
+    final stored = durationMinutes;
+    if (stored != null && stored > 0) return stored;
+    if (startTime == null || finishTime == null) return null;
+    if (finishTime! <= startTime!) return null;
+    return ((finishTime! - startTime!) / (1000 * 60)).round();
+  }
+
   int get ibtTargetTotal =>
       ibtDocuments?.fold<int>(0, (sum, doc) => sum + doc.total) ?? 0;
 

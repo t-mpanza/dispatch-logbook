@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../../data/services/database_service.dart';
 import '../../dispatch/domain/tyre_story.dart';
 import '../../dispatch/hardware/nfc_scan_service.dart';
 import '../../dispatch/models/dispatch_models.dart';
@@ -35,12 +36,14 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
   bool _nfcAvailable = false;
   String? _error;
   TyreStory? _story;
+  List<Map<String, dynamic>> _recent = const [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkNfc();
+    _loadRecent();
     _scanSub = _nfc.scans.listen(_onNfcScan);
   }
 
@@ -87,6 +90,70 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
     if (mounted) setState(() => _nfcArmed = false);
   }
 
+  Future<void> _loadRecent() async {
+    final rows = await DatabaseService.getRecentLookups();
+    if (!mounted) return;
+    setState(() => _recent = rows);
+  }
+
+  /// Remember every successful lookup so the next check is one tap.
+  void _saveRecent(TyreStory story) {
+    final t = story.tyre;
+    final kind = t.slipNumber != null
+        ? 'slip'
+        : (t.serial != null && t.serial!.isNotEmpty ? 'serial' : 'uid');
+    final key = t.slipNumber?.toString() ??
+        t.serial ??
+        t.uid ??
+        '';
+    if (key.isEmpty) return;
+    DatabaseService.saveRecentLookup(
+      key: key,
+      kind: kind,
+      customer: t.customerName,
+      label: t.displayLabel,
+    ).then((_) {
+      if (mounted) _loadRecent();
+    });
+  }
+
+  Future<void> _openRecent(Map<String, dynamic> row) async {
+    AppHaptics.medium();
+    setState(() {
+      _busy = true;
+      _error = null;
+      _story = null;
+      _controller.text = row['key'] as String;
+    });
+    try {
+      const usecase = TyreStoryUsecase();
+      TyreStory? story;
+      switch (row['kind'] as String) {
+        case 'serial':
+          story = await usecase.bySerial(row['key'] as String);
+        case 'uid':
+          story = await usecase.byUid(row['key'] as String);
+        default:
+          final n = int.tryParse(row['key'] as String);
+          if (n != null) story = await usecase.bySlipOrJobNumber(n);
+      }
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _story = story;
+        if (story == null) {
+          _error = 'No tyre found for "${row['key']}".';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Lookup failed: $e';
+      });
+    }
+  }
+
   Future<void> _onNfcScan(String uid) async {
     // One read is enough — disarm immediately so the session never lingers.
     await _disarmNfc();
@@ -105,7 +172,11 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
       setState(() {
         _busy = false;
         _story = story;
-        if (story == null) _error = 'Tag $uid — no tyre on the system.';
+        if (story == null) {
+          _error = 'Tag $uid — no tyre on the system.';
+        } else {
+          _saveRecent(story);
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -140,7 +211,11 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
       setState(() {
         _busy = false;
         _story = story;
-        if (story == null) _error = 'No tyre found for "$q".';
+        if (story == null) {
+          _error = 'No tyre found for "$q".';
+        } else {
+          _saveRecent(story);
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -260,6 +335,13 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
           ],
         ),
         const SizedBox(height: 14),
+        if (_recent.isNotEmpty) ...[
+          _SectionLabel('RECENT'),
+          const SizedBox(height: 8),
+          for (final row in _recent.take(5))
+            _recentTile(row),
+          const SizedBox(height: 14),
+        ],
         if (_error != null)
           Container(
             padding: const EdgeInsets.all(14),
@@ -334,6 +416,63 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
                 ? AppColors.infoStrong(context)
                 : AppColors.dynamicTextMuted(context),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _recentTile(Map<String, dynamic> row) {
+    return GestureDetector(
+      onTap: () => _openRecent(row),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: AppColors.info.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.dynamicBorder(context)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.history_rounded,
+              size: 14,
+              color: AppColors.dynamicTextMuted(context),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    row['customer'] as String? ?? 'Recent tyre',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.dynamicTextPrimary(context),
+                    ),
+                  ),
+                  Text(
+                    '${row['label'] as String? ?? ''} · ${row['key']}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      color: AppColors.dynamicTextMuted(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: AppColors.dynamicTextMuted(context),
+            ),
+          ],
         ),
       ),
     );

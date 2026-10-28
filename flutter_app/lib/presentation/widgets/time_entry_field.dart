@@ -5,6 +5,38 @@ import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
 
+/// Pure digit→time logic for the smart time sheet. Kept outside the widget
+/// so the empty-buffer / partial-input behaviour is unit-testable.
+class TimeDigits {
+  TimeDigits._();
+
+  /// "1110" → "11:10"; pads short buffers ("1" → "10:00", "" → "00:00").
+  static String format(String buffer) {
+    final padded = buffer.padRight(4, '0');
+    if (padded.length <= 2) return padded;
+    return '${padded.substring(0, 2)}:${padded.substring(2, 4)}';
+  }
+
+  /// True when [candidate] (raw digits, 1–4 chars) is a plausible time.
+  static bool isValid(String candidate) {
+    final padded = candidate.padRight(4, '0');
+    final hh = int.tryParse(padded.substring(0, 2)) ?? 99;
+    final mm = int.tryParse(padded.substring(2, 4)) ?? 99;
+    return hh <= 23 && mm <= 59;
+  }
+
+  /// Epoch ms of today at the entered time, or null when empty.
+  static int? toEpochMs(String buffer, {DateTime? now}) {
+    if (buffer.isEmpty) return null;
+    final padded = buffer.padRight(4, '0');
+    final hh = int.tryParse(padded.substring(0, 2));
+    final mm = int.tryParse(padded.substring(2, 4));
+    if (hh == null || mm == null) return null;
+    final t = now ?? DateTime.now();
+    return DateTime(t.year, t.month, t.day, hh, mm).millisecondsSinceEpoch;
+  }
+}
+
 /// Smart time entry — type digits only ("1110" becomes 11:10, the colon
 /// inserts itself), or tap NOW / +15m / +30m / +1h. No more typing "11"
 /// then ":" then "10".
@@ -89,29 +121,14 @@ class _TimeEntrySheetState extends State<_TimeEntrySheet> {
   }
 
   /// "1110" → "11:10". Digits-only input; colon auto-inserted.
-  String get _formatted {
-    if (_buffer.length <= 2) return _buffer.padRight(2, '0').padLeft(2, '0');
-    return '${_buffer.substring(0, 2)}:${_buffer.substring(2).padRight(2, '0')}';
-  }
+  String get _formatted => TimeDigits.format(_buffer);
 
-  int? get _value {
-    if (_buffer.isEmpty) return null;
-    final hh = int.tryParse(_buffer.substring(0, 2));
-    final mm = int.tryParse(
-      _buffer.substring(2).padRight(2, '0').substring(0, 2),
-    );
-    if (hh == null || mm == null) return null;
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day, hh, mm)
-        .millisecondsSinceEpoch;
-  }
+  int? get _value => TimeDigits.toEpochMs(_buffer);
 
   void _press(String digit) {
     AppHaptics.light();
     final candidate = _buffer + digit;
-    final hh = int.tryParse(candidate.substring(0, 2)) ?? 0;
-    final mm = int.tryParse(candidate.substring(2)) ?? 0;
-    if (hh > 23 || mm > 59) {
+    if (!TimeDigits.isValid(candidate)) {
       AppHaptics.error();
       return;
     }
@@ -124,6 +141,11 @@ class _TimeEntrySheetState extends State<_TimeEntrySheet> {
     if (_buffer.isNotEmpty) {
       setState(() => _buffer = _buffer.substring(0, _buffer.length - 1));
     }
+  }
+
+  void _clearAll() {
+    AppHaptics.medium();
+    setState(() => _buffer = '');
   }
 
   void _quick(int offsetMinutes) {
@@ -315,6 +337,7 @@ class _TimeEntrySheetState extends State<_TimeEntrySheet> {
           _press(label);
         }
       },
+      onLongPress: label == '⌫' ? _clearAll : null,
       child: Container(
         height: 50,
         decoration: BoxDecoration(

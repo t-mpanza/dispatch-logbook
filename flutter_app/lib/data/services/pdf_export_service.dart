@@ -18,7 +18,7 @@ class PdfExportService {
 
     for (final t in trips) {
       totalTyres += t.quantityLoaded;
-      totalMinutes += t.durationMinutes ?? 0;
+      totalMinutes += t.effectiveDurationMinutes ?? 0;
     }
 
     final hours = totalMinutes ~/ 60;

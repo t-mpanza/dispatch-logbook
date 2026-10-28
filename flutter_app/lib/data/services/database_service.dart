@@ -18,7 +18,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -66,6 +66,16 @@ class DatabaseService {
           )
         ''');
 
+        await db.execute('''
+          CREATE TABLE dispatch_recent (
+            key TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            customer TEXT,
+            label TEXT,
+            at INTEGER NOT NULL
+          )
+        ''');
+
         await db.execute(
           'CREATE INDEX idx_entries_day_key ON entries(day_key)',
         );
@@ -96,6 +106,17 @@ class DatabaseService {
           await db.execute(
             'ALTER TABLE dispatch_decisions ADD COLUMN reason TEXT',
           );
+        }
+        if (oldVersion < 5) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS dispatch_recent (
+              key TEXT PRIMARY KEY,
+              kind TEXT NOT NULL,
+              customer TEXT,
+              label TEXT,
+              at INTEGER NOT NULL
+            )
+          ''');
         }
       },
     );
@@ -313,5 +334,36 @@ class DatabaseService {
   static Future<void> clearDispatchDecision(String uid) async {
     final db = await database;
     await db.delete('dispatch_decisions', where: 'uid = ?', whereArgs: [uid]);
+  }
+
+  // ── Dispatch Recent Lookups (local, newest first) ─────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getRecentLookups({int limit = 10}) async {
+    final db = await database;
+    return db.query(
+      'dispatch_recent',
+      orderBy: 'at DESC',
+      limit: limit,
+    );
+  }
+
+  static Future<void> saveRecentLookup({
+    required String key,
+    required String kind,
+    String? customer,
+    String? label,
+  }) async {
+    final db = await database;
+    await db.insert(
+      'dispatch_recent',
+      {
+        'key': key,
+        'kind': kind,
+        'customer': customer,
+        'label': label,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 }

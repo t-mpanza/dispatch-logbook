@@ -257,8 +257,9 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
   Widget _buildAddIbtSection(Entry currentEntry, EntryRepository repo) {
     final sheetTrips = <LoadingSheetTrip>[...?currentEntry.loadingSheetTrips];
     final sheetTripIdx = sheetTrips.indexWhere((t) => !t.isManual);
-    if (sheetTripIdx < 0) return const SizedBox.shrink();
-    final primary = sheetTrips[sheetTripIdx];
+    // An empty stocks entry has no sheet trip yet — still render the
+    // picker, and materialize the trip the moment documents are attached.
+    final primary = sheetTripIdx >= 0 ? sheetTrips[sheetTripIdx] : null;
 
     return AppCard(
       padding: const EdgeInsets.all(14),
@@ -286,7 +287,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
           ),
           const SizedBox(height: 10),
           IbtPicker(
-            documents: primary.ibtDocuments ?? [],
+            documents: primary?.ibtDocuments ?? [],
             onChanged: (docs) {
               final totalTarget = docs.fold<int>(0, (s, d) => s + d.total);
               final totalLoaded = docs.fold<int>(
@@ -295,11 +296,26 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
               );
               final nowMs = DateTime.now().millisecondsSinceEpoch;
 
-              final updatedTrip = primary.copyWith(
+              final baseTrip = primary ??
+                  LoadingSheetTrip(
+                    id: IdGenerator.generate(),
+                    entryId: currentEntry.id,
+                    reg: '',
+                    driverName: '',
+                    tripId: currentEntry.title.isNotEmpty
+                        ? currentEntry.title
+                        : 'STOCKS',
+                    presetKey: PresetKey.STOCKS,
+                    quantityLoaded: 0,
+                    startTime: nowMs,
+                    createdAt: nowMs,
+                  );
+
+              final updatedTrip = baseTrip.copyWith(
                 ibtDocuments: docs,
                 targetQuantity: totalTarget > 0 ? totalTarget : null,
                 quantityLoaded: docs.isNotEmpty ? totalLoaded : 0,
-                startTime: primary.startTime ?? nowMs,
+                startTime: baseTrip.startTime ?? nowMs,
                 finishTime: nowMs,
               );
 
@@ -309,6 +325,8 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
               final idx = updatedSheetTrips.indexWhere((t) => !t.isManual);
               if (idx >= 0) {
                 updatedSheetTrips[idx] = updatedTrip;
+              } else {
+                updatedSheetTrips.add(updatedTrip);
               }
 
               repo.saveEntry(

@@ -80,11 +80,14 @@ class IbtLineOps {
     docs[docIdx] = updatedDoc;
 
     final totalLoaded = docs.fold<int>(0, (s, d) => s + d.loadedTotal);
+    final start = trip.startTime ?? at;
+    final durationMin = ((at - start) / (1000 * 60)).round().clamp(1, 1 << 31);
     final updatedTrip = trip.copyWith(
       ibtDocuments: docs,
       quantityLoaded: totalLoaded,
-      startTime: trip.startTime ?? at,
+      startTime: start,
       finishTime: at,
+      durationMinutes: durationMin,
     );
 
     return IbtLineDeltaResult(

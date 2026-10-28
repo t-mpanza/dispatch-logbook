@@ -141,7 +141,7 @@ class _LoadingSheetScreenState extends State<LoadingSheetScreen> {
               var totalMinutes = 0;
               for (final t in trips) {
                 totalTyres += t.quantityLoaded;
-                totalMinutes += t.durationMinutes ?? 0;
+                totalMinutes += t.effectiveDurationMinutes ?? 0;
               }
               final hours = totalMinutes ~/ 60;
               final mins = totalMinutes % 60;
