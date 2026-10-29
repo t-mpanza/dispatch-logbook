@@ -194,7 +194,9 @@ class AwsAutoLoginService {
       );
 
       if (initRes.statusCode != 200) {
-        debugPrint('AWS auto-login init failed (${initRes.statusCode})');
+        debugPrint(
+          'AWS auto-login init failed (${initRes.statusCode}): ${initRes.body}',
+        );
         return null;
       }
 

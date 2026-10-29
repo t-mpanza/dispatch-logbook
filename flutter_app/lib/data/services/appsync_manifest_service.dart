@@ -35,6 +35,17 @@ class AppSyncManifestService {
   static const String _keyIdToken = 'appsync_id_token';
   static const String _keyRefreshToken = 'appsync_refresh_token';
 
+  /// Defensive storage reads — a secure-storage failure must never crash
+  /// the IBT flow; the caller falls back to the silent auto-login.
+  static Future<String?> _safeRead(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } catch (e) {
+      debugPrint('AWS token storage read error ($key): $e');
+      return null;
+    }
+  }
+
   // Master size and rubber master mapping tables from backend.
   // Ground truth from live manifests (IBT 122773): 22=12R22.5, 16=11R22.5,
   // 70=315/80R22.5. Description always wins; these are fallbacks only.
@@ -234,7 +245,7 @@ class AppSyncManifestService {
 
   /// Get current authentication details & token metadata
   static Future<AwsUserInfo> getAuthDetails() async {
-    final idToken = await _storage.read(key: _keyIdToken);
+    final idToken = await _safeRead(_keyIdToken);
     if (idToken == null || idToken.isEmpty) {
       return const AwsUserInfo(isAuthenticated: false);
     }
@@ -304,7 +315,7 @@ class AppSyncManifestService {
   }
 
   static Future<String?> _validManualToken({http.Client? client}) async {
-    final idToken = await _storage.read(key: _keyIdToken);
+    final idToken = await _safeRead(_keyIdToken);
     if (idToken == null || idToken.isEmpty) return null;
 
     try {
@@ -330,7 +341,7 @@ class AppSyncManifestService {
 
   /// Refresh token via Cognito OAuth2 endpoint
   static Future<String?> refreshAccessToken({http.Client? client}) async {
-    final refreshToken = await _storage.read(key: _keyRefreshToken);
+    final refreshToken = await _safeRead(_keyRefreshToken);
     if (refreshToken == null || refreshToken.isEmpty) return null;
 
     final httpClient = client ?? http.Client();

@@ -12,6 +12,8 @@ class SlipTyre {
     this.idTyre,
     this.slipNumber,
     this.pattern,
+    this.sizeId,
+    this.rubberId,
     this.idConfirmationSheet,
     this.customerName,
     this.csNumber,
@@ -43,6 +45,8 @@ class SlipTyre {
   final int? idTyre;
   final int? slipNumber;
   final String? pattern;
+  final int? sizeId;
+  final int? rubberId;
   final int? idConfirmationSheet;
   final String? customerName;
   final String? csNumber;
@@ -99,6 +103,8 @@ class SlipTyre {
     idTyre: jsonInt(json['idTyre']),
     slipNumber: jsonInt(json['slip_number']),
     pattern: jsonString(json['pattern']),
+    sizeId: jsonInt(json['size_id']),
+    rubberId: jsonInt(json['rubber_id']),
     idConfirmationSheet: jsonInt(json['idConfirmation_Sheet']),
     customerName: jsonString(json['CustomerName']),
     csNumber: jsonString(json['cs_number']),

@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptics.dart';
 import '../../core/utils/id_generator.dart';
+import '../../core/utils/scan_sounds.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/note_block.dart';
 import '../../data/models/preset.dart';
 import '../../data/repositories/entry_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../data/services/audio_service.dart';
 import '../../data/services/ibt_line_ops.dart';
+import '../../dispatch/dispatch_api.dart';
+import '../../dispatch/domain/ibt_scan_engine.dart';
 import '../../dispatch/domain/ibt_search.dart';
+import '../../dispatch/hardware/nfc_scan_service.dart';
+import '../../dispatch/ibt_scan_api.dart';
+import '../../dispatch/models/slip_tyre.dart';
 import '../widgets/event_log_view.dart';
 import '../widgets/floating_note_bar.dart';
 import '../widgets/ibt_picker.dart';
@@ -41,7 +49,8 @@ class StocksEntryDetailScreen extends StatefulWidget {
       _StocksEntryDetailScreenState();
 }
 
-class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
+class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
+    with WidgetsBindingObserver {
   final AudioService _audioService = AudioService();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _regController = TextEditingController();
@@ -59,8 +68,37 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
   String _searchQuery = '';
   String? _activePattern;
 
+  /// Hardened IBT scanner state.
+  final NfcScanService _nfc = NfcScanService();
+  StreamSubscription<String>? _scanSub;
+  bool _scanArmed = false;
+  bool _scanBusy = false;
+  String? _scanBanner;
+  bool _scanBannerOk = false;
+  Timer? _bannerTimer;
+  final Set<String> _sessionUids = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scanSub = _nfc.scans.listen(_handleScan);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && _scanArmed) {
+      _disarmScan();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _bannerTimer?.cancel();
+    _scanSub?.cancel();
+    _nfc.stop();
+    _nfc.dispose();
     _audioService.dispose();
     _titleController.dispose();
     _regController.dispose();
@@ -254,6 +292,70 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
     _reactToDelta(result);
   }
 
+  Widget _buildScanSection(BuildContext context) {
+    final color = _scanArmed
+        ? AppColors.successStrong(context)
+        : AppColors.infoStrong(context);
+
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      borderColor: _scanArmed ? color.withValues(alpha: 0.5) : null,
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(Icons.nfc_rounded, color: color, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SCAN TYRE',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    color: AppColors.dynamicTextPrimary(context),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _scanArmed
+                      ? 'WAITING FOR TAG — hold the tyre tag to the reader'
+                      : 'Scan the NFC tag and the IBT counts itself',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: _scanArmed
+                        ? AppColors.successStrong(context)
+                        : AppColors.dynamicTextMuted(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_scanBusy)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            TextButton(
+              onPressed: _scanArmed ? _disarmScan : _armScan,
+              child: Text(_scanArmed ? 'Stop' : 'Arm'),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAddIbtSection(Entry currentEntry, EntryRepository repo) {
     final sheetTrips = <LoadingSheetTrip>[...?currentEntry.loadingSheetTrips];
     final sheetTripIdx = sheetTrips.indexWhere((t) => !t.isManual);
@@ -346,6 +448,164 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
 
   /// Line items render EXACTLY in the order the manifest was fetched —
   /// static, stable, predictable. No dynamic re-sorting mid-tally.
+
+  // ── Hardened IBT scanner ──────────────────────────────────────────────────
+
+  void _showBanner(String message, bool ok) {
+    _bannerTimer?.cancel();
+    setState(() {
+      _scanBanner = message;
+      _scanBannerOk = ok;
+    });
+    _bannerTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _scanBanner = null);
+    });
+  }
+
+  Future<void> _armScan() async {
+    final settings = context.read<SettingsRepository>();
+    if (!settings.nfcEnabled) {
+      ScanSounds.error();
+      AppHaptics.error();
+      _showBanner('NFC scanning is turned off in Settings', false);
+      return;
+    }
+    try {
+      await _nfc.start();
+      if (mounted) setState(() => _scanArmed = true);
+    } catch (_) {
+      if (mounted) {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('NFC not available on this device', false);
+      }
+    }
+  }
+
+  Future<void> _disarmScan() async {
+    await _nfc.stop();
+    if (mounted) setState(() => _scanArmed = false);
+  }
+
+  /// The full scan pipeline: look up → gate → commit → tally.
+  /// Local tally fires ONLY after the backend says `successful == 1`.
+  Future<void> _handleScan(String uid) async {
+    await _disarmScan();
+    if (_scanBusy || !mounted) return;
+
+    setState(() {
+      _scanBusy = true;
+      _scanBanner = null;
+    });
+
+    final repo = context.read<EntryRepository>();
+    try {
+      // Fixed operator — no badge flow.
+      final operatorId = await IbtScanApi.resolveOperatorId();
+      if (operatorId == null) {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('Operator not found — check connection', false);
+        return;
+      }
+
+      SlipTyre? tyre;
+      try {
+        tyre = await DispatchApi.fetchTyreByUid(uid);
+      } catch (_) {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('Connection failed — try again', false);
+        return;
+      }
+
+      if (tyre == null || tyre.uid == null) {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('Tyre Not Found', false);
+        return;
+      }
+
+      final entry = await repo.getEntryById(widget.entryId);
+      if (entry == null) return;
+
+      final trips = [...?entry.loadingSheetTrips];
+      final idx = trips.indexWhere((t) => !t.isManual);
+      final trip = idx >= 0 ? trips[idx] : null;
+      if (trip == null) {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('Attach an IBT first', false);
+        return;
+      }
+
+      final verdict = IbtScanEngine.evaluate(
+        trip: trip,
+        tyre: tyre,
+        sessionUids: _sessionUids,
+        operatorId: operatorId,
+      );
+
+      if (verdict is ScanRejected) {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner(verdict.message, false);
+        return;
+      }
+
+      final accepted = verdict as ScanAccepted;
+
+      final ScanCommitResult result;
+      try {
+        result = await IbtScanApi.commitScan(
+          uid: tyre.uid!,
+          registration: trip.reg.trim(),
+          personnelId: operatorId,
+          documentNo: accepted.documentNo,
+        );
+      } on ScanCommitException catch (e) {
+        ScanSounds.error();
+        AppHaptics.error();
+        final message = e.message.toLowerCase();
+        _showBanner(
+          message.contains('no slip found') || message.contains('not found')
+              ? 'Tyre Not Found'
+              : 'Connection failed — try again',
+          false,
+        );
+        return;
+      }
+
+      switch (result) {
+        case ScanCommitSuccess():
+          _sessionUids.add(tyre.uid!);
+          await _updateLineQuantity(
+            currentEntry: entry,
+            repo: repo,
+            docNo: accepted.documentNo,
+            lineId: accepted.lineId,
+            newQuantity: accepted.line.loadedQuantity + 1,
+          );
+          ScanSounds.success();
+          AppHaptics.success();
+          _showBanner(accepted.message, true);
+        case ScanCommitDuplicate(:final name, :final scanTime):
+          ScanSounds.error();
+          AppHaptics.error();
+          _showBanner(
+            'Previously loaded by ${name ?? 'someone'}'
+            '${scanTime != null ? ' on $scanTime' : ''}',
+            false,
+          );
+        case ScanCommitRejected():
+          ScanSounds.error();
+          AppHaptics.error();
+          _showBanner('Scan rejected by system', false);
+      }
+    } finally {
+      if (mounted) setState(() => _scanBusy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -501,6 +761,14 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen> {
                       const SizedBox(height: 16),
 
                       _buildAddIbtSection(currentEntry, repo),
+                      const SizedBox(height: 12),
+
+                      // ── Hardened IBT scanner ───────────────────────────
+                      _buildScanSection(context),
+                      if (_scanBanner != null) ...[
+                        const SizedBox(height: 10),
+                        _ScanBanner(message: _scanBanner!, ok: _scanBannerOk),
+                      ],
                       const SizedBox(height: 18),
 
                       if (ibtDocs.isEmpty)
@@ -1930,6 +2198,51 @@ class _IbtSearchBar extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The scan result banner — the screen is the detail channel: big green
+/// for accepted, big red for everything wrong. The sound is binary.
+class _ScanBanner extends StatelessWidget {
+  final String message;
+  final bool ok;
+
+  const _ScanBanner({required this.message, required this.ok});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ok
+        ? AppColors.successStrong(context)
+        : AppColors.errorStrong(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            ok ? Icons.check_circle_rounded : Icons.error_rounded,
+            size: 20,
+            color: color,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.4,
+                color: color,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

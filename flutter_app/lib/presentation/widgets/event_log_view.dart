@@ -424,28 +424,32 @@ class _VoiceNotePlayerCardState extends State<_VoiceNotePlayerCard> {
     final defaultDurMs = widget.attachment.durationMs ?? 0;
     _duration = Duration(milliseconds: defaultDurMs);
 
-    _posSub = widget.audioService.onPositionChanged.listen((p) {
-      if (mounted &&
-          widget.audioService.currentlyPlayingId == widget.attachment.id) {
-        setState(() => _position = p);
-      }
-    });
+    // Player streams surface lazily — no plugin, no playback UI, no crash.
+    final player = widget.audioService.ensurePlayer();
+    if (player != null) {
+      _posSub = player.onPositionChanged.listen((p) {
+        if (mounted &&
+            widget.audioService.currentlyPlayingId == widget.attachment.id) {
+          setState(() => _position = p);
+        }
+      });
 
-    _durSub = widget.audioService.onDurationChanged.listen((d) {
-      if (mounted &&
-          widget.audioService.currentlyPlayingId == widget.attachment.id) {
-        setState(() => _duration = d);
-      }
-    });
+      _durSub = player.onDurationChanged.listen((d) {
+        if (mounted &&
+            widget.audioService.currentlyPlayingId == widget.attachment.id) {
+          setState(() => _duration = d);
+        }
+      });
 
-    _stateSub = widget.audioService.onPlayerStateChanged.listen((s) {
-      if (mounted) {
-        final isThisPlaying =
-            s == PlayerState.playing &&
-            widget.audioService.currentlyPlayingId == widget.attachment.id;
-        setState(() => _isPlaying = isThisPlaying);
-      }
-    });
+      _stateSub = player.onPlayerStateChanged.listen((s) {
+        if (mounted) {
+          final isThisPlaying =
+              s == PlayerState.playing &&
+              widget.audioService.currentlyPlayingId == widget.attachment.id;
+          setState(() => _isPlaying = isThisPlaying);
+        }
+      });
+    }
   }
 
   @override

@@ -53,7 +53,12 @@ class NfcScanService {
   }
 
   Future<void> stop() async {
-    await NfcManager.instance.stopSession();
+    try {
+      await NfcManager.instance.stopSession();
+    } catch (e) {
+      // No NFC hardware / plugin channel absent — stopping must never throw.
+      debugPrint('NFC stop failed (ignored): $e');
+    }
   }
 
   void dispose() {

@@ -86,9 +86,9 @@ class DispatchApi {
     query MyQuery($uid: String) {
       getSlipTyreWithUID(uid: $uid) {
         idJob job idSlip slip_number on_rim pattern idConfirmation_Sheet
-        CustomerName cs_number idTyre make size serial dot driver reference
-        registration uid location_id reject_accepted invoiced invoice_number
-        order_number dump tagged
+        CustomerName cs_number idTyre make size size_id rubber_id serial dot
+        driver reference registration uid location_id reject_accepted
+        invoiced invoice_number order_number dump tagged
       }
     }
     ''';
@@ -214,14 +214,16 @@ class DispatchApi {
 
   /// Delivery slips for a staged document (INV/DIBT/AMS number) — the
   /// inspect HUD's source of truth in the lite (text-input) mode.
+  /// All four keys MUST be sent (unused as empty strings) or the backend
+  /// resolver crashes — the all-four-keys rule.
   static Future<List<SlipTyre>> fetchDeliverySlips({
     String inv = '',
     String dibt = '',
     String amsInv = '',
   }) async {
     const q = r'''
-    query MyQuery($inv: String, $dibt: String, $amsInv: String) {
-      getDeliveryInfo(getDeliveryInfo: {amsInv: $amsInv, dibt: $dibt, inv: $inv}) {
+    query MyQuery($inv: String, $dibt: String, $amsInv: String, $ibt: String) {
+      getDeliveryInfo(getDeliveryInfo: {amsInv: $amsInv, dibt: $dibt, ibt: $ibt, inv: $inv}) {
         inv {
           customerName customerCode total
           slips {
@@ -241,7 +243,7 @@ class DispatchApi {
     ''';
     final data = await _post(
       query: q,
-      variables: {'inv': inv, 'dibt': dibt, 'amsInv': amsInv},
+      variables: {'inv': inv, 'dibt': dibt, 'amsInv': amsInv, 'ibt': ''},
     );
     final delivery = jsonMapField(data['getDeliveryInfo']);
     final tyres = <SlipTyre>[];
