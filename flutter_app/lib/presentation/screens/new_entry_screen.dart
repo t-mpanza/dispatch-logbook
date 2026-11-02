@@ -13,7 +13,7 @@ import '../widgets/tags_input.dart';
 import '../widgets/ui_kit.dart';
 import '../entry_route.dart';
 
-enum EntryKind { truckLoad, stocks, countNote }
+enum EntryKind { truckLoad, stocks, countNote, scraps }
 
 /// THE single entry-creation flow. Every entry starts here with the same
 /// shape: choose a kind (truck load / stocks run / count & note), fill the
@@ -76,6 +76,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       case EntryKind.countNote:
         _withCounter = true;
         _selectPreset(PresetKey.CUSTOM);
+      case EntryKind.scraps:
+        // The scrap run-out: no target, count up or remove whatever is
+        // there. Fixed truck + driver, per the bay's standing run.
+        _withCounter = true;
+        _selectedPreset = PresetKey.CUSTOM;
+        _titleController.text = 'SCRAPS';
+        _regController.text = 'KH58XD';
+        _driverController.text = 'RICHMORE';
+        _ensureTag('scraps');
     }
   }
 
@@ -145,6 +154,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
     final isStocks = _kind == EntryKind.stocks;
     final isTruckLoad = _kind == EntryKind.truckLoad;
+    final isScraps = _kind == EntryKind.scraps;
     final totalIbtTyres = _ibtDocuments.fold<int>(0, (s, d) => s + d.total);
     final target = int.tryParse(_targetController.text.trim());
 
@@ -154,7 +164,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       withCounter: _withCounter,
       expectedTotal: (isStocks && totalIbtTyres > 0)
           ? totalIbtTyres
-          : (isTruckLoad ? target : null),
+          : ((isTruckLoad && !isScraps) ? target : null),
     );
 
     LoadingSheetTrip? sheetTrip;
@@ -171,6 +181,20 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         startTime: now,
         createdAt: now,
         ibtDocuments: _ibtDocuments,
+      );
+    } else if (isScraps) {
+      // Scraps: no target — the counter is the only source of truth.
+      final now = DateTime.now().millisecondsSinceEpoch;
+      sheetTrip = LoadingSheetTrip(
+        id: IdGenerator.generate(),
+        tripId: 'SCRAPS',
+        reg: _regController.text.trim().toUpperCase(),
+        driverName: _driverController.text.trim(),
+        presetKey: PresetKey.CUSTOM,
+        quantityLoaded: 0,
+        targetQuantity: null,
+        startTime: now,
+        createdAt: now,
       );
     } else if (isTruckLoad && _selectedPreset != PresetKey.CUSTOM) {
       final now = DateTime.now().millisecondsSinceEpoch;
@@ -222,15 +246,19 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _kindChip(EntryKind.truckLoad, Icons.local_shipping_rounded, 'TRUCK LOAD'),
+                      child: _kindChip(EntryKind.truckLoad, Icons.local_shipping_rounded, 'TRUCK'),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 5),
                     Expanded(
-                      child: _kindChip(EntryKind.stocks, Icons.inventory_2_rounded, 'STOCKS RUN'),
+                      child: _kindChip(EntryKind.stocks, Icons.inventory_2_rounded, 'STOCKS'),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 5),
                     Expanded(
-                      child: _kindChip(EntryKind.countNote, Icons.note_add_rounded, 'COUNT · NOTE'),
+                      child: _kindChip(EntryKind.countNote, Icons.note_add_rounded, 'COUNT'),
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: _kindChip(EntryKind.scraps, Icons.delete_outline_rounded, 'SCRAPS'),
                     ),
                   ],
                 ),
@@ -360,6 +388,64 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                   const SizedBox(height: 18),
                 ],
 
+                if (_kind == EntryKind.scraps) ...[
+                  _fieldLabel(context, 'SCRAP RUN-OUT'),
+                  const SizedBox(height: 8),
+                  AppCard(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              size: 16,
+                              color: AppColors.errorStrong(context),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'No target — scan or count up, remove when '
+                                'wrong. Whatever fits, goes.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.dynamicTextMuted(context),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _regController,
+                                textCapitalization:
+                                    TextCapitalization.characters,
+                                decoration: const InputDecoration(
+                                  labelText: 'REG',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: _driverController,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: const InputDecoration(
+                                  labelText: 'DRIVER',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
+
                 if (_kind != EntryKind.stocks) ...[
                   _fieldLabel(context, 'ENTRY NAME'),
                   const SizedBox(height: 8),
@@ -402,7 +488,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 ),
                 const SizedBox(height: 18),
 
-                if (_kind != EntryKind.stocks)
+                if (_kind != EntryKind.stocks && _kind != EntryKind.scraps)
                   AppCard(
                     onTap: () => setState(() => _withCounter = !_withCounter),
                     child: Row(
@@ -476,6 +562,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       EntryKind.truckLoad => AppColors.presetNls,
       EntryKind.stocks => AppColors.presetStocks,
       EntryKind.countNote => AppColors.presetNlh,
+      EntryKind.scraps => AppColors.error,
     };
     return GestureDetector(
       onTap: () => _switchKind(kind),

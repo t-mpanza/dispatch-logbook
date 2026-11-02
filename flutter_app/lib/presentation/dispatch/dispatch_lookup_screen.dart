@@ -155,8 +155,8 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
   }
 
   Future<void> _onNfcScan(String uid) async {
-    // One read is enough — disarm immediately so the session never lingers.
-    await _disarmNfc();
+    // Continuous session: stay armed between tags (debounced upstream);
+    // the session stops only on pause/dispose or the Stop button.
     if (_busy) return;
     AppHaptics.medium();
     setState(() {

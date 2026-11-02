@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../../core/theme/app_colors.dart';
@@ -70,6 +71,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
 
   /// Hardened IBT scanner state.
   final NfcScanService _nfc = NfcScanService();
+  final TextEditingController _uidController = TextEditingController();
   StreamSubscription<String>? _scanSub;
   bool _scanArmed = false;
   bool _scanBusy = false;
@@ -83,6 +85,12 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scanSub = _nfc.scans.listen(_handleScan);
+    // Auto-arm like the reference scanner: the moment the entry opens we
+    // are waiting for a tag. Failures stay silent — the banner appears
+    // only when the operator explicitly taps.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_armScan(announceFailure: false));
+    });
   }
 
   @override
@@ -104,6 +112,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
     _regController.dispose();
     _driverController.dispose();
     _searchController.dispose();
+    _uidController.dispose();
     super.dispose();
   }
 
@@ -300,60 +309,120 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
     return AppCard(
       padding: const EdgeInsets.all(14),
       borderColor: _scanArmed ? color.withValues(alpha: 0.5) : null,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(Icons.nfc_rounded, color: color, size: 24),
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.nfc_rounded, color: color, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SCAN TYRE',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0,
+                        color: AppColors.dynamicTextPrimary(context),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _scanArmed
+                          ? 'WAITING FOR TAG — hold the tyre tag to the reader'
+                          : 'Scan the NFC tag and the IBT counts itself',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _scanArmed
+                            ? AppColors.successStrong(context)
+                            : AppColors.dynamicTextMuted(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_scanBusy)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                TextButton(
+                  onPressed: _scanArmed ? _disarmScan : () => _armScan(),
+                  child: Text(_scanArmed ? 'Stop' : 'Arm'),
+                ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'SCAN TYRE',
+          const SizedBox(height: 10),
+          // No-hardware fallback: type the 14-hex UID and run the SAME
+          // scan pipeline (gate → commit → tally).
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _uidController,
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp('[0-9A-Fa-f]')),
+                    LengthLimitingTextInputFormatter(14),
+                  ],
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.0,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'monospace',
+                    letterSpacing: 2,
                     color: AppColors.dynamicTextPrimary(context),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _scanArmed
-                      ? 'WAITING FOR TAG — hold the tyre tag to the reader'
-                      : 'Scan the NFC tag and the IBT counts itself',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: _scanArmed
-                        ? AppColors.successStrong(context)
-                        : AppColors.dynamicTextMuted(context),
+                  decoration: InputDecoration(
+                    hintText: 'TYPE UID (14-HEX) — NO NFC?',
+                    hintStyle: TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.dynamicTextMuted(context),
+                      letterSpacing: 1,
+                    ),
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
+                  onSubmitted: (_) => _submitTypedUid(),
                 ),
-              ],
-            ),
+              ),
+              TextButton(
+                onPressed: _scanBusy ? null : _submitTypedUid,
+                child: const Text('Scan'),
+              ),
+            ],
           ),
-          if (_scanBusy)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            TextButton(
-              onPressed: _scanArmed ? _disarmScan : _armScan,
-              child: Text(_scanArmed ? 'Stop' : 'Arm'),
-            ),
         ],
       ),
     );
+  }
+
+  Future<void> _submitTypedUid() async {
+    final uid = _uidController.text.trim().toUpperCase();
+    if (uid.isEmpty || uid.length != 14) {
+      ScanSounds.error();
+      AppHaptics.error();
+      _showBanner('UID must be 14 hex characters', false);
+      return;
+    }
+    await _handleScan(uid);
+    _uidController.clear();
   }
 
   Widget _buildAddIbtSection(Entry currentEntry, EntryRepository repo) {
@@ -462,19 +531,21 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
     });
   }
 
-  Future<void> _armScan() async {
+  Future<void> _armScan({bool announceFailure = true}) async {
     final settings = context.read<SettingsRepository>();
     if (!settings.nfcEnabled) {
-      ScanSounds.error();
-      AppHaptics.error();
-      _showBanner('NFC scanning is turned off in Settings', false);
+      if (announceFailure) {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('NFC scanning is turned off in Settings', false);
+      }
       return;
     }
     try {
       await _nfc.start();
       if (mounted) setState(() => _scanArmed = true);
     } catch (_) {
-      if (mounted) {
+      if (mounted && announceFailure) {
         ScanSounds.error();
         AppHaptics.error();
         _showBanner('NFC not available on this device', false);
@@ -487,10 +558,18 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
     if (mounted) setState(() => _scanArmed = false);
   }
 
+  /// Keep the session alive between tyres — one arm, endless scans.
+  /// The nfc_manager session keeps delivering tags while armed; we never
+  /// disarm during reads (only on screen leave / app pause).
+  Future<void> _rearmIfNeeded() async {
+    if (!mounted || !_scanArmed) return;
+    // Reader mode persists on Android — no restart needed. If the session
+    // ever dies silently, the operator's next Arm tap restores it.
+  }
+
   /// The full scan pipeline: look up → gate → commit → tally.
   /// Local tally fires ONLY after the backend says `successful == 1`.
   Future<void> _handleScan(String uid) async {
-    await _disarmScan();
     if (_scanBusy || !mounted) return;
 
     setState(() {
@@ -603,7 +682,11 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
           _showBanner('Scan rejected by system', false);
       }
     } finally {
-      if (mounted) setState(() => _scanBusy = false);
+      if (mounted) {
+        setState(() => _scanBusy = false);
+        // Continuous scanning: stay armed for the next tyre.
+        unawaited(_rearmIfNeeded());
+      }
     }
   }
 
