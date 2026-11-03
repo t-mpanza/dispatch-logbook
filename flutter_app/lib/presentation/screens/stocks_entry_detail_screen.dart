@@ -580,11 +580,19 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
     final repo = context.read<EntryRepository>();
     try {
       // Fixed operator — no badge flow.
-      final operatorId = await IbtScanApi.resolveOperatorId();
+      int? operatorId;
+      try {
+        operatorId = await IbtScanApi.resolveOperatorId();
+      } on ScanCommitException {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('Connection failed — try again', false);
+        return;
+      }
       if (operatorId == null) {
         ScanSounds.error();
         AppHaptics.error();
-        _showBanner('Operator not found — check connection', false);
+        _showBanner('Operator Theolus Mpanza not found', false);
         return;
       }
 

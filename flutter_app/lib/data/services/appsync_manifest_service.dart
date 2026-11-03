@@ -330,6 +330,9 @@ class AppSyncManifestService {
           // Token expired or expiring within 60s, refresh token
           final refreshed = await refreshAccessToken(client: client);
           if (refreshed != null) return refreshed;
+          // Refresh failed — never hand back a dead token; let the caller
+          // fall through to the silent auto-login instead.
+          return null;
         }
       }
     } catch (e) {

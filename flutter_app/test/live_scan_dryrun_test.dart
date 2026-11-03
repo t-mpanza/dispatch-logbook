@@ -6,6 +6,7 @@ import 'package:dispatch_diary/data/services/appsync_manifest_service.dart';
 import 'package:dispatch_diary/data/services/aws_auto_login_service.dart';
 import 'package:dispatch_diary/dispatch/dispatch_api.dart';
 import 'package:dispatch_diary/dispatch/domain/ibt_scan_engine.dart';
+import 'package:dispatch_diary/dispatch/domain/scrap_scan_engine.dart';
 import 'package:dispatch_diary/dispatch/ibt_scan_api.dart';
 import 'package:dispatch_diary/dispatch/models/slip_tyre.dart';
 
@@ -197,6 +198,53 @@ void main() {
           // GraphQL error for a ghost uid is also a valid, handled path.
           // ignore: avoid_print
           print('MUTATION DRY-RUN EXCEPTION (handled): $e');
+        }
+      },
+    );
+
+    test('scrap gate: reject_accepted==1 accepts, anything else rejects', () {
+      const kh58xd = 'KH58XD';
+      final good = ScrapScanEngine.evaluate(
+        tyre: SlipTyre(uid: '04A3F9E1C2B4D5', rejectAccepted: 1),
+        sessionUids: const {},
+        operatorId: 816,
+        registration: kh58xd,
+      );
+      expect(good.isSuccess, isTrue);
+
+      final bad = ScrapScanEngine.evaluate(
+        tyre: SlipTyre(uid: '04A3F9E1C2B4D5', rejectAccepted: 0),
+        sessionUids: const {},
+        operatorId: 816,
+        registration: kh58xd,
+      );
+      expect(bad.message, contains('Not a scrap'));
+    });
+
+    test(
+      'MUTATION DRY-RUN: ghost scrap scan with document SCRAPS is handled',
+      () async {
+        const ghostUid = 'FFFFFFFFFFFFFD';
+        try {
+          final result = await IbtScanApi.commitScan(
+            uid: ghostUid,
+            registration: 'KH58XD',
+            personnelId: operatorId,
+            documentNo: 'SCRAPS',
+          );
+          expect(
+            result,
+            anyOf(
+              isA<ScanCommitRejected>(),
+              isA<ScanCommitSuccess>(),
+              isA<ScanCommitDuplicate>(),
+            ),
+          );
+          // ignore: avoid_print
+          print('SCRAP MUTATION DRY-RUN RESULT: ${result.runtimeType}');
+        } on ScanCommitException catch (e) {
+          // ignore: avoid_print
+          print('SCRAP MUTATION DRY-RUN EXCEPTION (handled): $e');
         }
       },
     );

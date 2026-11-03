@@ -35,11 +35,14 @@ class EntryRepository extends ChangeNotifier {
     notifyListeners();
 
     if (triggerPush) {
-      // Non-blocking cloud push
+      // Non-blocking cloud push — never an unhandled error, even when the
+      // cloud client is unavailable.
       SupabaseService.pushEntriesBatch([updated]).then((success) {
         if (success) {
           SupabaseService.broadcastEntryChange(updated.id);
         }
+      }).catchError((e) {
+        debugPrint('Cloud push failed (offline ok): $e');
       });
     }
   }

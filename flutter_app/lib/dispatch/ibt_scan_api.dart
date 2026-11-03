@@ -50,17 +50,22 @@ class IbtScanApi {
 
   /// Resolve the fixed operator's idFactory_Personnel once per process.
   ///
-  /// Uses `listFactoryPersonnel` (read-only — `getUserPoolPersonnel` has a
-  /// live side effect: every call shape creates a new personnel row).
+  /// Path 1: `listFactoryPersonnel` (read-only — `getUserPoolPersonnel` has
+  /// a live side effect: every call shape creates a new personnel row).
   /// Prefers the ACTIVE row with a real badge uid (the 30000000-uid rows
   /// are auto-generated duplicates).
+  /// Path 2 (fallback): `getUserPoolPersonnel` with FIXED args (email '')
+  /// so repeated calls can never proliferate more rows.
+  ///
+  /// Network/auth failures PROPAGATE as ScanCommitException so the UI can
+  /// say "connection failed" — null means the operator truly was not found.
   static Future<int?> resolveOperatorId() async {
     if (_cachedOperatorId != null) return _cachedOperatorId;
 
     const firstName = 'Theolus';
     const lastName = 'Mpanza';
 
-    const query = r'''
+    const listQuery = r'''
     query MyQuery {
       listFactoryPersonnel {
         idFactory_Personnel
@@ -72,41 +77,63 @@ class IbtScanApi {
     }
     ''';
 
-    try {
-      final data = await _post(query: query);
-      final rows = jsonMapList(data['listFactoryPersonnel']);
-
-      bool nameMatches(Map<String, dynamic> row) {
-        final fn = jsonString(row['first_name'] ?? '') ?? '';
-        final ln = jsonString(row['last_name'] ?? '') ?? '';
-        return fn.trim().toLowerCase() == firstName.toLowerCase() &&
-            ln.trim().toLowerCase() == lastName.toLowerCase();
-      }
-
-      int? best;
-      for (final row in rows) {
-        if (!nameMatches(row)) continue;
-        if (jsonInt(row['active']) != 1) continue;
-        final uid = jsonString(row['uid']) ?? '';
-        final id = jsonInt(row['idFactory_Personnel']);
-        if (id == null) continue;
-        // A real badge (not the shared 30000000 placeholder) wins.
-        if (uid.isNotEmpty && uid != '30000000') {
-          _cachedOperatorId = id;
-          return id;
-        }
-        best ??= id;
-      }
-
-      // Fallback: any active exact-name match.
-      if (best != null) {
-        _cachedOperatorId = best;
-        return best;
-      }
-      return null;
-    } catch (_) {
-      return null;
+    bool nameMatches(Map<String, dynamic> row) {
+      final fn = jsonString(row['first_name'] ?? '') ?? '';
+      final ln = jsonString(row['last_name'] ?? '') ?? '';
+      return fn.trim().toLowerCase() == firstName.toLowerCase() &&
+          ln.trim().toLowerCase() == lastName.toLowerCase();
     }
+
+    // Path 1: read-only list (network failures propagate).
+    final data = await _post(query: listQuery);
+    final rows = jsonMapList(data['listFactoryPersonnel']);
+
+    int? best;
+    for (final row in rows) {
+      if (!nameMatches(row)) continue;
+      if (jsonInt(row['active']) != 1) continue;
+      final uid = jsonString(row['uid']) ?? '';
+      final id = jsonInt(row['idFactory_Personnel']);
+      if (id == null) continue;
+      // A real badge (not the shared 30000000 placeholder) wins.
+      if (uid.isNotEmpty && uid != '30000000') {
+        _cachedOperatorId = id;
+        return id;
+      }
+      best ??= id;
+    }
+
+    if (best != null) {
+      _cachedOperatorId = best;
+      return best;
+    }
+
+    // Path 2: user-pool fallback (best-effort; never throws).
+    try {
+      const poolQuery = r'''
+      query MyQuery($first_name: String, $last_name: String, $email: String) {
+        getUserPoolPersonnel(getUserPoolPersonnel: {first_name: $first_name, last_name: $last_name, email: $email}) {
+          idFactory_Personnel
+        }
+      }
+      ''';
+      final poolData = await _post(
+        query: poolQuery,
+        variables: {'first_name': firstName, 'last_name': lastName, 'email': ''},
+      );
+      final poolRows = jsonMapList(poolData['getUserPoolPersonnel']);
+      final id = poolRows.isEmpty
+          ? null
+          : jsonInt(poolRows.first['idFactory_Personnel']);
+      if (id != null) {
+        _cachedOperatorId = id;
+        return id;
+      }
+    } catch (_) {
+      // Best-effort fallback only.
+    }
+
+    return null;
   }
 
   /// Pure payload builder — the mutation can never be sent malformed.
@@ -147,8 +174,7 @@ class IbtScanApi {
     return const ScanCommitRejected();
   }
 
-  /// Commit the scan. Retries once with a fresh silent login on auth
-  /// issues; never throws for a well-formed rejection.
+  /// Commit the scan. Never throws for a well-formed rejection.
   static Future<ScanCommitResult> commitScan({
     required String uid,
     required String registration,
@@ -174,28 +200,41 @@ class IbtScanApi {
       documentNo: documentNo,
     );
 
+    final data = await _post(query: mutation, variables: variables);
+    return parseCommitResponse(data);
+  }
+
+  /// POST with a self-healing session: on auth-flavoured failures the app
+  /// silently re-authenticates once and retries — every query and mutation
+  /// goes through this, so nothing ever surfaces a login wall.
+  static Future<Map<String, dynamic>> _post({
+    required String query,
+    Map<String, dynamic> variables = const {},
+    String? explicitToken,
+  }) async {
     try {
-      final data = await _post(query: mutation, variables: variables);
-      return parseCommitResponse(data);
+      return await _postOnce(
+        query: query,
+        variables: variables,
+        explicitToken: explicitToken,
+      );
     } on ScanCommitException catch (e) {
       final isAuth = e.message.contains('401') ||
           e.message.contains('Unauthorized') ||
           e.message.contains('token');
-      if (!isAuth) rethrow;
+      if (!isAuth || explicitToken != null) rethrow;
 
-      // Self-healing session: silent re-login, one retry.
       final fresh = await AwsAutoLoginService.login();
-      if (fresh == null) rethrow;
-      final data = await _post(
-        query: mutation,
+      if (fresh == null || fresh.isEmpty) rethrow;
+      return await _postOnce(
+        query: query,
         variables: variables,
         explicitToken: fresh,
       );
-      return parseCommitResponse(data);
     }
   }
 
-  static Future<Map<String, dynamic>> _post({
+  static Future<Map<String, dynamic>> _postOnce({
     required String query,
     Map<String, dynamic> variables = const {},
     String? explicitToken,
