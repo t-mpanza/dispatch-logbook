@@ -20,6 +20,13 @@ class TyreStory {
   bool get hasDispatchDelivery =>
       history.any((h) => (h.workCellName ?? '').toUpperCase().contains('DISPATCH DELIVERY'));
 
+  /// True when the tyre row's dump flag is set (the flag lives on the
+  /// tyre record, not the slip).
+  bool get isDumped => tyre.isDump;
+
+  /// The slip id usable for dump marking (slip row preferred).
+  int? get markableSlipId => slip?.idSlip ?? tyre.idSlip;
+
   bool get isScrapWithHistory => tyre.isScrap ||
       history.any(
         (h) =>
