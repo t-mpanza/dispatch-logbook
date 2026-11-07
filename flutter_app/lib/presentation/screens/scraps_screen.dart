@@ -292,13 +292,6 @@ class _ScrapsScreenState extends State<ScrapsScreen>
           documentNo: 'SCRAPS',
         );
       } on ScanCommitException catch (e) {
-        // Ambiguous: the backend may have committed while the app saw an
-        // error. Ask the backend for the truth before reporting failure.
-        final recorded = await DispatchApi.verifyTyreOnTruck(tyre.uid!, reg);
-        if (recorded) {
-          await _countScan(entry, tyre.uid!);
-          return;
-        }
         ScanSounds.error();
         AppHaptics.error();
         final message = e.message.toLowerCase();
@@ -308,18 +301,6 @@ class _ScrapsScreenState extends State<ScrapsScreen>
               : 'Connection failed — try again',
           false,
         );
-        return;
-      }
-
-      if (result is ScanCommitRejected) {
-        final recorded = await DispatchApi.verifyTyreOnTruck(tyre.uid!, reg);
-        if (recorded) {
-          await _countScan(entry, tyre.uid!);
-          return;
-        }
-        ScanSounds.error();
-        AppHaptics.error();
-        _showBanner('Scan rejected by system', false);
         return;
       }
 
@@ -335,7 +316,6 @@ class _ScrapsScreenState extends State<ScrapsScreen>
             false,
           );
         case ScanCommitRejected():
-          // Unreachable (handled above).
           ScanSounds.error();
           AppHaptics.error();
           _showBanner('Scan rejected by system', false);

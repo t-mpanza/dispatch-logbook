@@ -156,6 +156,13 @@ class IbtScanApi {
   }
 
   /// Parse the mutation response defensively (Ints, not bools).
+  ///
+  /// LIVE-VERIFIED SENTINEL (2026-11-07): the backend uses the factory-wide
+  /// convention — `0` = no, ANY non-zero = yes. A real duplicate scan
+  /// returned `duplicate_scan: 2` (not 1). Checking `== 1` made genuine
+  /// scans fall through to "rejected" while the backend recorded them —
+  /// the "error shown but tyre recorded" bug. Truthy `!= 0` covers both
+  /// 1 and 2 sentinels.
   static ScanCommitResult parseCommitResponse(Map<String, dynamic> data) {
     final rows = jsonMapList(data['createDispatchDeliveryINV_V2']);
     final row = rows.isEmpty ? const <String, dynamic>{} : rows.first;
@@ -165,10 +172,10 @@ class IbtScanApi {
     final name = jsonString(row['name']);
     final scanTime = jsonString(row['scan_time']);
 
-    if (successful == 1) {
+    if (successful != 0) {
       return ScanCommitSuccess(name: name, scanTime: scanTime);
     }
-    if (duplicate == 1) {
+    if (duplicate != 0) {
       return ScanCommitDuplicate(name: name, scanTime: scanTime);
     }
     return const ScanCommitRejected();

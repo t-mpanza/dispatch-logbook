@@ -677,17 +677,6 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
           documentNo: accepted.documentNo,
         );
       } on ScanCommitException catch (e) {
-        // Ambiguous: the backend may have committed while the app saw an
-        // error (slow response, post-commit resolver error). Ask the
-        // backend for the truth before telling the operator anything.
-        final recorded = await DispatchApi.verifyTyreOnTruck(
-          tyre.uid!,
-          trip.reg.trim(),
-        );
-        if (recorded) {
-          await _recordSuccess(entry, accepted, tyre.uid!);
-          return;
-        }
         ScanSounds.error();
         AppHaptics.error();
         final message = e.message.toLowerCase();
@@ -697,22 +686,6 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
               : 'Connection failed — try again',
           false,
         );
-        return;
-      }
-
-      if (result is ScanCommitRejected) {
-        // Same ambiguity: `successful != 1` is not proof the write failed.
-        final recorded = await DispatchApi.verifyTyreOnTruck(
-          tyre.uid!,
-          trip.reg.trim(),
-        );
-        if (recorded) {
-          await _recordSuccess(entry, accepted, tyre.uid!);
-          return;
-        }
-        ScanSounds.error();
-        AppHaptics.error();
-        _showBanner('Scan rejected by system', false);
         return;
       }
 
@@ -728,7 +701,6 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
             false,
           );
         case ScanCommitRejected():
-          // Unreachable (handled above).
           ScanSounds.error();
           AppHaptics.error();
           _showBanner('Scan rejected by system', false);

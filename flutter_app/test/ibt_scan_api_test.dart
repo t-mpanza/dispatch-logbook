@@ -63,6 +63,40 @@ void main() {
       expect(duplicate.scanTime, '2026-10-27T16:40:00');
     });
 
+    test('sentinel 2 counts as success (live backend convention)', () {
+      final result = IbtScanApi.parseCommitResponse({
+        'createDispatchDeliveryINV_V2': [
+          {
+            'successful': 2,
+            'duplicate_scan': 0,
+            'name': 'Theolus',
+            'scan_time': '2026-10-28T08:15:00',
+          },
+        ],
+      });
+      expect(result, isA<ScanCommitSuccess>());
+    });
+
+    test(
+      'sentinel 2 on duplicate_scan counts as duplicate '
+      '(live-verified 2026-11-07)',
+      () {
+        final result = IbtScanApi.parseCommitResponse({
+          'createDispatchDeliveryINV_V2': [
+            {
+              'successful': 0,
+              'duplicate_scan': 2,
+              'previous_reg': 'HW72JS',
+              'name': 'Theolus Mpanza',
+              'scan_time': 'Tue Sep 01 2026 08:08:05 GMT+0000',
+            },
+          ],
+        });
+        final duplicate = result as ScanCommitDuplicate;
+        expect(duplicate.name, 'Theolus Mpanza');
+      },
+    );
+
     test('successful == 0 and no duplicate → ScanCommitRejected', () {
       final result = IbtScanApi.parseCommitResponse({
         'createDispatchDeliveryINV_V2': [

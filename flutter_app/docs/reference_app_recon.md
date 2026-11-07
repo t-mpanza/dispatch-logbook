@@ -75,11 +75,18 @@ terminal events (dump, missing, reject, redo/rerun, claims, removed marker)
 
 ## Fixes to the Diary app (this round)
 
-1. **IBT false-error** — the commit can land while the app shows an error
-   (timeout / post-commit resolver error / successful != 1). Read-back
-   verification: on ambiguous outcome, re-fetch the tyre
-   (`getSlipTyreWithUID`) and check `registration == trip.reg` (or
-   `previous_reg`); recorded → success path, not an error.
+1. **IBT false-error — ROOT CAUSE FOUND (live-verified 2026-11-07).**
+   The backend answers the scan mutation with the factory-wide sentinel
+   convention: `0` = no, ANY non-zero = yes. A real duplicate scan returned
+   `{"successful": 0, "duplicate_scan": 2, "previous_reg": "HW72JS", …}`.
+   The app checked `== 1` → genuine scans fell through to
+   "Scan rejected by system" while the backend recorded them. Fix:
+   `parseCommitResponse` now treats non-zero as truthy for both
+   `successful` and `duplicate_scan` (tests pin both sentinels).
+   ALSO live-verified: `Slip_Tyre_Info` has NO `previous_reg` field, and
+   its `registration` field does NOT change on scan commits — a read-back
+   verification approach can never work (no read query exists for the
+   loading log). Read-back code removed.
 2. **Rejects screen** — manual scan-out fallback: ANY tyre passes. Remove
    the `ScrapScanEngine.evaluate` gate; keep operator/reg/dedupe checks.
 3. **NFC traffic & coexistence** —
@@ -88,3 +95,13 @@ terminal events (dump, missing, reject, redo/rerun, claims, removed marker)
    - service debounce 1.5s → 500ms (screen-level sessionUids already dedupes)
 4. **Lookup UI** — port the reference app's Tyre Information presentation
    into the diary lookup screen (layout from widget-class strings).
+
+## Live forensics tooling (committed)
+
+- `test/live_ibt_forensics_test.dart` — read-only probes always run
+  (real tyre row shapes, history, raw responses). With `REAL_MUTATIONS=1`
+  it sends ONE duplicate-scan commit (same truck, no state change) and
+  captures the raw response.
+- `test/live_schema_introspection_test.dart` — dumps the CURRENT live
+  fields of Slip_Tyre_Info / DispatchDeliveryLog / the scan mutation input
+  (ground truth vs the pinned SDL snapshot).
