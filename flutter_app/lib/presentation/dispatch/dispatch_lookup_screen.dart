@@ -9,12 +9,17 @@ import '../../core/theme/glass_decorations.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/services/database_service.dart';
+import '../../dispatch/dispatch_api.dart';
+import '../../dispatch/dump_api.dart';
 import '../../dispatch/domain/tyre_story.dart';
 import '../../dispatch/hardware/nfc_scan_service.dart';
 import '../../dispatch/models/dispatch_models.dart';
+import '../../dispatch/models/json_helpers.dart';
+import '../../dispatch/models/slip_tyre.dart';
+import 'dump_registry_screen.dart';
 
-/// Tyre lookup: scan the NFC tag or type a slip number (the "cab number")
-/// or serial. Customer, make and slip number lead the story.
+/// Tyre lookup: scan the NFC tag or type a slip number (the "cab number"),
+/// a serial or a CS number. Customer, make and slip number lead the story.
 class DispatchLookupScreen extends StatefulWidget {
   const DispatchLookupScreen({super.key});
 
@@ -22,7 +27,7 @@ class DispatchLookupScreen extends StatefulWidget {
   State<DispatchLookupScreen> createState() => _DispatchLookupScreenState();
 }
 
-enum _LookupMode { slip, serial }
+enum _LookupMode { slip, serial, cs }
 
 class _DispatchLookupScreenState extends State<DispatchLookupScreen>
     with WidgetsBindingObserver {
@@ -37,6 +42,15 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
   String? _error;
   TyreStory? _story;
   List<Map<String, dynamic>> _recent = const [];
+
+  // CS-number lookup state.
+  Map<String, dynamic>? _csHeader;
+  List<SlipTyre> _csTyres = const [];
+
+  // Last executed search — used to refresh the story after a dump mark.
+  _LookupMode _lastMode = _LookupMode.slip;
+  String _lastQuery = '';
+  String? _lastUid;
 
   @override
   void initState() {
@@ -123,6 +137,9 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
       _busy = true;
       _error = null;
       _story = null;
+      _csHeader = null;
+      _csTyres = const [];
+      _lastUid = null;
       _controller.text = row['key'] as String;
     });
     try {
@@ -163,6 +180,9 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
       _busy = true;
       _error = null;
       _story = null;
+      _csHeader = null;
+      _csTyres = const [];
+      _lastUid = uid;
       _controller.text = uid;
     });
 
@@ -195,6 +215,11 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
       _busy = true;
       _error = null;
       _story = null;
+      _csHeader = null;
+      _csTyres = const [];
+      _lastMode = _mode;
+      _lastQuery = q;
+      _lastUid = null;
     });
 
     try {
@@ -206,12 +231,18 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
           if (n != null) story = await usecase.bySlipOrJobNumber(n);
         case _LookupMode.serial:
           story = await usecase.bySerial(q);
+        case _LookupMode.cs:
+          await _searchByCs(q);
       }
       if (!mounted) return;
       setState(() {
         _busy = false;
         _story = story;
-        if (story == null) {
+        if (_mode == _LookupMode.cs) {
+          if (_csHeader == null) {
+            _error = 'No sheet found for "$q".';
+          }
+        } else if (story == null) {
           _error = 'No tyre found for "$q".';
         } else {
           _saveRecent(story);
@@ -226,11 +257,112 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
     }
   }
 
+  /// CS-number search: header card + every tyre on the sheet.
+  Future<void> _searchByCs(String csNumber) async {
+    final header = await DispatchApi.fetchConfirmationSheetByCsNumber(csNumber);
+    if (header == null) return;
+    final csId = jsonInt(header['idConfirmation_Sheet']);
+    final tyres = await DispatchApi.fetchTyreByCsId(csId);
+    if (!mounted) return;
+    setState(() {
+      _csHeader = header;
+      _csTyres = tyres;
+    });
+  }
+
+  /// Re-run the last search so the story reflects fresh backend state
+  /// (e.g. after a dump mark).
+  Future<void> _refreshStory() async {
+    final uid = _lastUid;
+    if (uid != null) {
+      setState(() {
+        _busy = true;
+        _error = null;
+        _story = null;
+        _csHeader = null;
+        _csTyres = const [];
+        _controller.text = uid;
+      });
+      final story = await const TyreStoryUsecase().byUid(uid);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _story = story;
+        if (story == null) {
+          _error = 'Tag $uid — no tyre on the system.';
+        }
+      });
+      return;
+    }
+    _controller.text = _lastQuery;
+    _mode = _lastMode;
+    await _search();
+  }
+
+  Future<void> _markDumped(TyreStory story) async {
+    final slipId = story.markableSlipId;
+    if (slipId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('MARK AS DUMPED'),
+        content: Text(
+          'Slip ${story.slip?.slipNumber ?? story.tyre.slipNumber ?? '—'} '
+          'will be marked dumped on the system. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('MARK DUMPED'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    AppHaptics.medium();
+    setState(() => _busy = true);
+    try {
+      await DumpApi.markDumped(slipId);
+      await _refreshStory();
+    } on DumpApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Dump mark failed: ${e.message}';
+      });
+    }
+  }
+
+  void _openRegistry() {
+    AppHaptics.light();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const DumpRegistryScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
       children: [
+        // ── Registry entry point ──
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton.icon(
+              onPressed: _openRegistry,
+              icon: const Icon(Icons.people_alt_outlined, size: 16),
+              label: const Text('CUSTOMERS'),
+            ),
+          ],
+        ),
         if (_nfcAvailable)
           Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -294,9 +426,11 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
                     color: AppColors.dynamicTextPrimary(context),
                   ),
                   decoration: InputDecoration(
-                    hintText: _mode == _LookupMode.slip
-                        ? 'Slip number (cab number)'
-                        : 'Tyre serial number',
+                    hintText: switch (_mode) {
+                      _LookupMode.slip => 'Slip number (cab number)',
+                      _LookupMode.serial => 'Tyre serial number',
+                      _LookupMode.cs => 'CS number (e.g. CS-9001)',
+                    },
                     hintStyle: TextStyle(
                       fontSize: 12,
                       color: AppColors.dynamicTextMuted(context),
@@ -332,6 +466,8 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
             Expanded(child: _modeChip(_LookupMode.slip, 'SLIP NUMBER')),
             const SizedBox(width: 6),
             Expanded(child: _modeChip(_LookupMode.serial, 'SERIAL')),
+            const SizedBox(width: 6),
+            Expanded(child: _modeChip(_LookupMode.cs, 'CS NUMBER')),
           ],
         ),
         const SizedBox(height: 14),
@@ -355,8 +491,80 @@ class _DispatchLookupScreenState extends State<DispatchLookupScreen>
               style: const TextStyle(fontSize: 12, color: AppColors.error),
             ),
           ),
+        if (_csHeader != null) ...[
+          _CsHeaderCard(
+            header: _csHeader!,
+            tyres: _csTyres,
+            onTyreTap: (slipNumber, uid) async {
+              AppHaptics.medium();
+              setState(() {
+                _busy = true;
+                _error = null;
+                _story = null;
+                _lastUid = uid;
+                _lastQuery = slipNumber?.toString() ?? '';
+                _controller.text = uid ?? slipNumber?.toString() ?? '';
+              });
+              final story = uid != null
+                  ? await const TyreStoryUsecase().byUid(uid)
+                  : await const TyreStoryUsecase().bySlipOrJobNumber(
+                      slipNumber!,
+                    );
+              if (!mounted) return;
+              setState(() {
+                _busy = false;
+                _story = story;
+                _csHeader = null;
+                _csTyres = const [];
+                if (story == null) {
+                  _error = 'No tyre found.';
+                }
+              });
+            },
+          ),
+        ],
         if (_story != null) ...[
           _SpecCard(story: _story!),
+          if (!_story!.isDumped && _story!.markableSlipId != null) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: _busy ? null : () => _markDumped(_story!),
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.warningStrong(
+                    context,
+                  ).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.warningStrong(
+                      context,
+                    ).withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.delete_sweep_outlined,
+                      size: 20,
+                      color: AppColors.warningStrong(context),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'MARK AS DUMPED',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                        color: AppColors.warningStrong(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           _SectionLabel(
             'SCAN HISTORY · ${_story!.history.length}',
@@ -490,9 +698,16 @@ class _SpecCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tyre = story.tyre;
     final scrap = story.isScrapWithHistory;
-    final statusColor = story.hasDispatchDelivery
-        ? AppColors.successStrong(context)
-        : (scrap ? AppColors.errorStrong(context) : AppColors.infoStrong(context));
+    final statusColor = story.isDumped
+        ? AppColors.warningStrong(context)
+        : story.hasDispatchDelivery
+            ? AppColors.successStrong(context)
+            : (scrap ? AppColors.errorStrong(context) : AppColors.infoStrong(context));
+    final statusLabel = story.isDumped
+        ? 'DUMPED'
+        : story.hasDispatchDelivery
+            ? 'DISPATCHED'
+            : (scrap ? 'SCRAP' : 'IN PROCESS');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -563,9 +778,7 @@ class _SpecCard extends StatelessWidget {
                   border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                 ),
                 child: Text(
-                  story.hasDispatchDelivery
-                      ? 'DISPATCHED'
-                      : (scrap ? 'SCRAP' : 'IN PROCESS'),
+                  statusLabel,
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
@@ -583,6 +796,24 @@ class _SpecCard extends StatelessWidget {
             _row(context, 'Invoice', tyre.invoiceNumber!),
           if (story.slip?.casingGrade != null)
             _row(context, 'Casing grade', story.slip!.casingGrade!),
+          if (story.slip?.casingAdded != null)
+            _row(context, 'Casings added', '${story.slip!.casingAdded}'),
+          if (story.slip?.positionInBatch != null)
+            _row(context, 'Batch pos', '${story.slip!.positionInBatch}'),
+          if (story.slip?.greenBlock != null)
+            _row(context, 'Green block', '${story.slip!.greenBlock}'),
+          if (story.slip?.noGuarantee != null)
+            _row(context, 'No guarantee', '${story.slip!.noGuarantee}'),
+          if (story.slip?.late != null)
+            _row(context, 'Late', '${story.slip!.late}'),
+          if (story.slip?.previousSlipId != null)
+            _row(context, 'Previous slip', '${story.slip!.previousSlipId}'),
+          if (story.slip?.repeatUid != null)
+            _row(context, 'Repeat UID', story.slip!.repeatUid!),
+          if (story.slip?.rejectAccepted != null)
+            _row(context, 'Reject flag', '${story.slip!.rejectAccepted}'),
+          if (tyre.isDump)
+            _row(context, 'Dump flag', 'DUMPED'),
         ],
       ),
     );
@@ -756,6 +987,129 @@ class _SectionLabel extends StatelessWidget {
         fontWeight: FontWeight.w800,
         letterSpacing: 1.4,
         color: AppColors.dynamicTextMuted(context),
+      ),
+    );
+  }
+}
+
+/// CS-number search result: sheet header + tappable tyre chips.
+class _CsHeaderCard extends StatelessWidget {
+  final Map<String, dynamic> header;
+  final List<SlipTyre> tyres;
+  final void Function(int? slipNumber, String? uid) onTyreTap;
+
+  const _CsHeaderCard({
+    required this.header,
+    required this.tyres,
+    required this.onTyreTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final csNumber = jsonString(header['cs_number']) ?? '—';
+    final customer = jsonString(header['CustomerName']) ?? '—';
+    final slips = jsonInt(header['slips']) ?? tyres.length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: GlassDecorations.glassCard(context: context, borderRadius: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      customer,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.3,
+                        color: AppColors.dynamicTextPrimary(context),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'CS $csNumber · $slips slips',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'monospace',
+                        color: AppColors.infoStrong(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.infoStrong(context).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.infoStrong(context).withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Text(
+                  'SHEET',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                    color: AppColors.infoStrong(context),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _SectionLabel('TYRES ON SHEET · ${tyres.length}'),
+          const SizedBox(height: 8),
+          if (tyres.isEmpty)
+            Text(
+              'No tyres listed on this sheet.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.dynamicTextMuted(context),
+              ),
+            )
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final tyre in tyres)
+                  GestureDetector(
+                    onTap: () => onTyreTap(tyre.slipNumber, tyre.uid),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.info.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.info.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        'SLIP ${tyre.slipNumber ?? '—'} · ${tyre.displayLabel}',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'monospace',
+                          color: AppColors.dynamicTextPrimary(context),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+        ],
       ),
     );
   }
