@@ -18,8 +18,15 @@ class NfcScanService {
 
   Stream<String> get scans => _controller.stream;
 
-  Future<bool> get isAvailable async =>
-      await NfcManager.instance.checkAvailability() == NfcAvailability.enabled;
+  Future<bool> get isAvailable async {
+    try {
+      return await NfcManager.instance.checkAvailability() ==
+          NfcAvailability.enabled;
+    } catch (_) {
+      // Desktop/web have no NFC plugin — availability is simply false.
+      return false;
+    }
+  }
 
   Future<void> start() async {
     try {

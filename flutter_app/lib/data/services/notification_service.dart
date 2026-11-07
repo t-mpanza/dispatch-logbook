@@ -32,9 +32,11 @@ class NotificationService {
       requestBadgePermission: false,
       requestSoundPermission: false,
     );
+    const linuxInit = LinuxInitializationSettings(defaultActionName: 'Open');
     const initSettings = InitializationSettings(
       android: androidInit,
       iOS: darwinInit,
+      linux: linuxInit,
     );
 
     await _plugin.initialize(initSettings);
