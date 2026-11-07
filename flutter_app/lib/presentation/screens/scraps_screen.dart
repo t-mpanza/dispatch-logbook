@@ -15,7 +15,6 @@ import '../../data/models/trip.dart';
 import '../../data/repositories/entry_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../dispatch/dispatch_api.dart';
-import '../../dispatch/domain/scrap_scan_engine.dart';
 import '../../dispatch/hardware/nfc_scan_service.dart';
 import '../../dispatch/ibt_scan_api.dart';
 import '../../dispatch/models/slip_tyre.dart';
@@ -47,6 +46,15 @@ class _ScrapsScreenState extends State<ScrapsScreen>
   StreamSubscription<String>? _scanSub;
   bool _scanArmed = false;
   bool _scanBusy = false;
+
+  /// Re-arm silently when the app returns to the foreground after being
+  /// backgrounded mid-session (another NFC app may have taken the reader).
+  bool _autoRearm = false;
+
+  /// A tag read while a commit was still in flight — processed next,
+  /// never dropped (production pace is ~5s per tyre).
+  String? _pendingUid;
+
   String? _scanBanner;
   bool _scanBannerOk = false;
   Timer? _bannerTimer;
@@ -70,7 +78,11 @@ class _ScrapsScreenState extends State<ScrapsScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed && _scanArmed) {
+      _autoRearm = true;
       _disarmScan();
+    } else if (state == AppLifecycleState.resumed && _autoRearm) {
+      _autoRearm = false;
+      if (mounted) unawaited(_armScan(announceFailure: false));
     }
   }
 
@@ -212,9 +224,16 @@ class _ScrapsScreenState extends State<ScrapsScreen>
     }
   }
 
-  /// The scrap scan pipeline: look up → scrap gate → commit → count +1.
+  /// The scrap scan pipeline: look up → commit → count +1.
+  ///
+  /// This screen is the MANUAL scan-out fallback (used when invoice
+  /// numbers don't work), NOT a scrap gate: any tyre on the system passes.
+  /// Dedupe per session only; the backend decides everything else.
   Future<void> _handleScan(String uid) async {
-    if (_scanBusy || !mounted) return;
+    if (_scanBusy || !mounted) {
+      if (mounted) _pendingUid = uid;
+      return;
+    }
 
     setState(() {
       _scanBusy = true;
@@ -251,17 +270,16 @@ class _ScrapsScreenState extends State<ScrapsScreen>
       }
 
       final reg = _regController.text.trim().toUpperCase();
-      final verdict = ScrapScanEngine.evaluate(
-        tyre: tyre,
-        sessionUids: _sessionUids,
-        operatorId: operatorId,
-        registration: reg,
-      );
-
-      if (verdict is ScrapScanRejected) {
+      if (reg.isEmpty) {
         ScanSounds.error();
         AppHaptics.error();
-        _showBanner(verdict.message, false);
+        _showBanner('Set the truck REG first', false);
+        return;
+      }
+      if (_sessionUids.contains(tyre.uid!)) {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('Already counted this session', false);
         return;
       }
 
@@ -274,6 +292,13 @@ class _ScrapsScreenState extends State<ScrapsScreen>
           documentNo: 'SCRAPS',
         );
       } on ScanCommitException catch (e) {
+        // Ambiguous: the backend may have committed while the app saw an
+        // error. Ask the backend for the truth before reporting failure.
+        final recorded = await DispatchApi.verifyTyreOnTruck(tyre.uid!, reg);
+        if (recorded) {
+          await _countScan(entry, tyre.uid!);
+          return;
+        }
         ScanSounds.error();
         AppHaptics.error();
         final message = e.message.toLowerCase();
@@ -286,18 +311,21 @@ class _ScrapsScreenState extends State<ScrapsScreen>
         return;
       }
 
+      if (result is ScanCommitRejected) {
+        final recorded = await DispatchApi.verifyTyreOnTruck(tyre.uid!, reg);
+        if (recorded) {
+          await _countScan(entry, tyre.uid!);
+          return;
+        }
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('Scan rejected by system', false);
+        return;
+      }
+
       switch (result) {
         case ScanCommitSuccess():
-          _sessionUids.add(tyre.uid!);
-          final now = DateTime.now().millisecondsSinceEpoch;
-          final trips = [
-            ...?entry.trips,
-            Trip(id: IdGenerator.generate(), count: 1, createdAt: now),
-          ];
-          await _saveEntry(_withSyncedSheetTrip(entry, trips));
-          ScanSounds.success();
-          AppHaptics.success();
-          _showBanner('LOADED — SCRAPS · ${_total(trips)} so far', true);
+          await _countScan(entry, tyre.uid!);
         case ScanCommitDuplicate(:final name, :final scanTime):
           ScanSounds.error();
           AppHaptics.error();
@@ -307,13 +335,35 @@ class _ScrapsScreenState extends State<ScrapsScreen>
             false,
           );
         case ScanCommitRejected():
+          // Unreachable (handled above).
           ScanSounds.error();
           AppHaptics.error();
           _showBanner('Scan rejected by system', false);
       }
     } finally {
-      if (mounted) setState(() => _scanBusy = false);
+      if (mounted) {
+        setState(() => _scanBusy = false);
+        final pending = _pendingUid;
+        _pendingUid = null;
+        if (pending != null) {
+          unawaited(_handleScan(pending));
+        }
+      }
     }
+  }
+
+  /// Count one confirmed scan (commit response or read-back).
+  Future<void> _countScan(Entry entry, String uid) async {
+    _sessionUids.add(uid);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final trips = [
+      ...?entry.trips,
+      Trip(id: IdGenerator.generate(), count: 1, createdAt: now),
+    ];
+    await _saveEntry(_withSyncedSheetTrip(entry, trips));
+    ScanSounds.success();
+    AppHaptics.success();
+    _showBanner('LOADED — SCRAPS · ${_total(trips)} so far', true);
   }
 
   Future<void> _submitTypedUid() async {
@@ -671,7 +721,12 @@ class _ScrapsScreenState extends State<ScrapsScreen>
                 )
               else
                 TextButton(
-                  onPressed: _scanArmed ? _disarmScan : () => _armScan(),
+                  onPressed: _scanArmed
+                      ? () {
+                          _autoRearm = false;
+                          _disarmScan();
+                        }
+                      : () => _armScan(),
                   child: Text(_scanArmed ? 'Stop' : 'Arm'),
                 ),
             ],

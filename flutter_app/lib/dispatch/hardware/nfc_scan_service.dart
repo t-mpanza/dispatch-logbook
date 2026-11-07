@@ -14,7 +14,12 @@ class NfcScanService {
 
   String? _lastUid;
   DateTime? _lastUidAt;
-  static const Duration _debounceWindow = Duration(milliseconds: 1500);
+
+  /// Short radio-level dedupe only (double-reads of one tag land within
+  /// ~300ms). Business-level dedupe lives in the screens (session UIDs),
+  /// and a longer window here would eat fast deliberate re-taps at
+  /// production scan pace (~5s per tyre).
+  static const Duration _debounceWindow = Duration(milliseconds: 500);
 
   Stream<String> get scans => _controller.stream;
 

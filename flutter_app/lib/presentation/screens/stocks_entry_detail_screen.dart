@@ -75,6 +75,15 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
   StreamSubscription<String>? _scanSub;
   bool _scanArmed = false;
   bool _scanBusy = false;
+
+  /// Re-arm silently when the app returns to the foreground after being
+  /// backgrounded mid-session (another NFC app may have taken the reader).
+  bool _autoRearm = false;
+
+  /// A tag read while a commit was still in flight — processed next,
+  /// never dropped (production pace is ~5s per tyre).
+  String? _pendingUid;
+
   String? _scanBanner;
   bool _scanBannerOk = false;
   Timer? _bannerTimer;
@@ -96,7 +105,13 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed && _scanArmed) {
+      // Backgrounded — release the NFC reader for the other app, but
+      // remember to grab it back when we return.
+      _autoRearm = true;
       _disarmScan();
+    } else if (state == AppLifecycleState.resumed && _autoRearm) {
+      _autoRearm = false;
+      if (mounted) unawaited(_armScan(announceFailure: false));
     }
   }
 
@@ -360,7 +375,12 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
                 )
               else
                 TextButton(
-                  onPressed: _scanArmed ? _disarmScan : () => _armScan(),
+                  onPressed: _scanArmed
+                      ? () {
+                          _autoRearm = false;
+                          _disarmScan();
+                        }
+                      : () => _armScan(),
                   child: Text(_scanArmed ? 'Stop' : 'Arm'),
                 ),
             ],
@@ -568,9 +588,15 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
   }
 
   /// The full scan pipeline: look up → gate → commit → tally.
-  /// Local tally fires ONLY after the backend says `successful == 1`.
+  /// Local tally fires ONLY after the backend confirms the scan (response
+  /// `successful == 1` OR read-back verification when the outcome is
+  /// ambiguous — the backend sometimes commits while the app sees an error).
   Future<void> _handleScan(String uid) async {
-    if (_scanBusy || !mounted) return;
+    if (_scanBusy || !mounted) {
+      // Commit in flight — buffer the read; it is processed right after.
+      if (mounted) _pendingUid = uid;
+      return;
+    }
 
     setState(() {
       _scanBusy = true;
@@ -651,6 +677,17 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
           documentNo: accepted.documentNo,
         );
       } on ScanCommitException catch (e) {
+        // Ambiguous: the backend may have committed while the app saw an
+        // error (slow response, post-commit resolver error). Ask the
+        // backend for the truth before telling the operator anything.
+        final recorded = await DispatchApi.verifyTyreOnTruck(
+          tyre.uid!,
+          trip.reg.trim(),
+        );
+        if (recorded) {
+          await _recordSuccess(entry, accepted, tyre.uid!);
+          return;
+        }
         ScanSounds.error();
         AppHaptics.error();
         final message = e.message.toLowerCase();
@@ -663,19 +700,25 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
         return;
       }
 
+      if (result is ScanCommitRejected) {
+        // Same ambiguity: `successful != 1` is not proof the write failed.
+        final recorded = await DispatchApi.verifyTyreOnTruck(
+          tyre.uid!,
+          trip.reg.trim(),
+        );
+        if (recorded) {
+          await _recordSuccess(entry, accepted, tyre.uid!);
+          return;
+        }
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('Scan rejected by system', false);
+        return;
+      }
+
       switch (result) {
         case ScanCommitSuccess():
-          _sessionUids.add(tyre.uid!);
-          await _updateLineQuantity(
-            currentEntry: entry,
-            repo: repo,
-            docNo: accepted.documentNo,
-            lineId: accepted.lineId,
-            newQuantity: accepted.line.loadedQuantity + 1,
-          );
-          ScanSounds.success();
-          AppHaptics.success();
-          _showBanner(accepted.message, true);
+          await _recordSuccess(entry, accepted, tyre.uid!);
         case ScanCommitDuplicate(:final name, :final scanTime):
           ScanSounds.error();
           AppHaptics.error();
@@ -685,6 +728,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
             false,
           );
         case ScanCommitRejected():
+          // Unreachable (handled above).
           ScanSounds.error();
           AppHaptics.error();
           _showBanner('Scan rejected by system', false);
@@ -694,8 +738,34 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
         setState(() => _scanBusy = false);
         // Continuous scanning: stay armed for the next tyre.
         unawaited(_rearmIfNeeded());
+        // A tag read while we were busy — process it now, never drop it.
+        final pending = _pendingUid;
+        _pendingUid = null;
+        if (pending != null) {
+          unawaited(_handleScan(pending));
+        }
       }
     }
+  }
+
+  /// Tally + feedback for a confirmed scan (commit response or read-back).
+  Future<void> _recordSuccess(
+    Entry entry,
+    ScanAccepted accepted,
+    String uid,
+  ) async {
+    final repo = context.read<EntryRepository>();
+    _sessionUids.add(uid);
+    await _updateLineQuantity(
+      currentEntry: entry,
+      repo: repo,
+      docNo: accepted.documentNo,
+      lineId: accepted.lineId,
+      newQuantity: accepted.line.loadedQuantity + 1,
+    );
+    ScanSounds.success();
+    AppHaptics.success();
+    _showBanner(accepted.message, true);
   }
 
   @override

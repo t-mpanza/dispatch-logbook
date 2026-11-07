@@ -87,7 +87,7 @@ class DispatchApi {
       getSlipTyreWithUID(uid: $uid) {
         idJob job idSlip slip_number on_rim pattern idConfirmation_Sheet
         CustomerName cs_number idTyre make size size_id rubber_id serial dot
-        driver reference registration uid location_id reject_accepted
+        driver reference registration previous_reg uid location_id reject_accepted
         invoiced invoice_number order_number dump tagged
       }
     }
@@ -95,6 +95,22 @@ class DispatchApi {
     final data = await _post(query: q, variables: {'uid': uid});
     final rows = jsonMapList(data['getSlipTyreWithUID']);
     return rows.isEmpty ? null : SlipTyre.fromJson(rows.first);
+  }
+
+  /// Read-back verification: was this tyre recorded against this truck?
+  ///
+  /// Used when a scan commit's outcome is ambiguous (timeout, post-commit
+  /// resolver error, or `successful != 1`): the backend may have written
+  /// the scan even though the app saw an error. Truth comes from the tyre
+  /// row itself — `registration` / `previous_reg` match the truck the
+  /// operator scanned onto.
+  static Future<bool> verifyTyreOnTruck(String uid, String registration) async {
+    final tyre = await fetchTyreByUid(uid);
+    if (tyre == null) return false;
+    final reg = registration.trim().toUpperCase();
+    if (reg.isEmpty) return false;
+    return (tyre.registration ?? '').trim().toUpperCase() == reg ||
+        (tyre.previousReg ?? '').trim().toUpperCase() == reg;
   }
 
   static Future<List<TyreHistoryEntry>> fetchTyreHistory(int slipId) async {

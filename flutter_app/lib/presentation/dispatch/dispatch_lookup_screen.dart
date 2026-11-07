@@ -812,6 +812,10 @@ class _SpecCard extends StatelessWidget {
             _row(context, 'Repeat UID', story.slip!.repeatUid!),
           if (story.slip?.rejectAccepted != null)
             _row(context, 'Reject flag', '${story.slip!.rejectAccepted}'),
+          if (tyre.registration != null && tyre.registration!.isNotEmpty)
+            _row(context, 'Reg', tyre.registration!),
+          if (tyre.previousReg != null && tyre.previousReg!.isNotEmpty)
+            _row(context, 'Prev reg', tyre.previousReg!),
           if (tyre.isDump)
             _row(context, 'Dump flag', 'DUMPED'),
         ],
