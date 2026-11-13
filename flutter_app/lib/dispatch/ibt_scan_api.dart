@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
 import '../data/services/appsync_manifest_service.dart';
 import '../data/services/aws_auto_login_service.dart';
+import '../data/services/scan_log_service.dart';
 import 'models/json_helpers.dart';
 
 /// The `createDispatchDeliveryINV_V2` commit — the scan becomes the system
@@ -157,15 +159,18 @@ class IbtScanApi {
 
   /// Parse the mutation response defensively (Ints, not bools).
   ///
-  /// LIVE-VERIFIED SENTINEL (2026-11-07): the backend uses the factory-wide
-  /// convention — `0` = no, ANY non-zero = yes. A real duplicate scan
-  /// returned `duplicate_scan: 2` (not 1). Checking `== 1` made genuine
-  /// scans fall through to "rejected" while the backend recorded them —
-  /// the "error shown but tyre recorded" bug. Truthy `!= 0` covers both
-  /// 1 and 2 sentinels.
+  /// LIVE-VERIFIED SHAPE + SENTINEL (2026-11-07):
+  /// - The resolver returns `createDispatchDeliveryINV_V2` as a SINGLE
+  ///   OBJECT (`DispatchDeliveryLog` is object-typed in the SDL). Reading it
+  ///   through [jsonMapList] silently produced an empty row on every scan →
+  ///   `successful=0, duplicate=0` → "Scan rejected by system" while the
+  ///   backend recorded the tyre. [jsonMapField] accepts the object shape
+  ///   AND the legacy single-element list shape.
+  /// - The backend uses the factory-wide sentinel convention — `0` = no,
+  ///   ANY non-zero = yes. A real duplicate scan returned
+  ///   `duplicate_scan: 2` (not 1); truthy `!= 0` covers both sentinels.
   static ScanCommitResult parseCommitResponse(Map<String, dynamic> data) {
-    final rows = jsonMapList(data['createDispatchDeliveryINV_V2']);
-    final row = rows.isEmpty ? const <String, dynamic>{} : rows.first;
+    final row = jsonMapField(data['createDispatchDeliveryINV_V2']);
 
     final successful = jsonInt(row['successful']) ?? 0;
     final duplicate = jsonInt(row['duplicate_scan']) ?? 0;
@@ -187,6 +192,7 @@ class IbtScanApi {
     required String registration,
     required int personnelId,
     required String documentNo,
+    String screen = 'unknown',
   }) async {
     const mutation = r'''
     mutation MyMutation($uid: String, $registration: String, $personnel_id: Int, $document_no: String, $loaded: Int, $location_id: Int) {
@@ -207,8 +213,49 @@ class IbtScanApi {
       documentNo: documentNo,
     );
 
-    final data = await _post(query: mutation, variables: variables);
-    return parseCommitResponse(data);
+    unawaited(
+      ScanLogService.log(
+        screen: screen,
+        event: 'commit_request',
+        uid: uid,
+        registration: registration,
+        documentNo: documentNo,
+        detail: variables,
+      ),
+    );
+
+    final Map<String, dynamic> data;
+    try {
+      data = await _post(query: mutation, variables: variables);
+    } on ScanCommitException catch (e) {
+      unawaited(
+        ScanLogService.log(
+          screen: screen,
+          event: 'commit_exception',
+          uid: uid,
+          registration: registration,
+          documentNo: documentNo,
+          detail: e.message,
+        ),
+      );
+      rethrow;
+    }
+
+    final result = parseCommitResponse(data);
+    unawaited(
+      ScanLogService.log(
+        screen: screen,
+        event: 'commit_response',
+        uid: uid,
+        registration: registration,
+        documentNo: documentNo,
+        detail: {
+          'raw': data,
+          'verdict': result.runtimeType.toString(),
+        },
+      ),
+    );
+    return result;
   }
 
   /// POST with a self-healing session: on auth-flavoured failures the app

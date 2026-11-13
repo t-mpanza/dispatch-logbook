@@ -97,6 +97,37 @@ void main() {
       },
     );
 
+    test(
+      'the LIVE object shape parses as duplicate — not rejected '
+      '(the "rejected by system" root cause)',
+      () {
+        final result = IbtScanApi.parseCommitResponse({
+          'createDispatchDeliveryINV_V2': {
+            'successful': 0,
+            'duplicate_scan': 2,
+            'previous_reg': 'HW72JS',
+            'name': 'Theolus Mpanza',
+            'scan_time': 'Tue Sep 01 2026 08:08:05 GMT+0000',
+          },
+        });
+        final duplicate = result as ScanCommitDuplicate;
+        expect(duplicate.name, 'Theolus Mpanza');
+        expect(duplicate.scanTime, contains('Sep 01 2026'));
+      },
+    );
+
+    test('the LIVE object shape with sentinel 2 parses as success', () {
+      final result = IbtScanApi.parseCommitResponse({
+        'createDispatchDeliveryINV_V2': {
+          'successful': 2,
+          'duplicate_scan': 0,
+          'name': 'Theolus Mpanza',
+          'scan_time': 'Tue Sep 01 2026 08:08:05 GMT+0000',
+        },
+      });
+      expect(result, isA<ScanCommitSuccess>());
+    });
+
     test('successful == 0 and no duplicate → ScanCommitRejected', () {
       final result = IbtScanApi.parseCommitResponse({
         'createDispatchDeliveryINV_V2': [

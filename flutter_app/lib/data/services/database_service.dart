@@ -18,7 +18,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -118,7 +118,79 @@ class DatabaseService {
             )
           ''');
         }
+        if (oldVersion < 6) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS scan_logs (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              created_at INTEGER NOT NULL,
+              screen TEXT NOT NULL,
+              event TEXT NOT NULL,
+              uid TEXT,
+              registration TEXT,
+              document_no TEXT,
+              detail TEXT,
+              pushed INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_scan_logs_pushed ON scan_logs(pushed)',
+          );
+        }
       },
+    );
+  }
+
+  // ── Scanner diagnostics log (local-first, then Supabase) ───────────────────
+
+  static Future<int> insertScanLog({
+    required String screen,
+    required String event,
+    String? uid,
+    String? registration,
+    String? documentNo,
+    String? detail,
+  }) async {
+    final db = await database;
+    return db.insert('scan_logs', {
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+      'screen': screen,
+      'event': event,
+      'uid': uid,
+      'registration': registration,
+      'document_no': documentNo,
+      'detail': detail,
+      'pushed': 0,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> unpushedScanLogs({
+    int limit = 100,
+  }) async {
+    final db = await database;
+    return db.query(
+      'scan_logs',
+      where: 'pushed = 0',
+      orderBy: 'id ASC',
+      limit: limit,
+    );
+  }
+
+  static Future<void> markScanLogsPushed(List<int> ids) async {
+    if (ids.isEmpty) return;
+    final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(',');
+    await db.rawUpdate(
+      'UPDATE scan_logs SET pushed = 1 WHERE id IN ($placeholders)',
+      ids,
+    );
+  }
+
+  static Future<void> pruneScanLogs({int keep = 500}) async {
+    final db = await database;
+    await db.rawDelete(
+      'DELETE FROM scan_logs WHERE pushed = 1 AND id NOT IN '
+      '(SELECT id FROM scan_logs ORDER BY id DESC LIMIT ?)',
+      [keep],
     );
   }
 

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dispatch_diary/data/services/appsync_manifest_service.dart';
 import 'package:dispatch_diary/data/services/aws_auto_login_service.dart';
 import 'package:dispatch_diary/dispatch/dispatch_api.dart';
+import 'package:dispatch_diary/dispatch/ibt_scan_api.dart';
 import 'package:dispatch_diary/dispatch/models/slip_tyre.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -50,6 +51,131 @@ void main() {
     );
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
+
+  group('live test-tyre scans (owner-approved)', () {
+    const testTyres = [
+      (serial: '100101158', invoice: '9258368'),
+      (serial: '1001011579', invoice: '9255337'),
+    ];
+
+    test(
+      'scans of the two test tyres parse as success or duplicate, '
+      'never rejected',
+      () async {
+        final idToken = await token();
+        final operatorId = (await resolveOperatorIdRaw(idToken))!;
+
+        for (final t in testTyres) {
+          // Raw serial probe — what does the backend actually answer?
+          const serialQ = r'''
+          query MyQuery($serial: String!) {
+            getTyreWithSerial(serial: $serial) {
+              idTyre serial make size slip_number CustomerName cs_number
+              created_at tyre_uid
+            }
+          }
+          ''';
+          final serialRaw = await rawPost(
+            idToken,
+            serialQ,
+            variables: {'serial': t.serial},
+          );
+          // ignore: avoid_print
+          print('RAW SERIAL ${t.serial}: ${jsonEncode(serialRaw)}');
+
+          // Hypothesis: the numbers are SLIP numbers, not serials.
+          const slipQ = r'''
+          query MyQuery($slip_number: Int!) {
+            getSlipWithNumber(slip_number: $slip_number) {
+              idSlip slip_number tyre_id cs_id invoice_number reject_accepted
+            }
+          }
+          ''';
+          final slipRaw = await rawPost(
+            idToken,
+            slipQ,
+            variables: {'slip_number': int.tryParse(t.serial) ?? 0},
+          );
+          // ignore: avoid_print
+          print('RAW SLIP ${t.serial}: ${jsonEncode(slipRaw)}');
+
+          // Path 1: the tyre row by serial.
+          final bySerial = await DispatchApi.fetchTyreBySerial(t.serial);
+          // ignore: avoid_print
+          print(
+            'TEST TYRE ${t.serial}: bySerial=${bySerial == null ? "null" : "uid=${bySerial.uid} slip=${bySerial.slipNumber}"}',
+          );
+
+          // Path 2: the invoice document's slips (they carry the uid).
+          List<SlipTyre> docSlips = const [];
+          try {
+            docSlips = await DispatchApi.fetchDeliverySlips(
+              inv: 'INV${t.invoice}',
+            );
+          } catch (e) {
+            // ignore: avoid_print
+            print('TEST TYRE ${t.serial}: doc lookup failed: $e');
+          }
+          final docMatch = docSlips
+              .where((s) => (s.serial ?? '').trim().toUpperCase() == t.serial)
+              .firstOrNull;
+          // ignore: avoid_print
+          print(
+            'TEST TYRE ${t.serial}: doc INV${t.invoice} slips=${docSlips.length} '
+            'match=${docMatch == null ? "null" : "uid=${docMatch.uid}"}',
+          );
+          final tyre = bySerial ?? docMatch;
+          if (tyre == null || tyre.uid == null) {
+            // ignore: avoid_print
+            print(
+              'TEST TYRE ${t.serial}: UNRESOLVABLE on live backend '
+              '(serial/slip/invoice all empty) — check the identifiers',
+            );
+            continue;
+          }
+          expect(tyre.uid, isNotNull, reason: '${t.serial} must have a uid');
+
+          const mutation = r'''
+          mutation MyMutation($uid: String, $registration: String, $personnel_id: Int, $document_no: String, $loaded: Int, $location_id: Int) {
+            createDispatchDeliveryINV_V2(createDispatchDeliveryINV_V2: {uid: $uid, registration: $registration, personnel_id: $personnel_id, document_no: $document_no, loaded: $loaded, location_id: $location_id}) {
+              successful duplicate_scan previous_reg scan_time name
+            }
+          }
+          ''';
+          final raw = await rawPost(
+            idToken,
+            mutation,
+            variables: {
+              'uid': tyre.uid,
+              'registration': 'MN05XNGP',
+              'personnel_id': operatorId,
+              'document_no': 'INV${t.invoice}',
+              'loaded': 1,
+              'location_id': 12,
+            },
+          );
+          // ignore: avoid_print
+          print('RAW RESPONSE ${t.serial}: ${jsonEncode(raw)}');
+
+          final data = (raw['data'] ?? const {}) as Map<String, dynamic>;
+          final result = IbtScanApi.parseCommitResponse(data);
+          // ignore: avoid_print
+          print('PARSED VERDICT ${t.serial}: ${result.runtimeType} '
+              '${result is ScanCommitDuplicate ? 'by ${result.name} on ${result.scanTime}' : ''}');
+          expect(
+            result,
+            anyOf(isA<ScanCommitSuccess>(), isA<ScanCommitDuplicate>()),
+            reason:
+                '${t.serial} was recorded by the backend — the app must '
+                'not report it as rejected',
+          );
+        }
+      },
+      skip: Platform.environment['REAL_MUTATIONS'] != '1'
+          ? 'set REAL_MUTATIONS=1 to scan the two owner-approved test tyres'
+          : false,
+    );
+  });
 
   group('live IBT forensics (read-only)', () {
     late String idToken;

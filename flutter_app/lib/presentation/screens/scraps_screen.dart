@@ -18,6 +18,7 @@ import '../../dispatch/dispatch_api.dart';
 import '../../dispatch/hardware/nfc_scan_service.dart';
 import '../../dispatch/ibt_scan_api.dart';
 import '../../dispatch/models/slip_tyre.dart';
+import '../widgets/number_pad.dart';
 import '../widgets/ui_kit.dart';
 
 /// THE scrap run-out screen — dedicated, not the generic counter.
@@ -290,6 +291,7 @@ class _ScrapsScreenState extends State<ScrapsScreen>
           registration: reg,
           personnelId: operatorId,
           documentNo: 'SCRAPS',
+          screen: 'scraps',
         );
       } on ScanCommitException catch (e) {
         ScanSounds.error();
@@ -374,6 +376,39 @@ class _ScrapsScreenState extends State<ScrapsScreen>
     trips.removeLast();
     await _saveEntry(_withSyncedSheetTrip(entry!, trips));
     _showBanner('Removed one — ${_total(trips)} so far', true);
+  }
+
+  /// Manual +1 — the tag-less tyre path (dual system).
+  Future<void> _addOne() async {
+    AppHaptics.medium();
+    await _addManualCount(1);
+  }
+
+  /// Manual ADD N via the number pad (no cap — no target exists).
+  Future<void> _addCount() async {
+    AppHaptics.medium();
+    final n = await BatchPad.show(
+      context,
+      remaining: 0,
+      title: 'ADD TO REJECTS/SCRAPS',
+    );
+    if (n == null || n <= 0) return;
+    await _addManualCount(n);
+  }
+
+  Future<void> _addManualCount(int count) async {
+    final repo = context.read<EntryRepository>();
+    final entry = _cachedEntry ?? await repo.getEntryById(widget.entryId);
+    if (entry == null) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final trips = [
+      ...?entry.trips,
+      Trip(id: IdGenerator.generate(), count: count, createdAt: now),
+    ];
+    await _saveEntry(_withSyncedSheetTrip(entry, trips));
+    ScanSounds.success();
+    AppHaptics.success();
+    _showBanner('Added $count — ${_total(trips)} so far', true);
   }
 
   @override
@@ -520,43 +555,36 @@ class _ScrapsScreenState extends State<ScrapsScreen>
                 ],
                 const SizedBox(height: 12),
 
-                // ── Remove one ──
-                GestureDetector(
-                  onTap: _removeOne,
-                  child: Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppColors.warningStrong(
-                        context,
-                      ).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppColors.warningStrong(
-                          context,
-                        ).withValues(alpha: 0.4),
+                // ── Manual add (dual system: pad entry OR NFC scan) ──
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ActionTile(
+                        icon: Icons.remove_circle_outline_rounded,
+                        label: 'REMOVE ONE',
+                        color: AppColors.warningStrong(context),
+                        onTap: _removeOne,
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.remove_circle_outline_rounded,
-                          size: 20,
-                          color: AppColors.warningStrong(context),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'REMOVE ONE',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1,
-                            color: AppColors.warningStrong(context),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ActionTile(
+                        icon: Icons.add_circle_outline_rounded,
+                        label: 'ADD ONE',
+                        color: AppColors.successStrong(context),
+                        onTap: _addOne,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ActionTile(
+                        icon: Icons.dialpad_rounded,
+                        label: 'ADD N',
+                        color: AppColors.infoStrong(context),
+                        onTap: _addCount,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 18),
 
@@ -753,6 +781,51 @@ class _ScrapsScreenState extends State<ScrapsScreen>
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.6,
+                color: color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

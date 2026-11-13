@@ -675,6 +675,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
           registration: trip.reg.trim(),
           personnelId: operatorId,
           documentNo: accepted.documentNo,
+          screen: 'stocks',
         );
       } on ScanCommitException catch (e) {
         ScanSounds.error();
