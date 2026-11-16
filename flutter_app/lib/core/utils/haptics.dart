@@ -18,6 +18,10 @@ class AppHaptics {
         HapticFeedback.mediumImpact();
         break;
       case HapticType.error:
+        // A loud, unmissable "wrong" rumble: three stacked heavy pulses.
+        // The bay is noisy — errors must be FELT, not just heard.
+        HapticFeedback.heavyImpact();
+        HapticFeedback.heavyImpact();
         HapticFeedback.heavyImpact();
         break;
     }

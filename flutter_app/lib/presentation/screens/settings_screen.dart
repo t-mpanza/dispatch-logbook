@@ -349,6 +349,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 10),
+          AppCard(
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.volume_up_rounded,
+                    color: settings.scanSoundsEnabled
+                        ? AppColors.warningStrong(context)
+                        : AppColors.dynamicTextDisabled(context),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Scan sounds',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.dynamicTextPrimary(context),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Correct / wrong chimes — haptics always stay on',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.dynamicTextMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: settings.scanSoundsEnabled,
+                  onChanged: (val) {
+                    AppHaptics.medium();
+                    settings.setScanSoundsEnabled(val);
+                  },
+                ),
+              ],
+            ),
+          ),
 
           const SizedBox(height: 20),
           _sectionLabel(context, 'YOUR DETAILS'),

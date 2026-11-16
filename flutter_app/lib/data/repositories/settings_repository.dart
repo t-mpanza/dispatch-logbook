@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/utils/scan_sounds.dart';
 import '../services/database_service.dart';
 
 class SettingsRepository extends ChangeNotifier {
@@ -7,6 +8,7 @@ class SettingsRepository extends ChangeNotifier {
   static const String _keySunlightMode = 'is_sunlight_mode';
   static const String _keyWelcomeSeen = 'welcome_seen_v3';
   static const String _keyNfcEnabled = 'nfc_enabled';
+  static const String _keyScanSoundsEnabled = 'scan_sounds_enabled';
 
   String _despatcherName = 'Theolus';
   String get despatcherName => _despatcherName;
@@ -20,6 +22,11 @@ class SettingsRepository extends ChangeNotifier {
   /// NFC tyre-scanning kill switch (persisted).
   bool _nfcEnabled = true;
   bool get nfcEnabled => _nfcEnabled;
+
+  /// Scanner audio switch (persisted). Haptics always fire — this mutes
+  /// only the two scan sounds.
+  bool _scanSoundsEnabled = true;
+  bool get scanSoundsEnabled => _scanSoundsEnabled;
 
   /// Dispatch tab unlock — IN MEMORY ONLY. Closing the app re-hides the
   /// tab (night shift can't stumble onto it).
@@ -53,6 +60,12 @@ class SettingsRepository extends ChangeNotifier {
     if (nfcVal != null) {
       _nfcEnabled = nfcVal;
     }
+
+    final soundsVal = sp.getBool(_keyScanSoundsEnabled);
+    if (soundsVal != null) {
+      _scanSoundsEnabled = soundsVal;
+    }
+    ScanSounds.muted = !_scanSoundsEnabled;
     notifyListeners();
   }
 
@@ -86,6 +99,14 @@ class SettingsRepository extends ChangeNotifier {
     _nfcEnabled = enabled;
     final sp = await SharedPreferences.getInstance();
     await sp.setBool(_keyNfcEnabled, enabled);
+    notifyListeners();
+  }
+
+  Future<void> setScanSoundsEnabled(bool enabled) async {
+    _scanSoundsEnabled = enabled;
+    ScanSounds.muted = !enabled;
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool(_keyScanSoundsEnabled, enabled);
     notifyListeners();
   }
 

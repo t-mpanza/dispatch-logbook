@@ -4,9 +4,10 @@ name: Daily Dispatch Email Report
 # 06:00 SAST (04:00 UTC) every Monday–Friday.
 # Each run reports the PREVIOUS WORKING day, so the Monday email
 # automatically carries Friday's report.
+# NOTE: the scheduled run was retired — Supabase pg_cron (06:00 SAST
+# weekdays) is the primary sender and has proven reliable. This workflow
+# remains only as a manual/backup trigger.
 on:
-  schedule:
-    - cron: '0 4 * * 1-5'
   workflow_dispatch:
     inputs:
       date:

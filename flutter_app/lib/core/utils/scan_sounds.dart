@@ -12,6 +12,10 @@ class ScanSounds {
   /// its event stream would throw uncaught). Production always enabled.
   static bool enabled = true;
 
+  /// User-facing mute — the Settings switch. Haptics keep firing; only the
+  /// audio goes silent.
+  static bool muted = false;
+
   static AudioPlayer? _player;
 
   static Future<void> success() => _play('sounds/scan_success.wav');
@@ -19,12 +23,13 @@ class ScanSounds {
   static Future<void> error() => _play('sounds/scan_error.wav');
 
   static Future<void> _play(String asset) async {
-    if (!enabled) return;
+    if (!enabled || muted) return;
     try {
       _player ??= AudioPlayer();
       final player = _player!;
       await player.stop();
       await player.setReleaseMode(ReleaseMode.stop);
+      await player.setVolume(1.0);
       await player.play(AssetSource(asset));
     } catch (e) {
       debugPrint('Scan sound failed: $e');
