@@ -3,6 +3,8 @@ package com.dispatchdiary.dispatch_diary
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -13,6 +15,7 @@ import java.io.File
 class MainActivity : FlutterActivity() {
 
     private val INSTALL_CHANNEL = "com.dispatchdiary.dispatch_diary/install"
+    private val HAPTICS_CHANNEL = "dispatch_diary/haptics"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -75,5 +78,39 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
+
+        // Scan-error haptics. Flutter's built-in impacts funnel into
+        // performHapticFeedback, which Android silently drops when the
+        // device's "touch feedback" setting is off — in a noisy bay the
+        // WRONG-tyre rumble must always be felt. The system Vibrator only
+        // respects the master Vibration setting (the VIBRATE permission is
+        // declared in the manifest), so the error verdict goes straight
+        // to it: three hard pulses at full amplitude.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, HAPTICS_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "vibrateError" -> {
+                        vibratePattern(longArrayOf(0, 250, 110, 350, 110, 250))
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    private fun vibratePattern(pattern: LongArray) {
+        val vibrator = getSystemService(VIBRATOR_SERVICE) as? Vibrator ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Odd indices are ON segments — full amplitude for each pulse.
+                val amplitudes = IntArray(pattern.size) { if (it % 2 == 0) 0 else 255 }
+                vibrator.vibrate(VibrationEffect.createWaveform(pattern, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(pattern, -1)
+            }
+        } catch (_: Exception) {
+            // Haptics are best-effort — never let one crash a scan.
+        }
     }
 }
