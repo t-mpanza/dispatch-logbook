@@ -97,6 +97,40 @@ class SlipTyre {
     return parts.isEmpty ? (serial ?? uid ?? 'Tyre') : parts.join(' · ');
   }
 
+  Map<String, dynamic> toJson() => {
+    'uid': uid,
+    'idSlip': idSlip,
+    'idTyre': idTyre,
+    'slip_number': slipNumber,
+    'pattern': pattern,
+    'size_id': sizeId,
+    'rubber_id': rubberId,
+    'idConfirmation_Sheet': idConfirmationSheet,
+    'CustomerName': customerName,
+    'cs_number': csNumber,
+    'make': make,
+    'size': size,
+    'serial': serial,
+    'dot': dot,
+    'driver': driver,
+    'reference': reference,
+    'registration': registration,
+    'location_id': locationId,
+    'reject_accepted': rejectAccepted,
+    'invoiced': invoiced,
+    'invoice_number': invoiceNumber,
+    'order_number': orderNumber,
+    'dump': dump,
+    'tagged': tagged,
+    'job': job,
+    'on_rim': onRim,
+    'loaded': loaded,
+    'previous_reg': previousReg,
+    'scan_time': scanTime,
+    'name': name,
+    'location_code': locationCode,
+  };
+
   factory SlipTyre.fromJson(Map<String, dynamic> json) => SlipTyre(
     uid: jsonString(json['uid']),
     idSlip: jsonInt(json['idSlip']),

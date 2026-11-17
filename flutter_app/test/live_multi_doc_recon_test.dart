@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dispatch_diary/data/repositories/staged_document_repository.dart';
 import 'package:dispatch_diary/data/services/aws_auto_login_service.dart';
+import 'package:dispatch_diary/data/services/document_resolver.dart';
 import 'package:dispatch_diary/dispatch/dispatch_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// LIVE MULTI-DOC RECON — read-only probes for the Multi-Document Truck
 /// Hub (MVP P1). Answers the open questions in docs/mvp-tracking.md §5:
@@ -28,6 +31,8 @@ void main() {
         skip: 'set RUN_LIVE_TESTS=1 to hit the live backend');
     return;
   }
+  sqfliteFfiInit();
+  databaseFactory = databaseFactoryFfi;
 
   const endpoint =
       'https://w2jsgqhlgngcfn3d27xvl2r6iq.appsync-api.eu-central-1.amazonaws.com/graphql';
@@ -204,6 +209,55 @@ void main() {
           'make=${r['make']}');
     }
     expect(rows.length, greaterThanOrEqualTo(0));
+  });
+
+  test('P2: DocumentResolver stages INV+DIBT in parallel against prod',
+      () async {
+    final repo = StagedDocumentRepository(
+      await databaseFactory.openDatabase(
+        inMemoryDatabasePath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (d, _) => d.execute('''
+            CREATE TABLE staged_documents (
+              id TEXT PRIMARY KEY,
+              entry_id TEXT NOT NULL,
+              stream TEXT NOT NULL,
+              document_no TEXT NOT NULL,
+              customer_name TEXT,
+              total INTEGER,
+              manifest_json TEXT NOT NULL,
+              cached_at INTEGER NOT NULL,
+              UNIQUE(entry_id, stream, document_no)
+            )
+          '''),
+        ),
+      ),
+    );
+    final resolver = DocumentResolver(repository: repo);
+    final results = await resolver.resolveBatch(
+      entryId: 'live-recon-truck',
+      input: 'INV2392908, DIBT0179154',
+    );
+    // ignore: avoid_print
+    print('RESOLVER: ${results.map((r) => '${r.input}=${r.status.name}').join(', ')}');
+    expect(results.length, 2);
+    expect(results.every((r) => r.isOk), isTrue);
+    final docs = await repo.listForEntry('live-recon-truck');
+    expect(docs.length, 2);
+    for (final d in docs) {
+      // ignore: avoid_print
+      print('  cached ${d.documentNo} customer=${d.customerName} '
+          'total=${d.total} slips=${d.slips.length} '
+          'loaded=${d.loadedCount}');
+      expect(d.slips, isNotEmpty);
+    }
+    // D8 against prod: re-staging the same number is refused.
+    final again = await resolver.resolveBatch(
+      entryId: 'live-recon-truck',
+      input: 'DIBT0179154',
+    );
+    expect(again.single.status, DocumentResolveStatus.duplicate);
   });
 
   test('P1: full query catalogue — batch/list resolvers', () async {

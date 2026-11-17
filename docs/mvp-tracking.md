@@ -82,7 +82,7 @@ APK — the definitive scan/offload contract).
 |---|---|---|
 | P0 | Engraving + this tracker | `DONE` (2026-11-17) |
 | P1 | Live recon: reject_accepted, DIBT/INV shapes, slip lookups, cash document_no | `IN PROGRESS` |
-| P2 | Data model: staged-document cache (SQLite v7), parallel resolver, truck-hub model | `PLANNED` |
+| P2 | Data model: staged-document cache (SQLite v7), parallel resolver, truck-hub model | `DONE` (2026-11-17, evidence S-003) |
 | P3 | Routing engine v2 (TDD): precedence, first-line-first IBT, ambiguity, cash arm, offload flow | `PLANNED` |
 | P4 | UI rewire: truck hub, 2-col blocks, accordion+search, cash toggle, offload dialog, reminders, HI-Q/BFN, consolidation (bug a + b) | `PLANNED` |
 | P5 | Slip-number UX, manual CRUD, UID hidden | `PLANNED` |
@@ -108,6 +108,12 @@ Format (append-only, newest at top):
 - Status flips: P1 PLANNED → IN PROGRESS
 - Next: what the following session starts with
 ```
+
+### S-003 · 2026-11-17 · main agent · P2 (DONE)
+- Did: StagedDocument model (JSON cache, membership/loadedCount helpers); SQLite v7 `staged_documents` table with UNIQUE(entry,stream,document_no) — D8 at the DB; StagedDocumentRepository (save throws DuplicateDocumentException, upsert/remove/clear); DocumentResolver — parallel multi-document staging (prefix classification, per-doc verdicts ok/duplicate/notFound/error/unsupported, SCRAPS refused as a mode); DispatchApi.fetchDeliveryDocument (block-level customer+slips); SlipTyre.toJson.
+- Evidence: 15 new tests (model/repo/resolver, incl. concurrency proof); live resolver staged INV2392908+DIBT0179154 in parallel (14+5 slips, loaded 13/5) with duplicate refusal; 244 default + 26 live tests green; analyze clean.
+- Status flips: P2 PLANNED → DONE.
+- Next: P3 — routing engine v2 (TDD): dump/collision/membership/IBT-first-line-first/cash-arm/offload; then P4 UI.
 
 ### S-002 · 2026-11-17 · main agent · P1
 - Did: live read-only probes (7 tests): INV2392908 + DIBT0179154 manifest shapes (loaded/previous_reg/scan_time per slip VERIFIED); getSlipWithNumber + getTyreWithSerial VERIFIED (slip-number UX viable today); full 234-field query catalogue; DispatchQueryFull introspected (reject_accepted + at_dispatch; 0 rows at probe); reject-history evidence on slip 1060772.

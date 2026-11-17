@@ -18,7 +18,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -134,6 +134,27 @@ class DatabaseService {
           ''');
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_scan_logs_pushed ON scan_logs(pushed)',
+          );
+        }
+        if (oldVersion < 7) {
+          // Staged documents per truck — the multi-document hub cache
+          // (D15). The UNIQUE constraint is D8: a document number can be
+          // staged on a truck exactly once.
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS staged_documents (
+              id TEXT PRIMARY KEY,
+              entry_id TEXT NOT NULL,
+              stream TEXT NOT NULL,
+              document_no TEXT NOT NULL,
+              customer_name TEXT,
+              total INTEGER,
+              manifest_json TEXT NOT NULL,
+              cached_at INTEGER NOT NULL,
+              UNIQUE(entry_id, stream, document_no)
+            )
+          ''');
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_staged_docs_entry ON staged_documents(entry_id)',
           );
         }
       },

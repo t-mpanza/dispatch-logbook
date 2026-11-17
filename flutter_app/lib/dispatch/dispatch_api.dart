@@ -259,6 +259,41 @@ class DispatchApi {
     return tyres;
   }
 
+  /// Block-level fetch for ONE document — the multi-doc resolver's
+  /// fetcher (customer + slips at the block level, live-verified shape:
+  /// `DispatchDeliverySlipInfo` has no CustomerName/reject_accepted).
+  static Future<
+      ({String? customerName, String? customerCode, int? total, List<SlipTyre> slips})>
+      fetchDeliveryDocument({String inv = '', String dibt = ''}) async {
+    const q = r'''
+    query MyQuery($inv: String, $dibt: String, $amsInv: String, $ibt: String) {
+      getDeliveryInfo(getDeliveryInfo: {amsInv: $amsInv, dibt: $dibt, ibt: $ibt, inv: $inv}) {
+        inv {
+          customerName customerCode total
+          slips { slip_number size make serial pattern location_code uid loaded name previous_reg scan_time dump }
+        }
+        dibt {
+          customerName customerCode total
+          slips { slip_number size make serial pattern location_code uid loaded name previous_reg scan_time dump }
+        }
+      }
+    }
+    ''';
+    final data = await _post(
+      query: q,
+      variables: {'inv': inv, 'dibt': dibt, 'amsInv': '', 'ibt': ''},
+    );
+    final delivery = jsonMapField(data['getDeliveryInfo']);
+    final key = inv.isNotEmpty ? 'inv' : 'dibt';
+    final block = jsonMapField(delivery[key]);
+    return (
+      customerName: jsonString(block['customerName']),
+      customerCode: jsonString(block['customerCode']),
+      total: jsonInt(block['total']),
+      slips: jsonMapList(block['slips']).map(SlipTyre.fromJson).toList(),
+    );
+  }
+
   // ── Dispatch board ─────────────────────────────────────────────────────────
 
   /// The backend's `times!` input: an object with epoch-second bounds.
