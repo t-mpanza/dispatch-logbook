@@ -1,40 +1,61 @@
+import 'package:dispatch_diary/dispatch/models/slip_tyre.dart';
 import 'package:dispatch_diary/presentation/widgets/tyre_block.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// D11 — tyres as 2-column blocks: slip number, customer prominent,
-/// scrap D badge, white = unscanned / green = scanned.
+/// D11 — tyres as 2-column blocks: SLIP, SERIAL, MAKE, PATTERN, customer,
+/// red D badge for anything rejected (scrap OR dump), white → green.
 void main() {
   Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
-  testWidgets('renders slip number and customer name', (tester) async {
-    await tester.pumpWidget(wrap(const TyreBlock(
-      slipNumber: '96962259',
-      customer: 'EPS COURIERS SERVICES',
-      detail: '315/80R22.5 · GOOD YEAR',
-      scanned: false,
-    )));
+  SlipTyre good = const SlipTyre(
+    slipNumber: 96962259,
+    serial: '2608E105',
+    make: 'GOOD YEAR',
+    pattern: 'M90L',
+    customerName: 'EPS COURIERS SERVICES',
+  );
+
+  SlipTyre scrap = const SlipTyre(
+    slipNumber: 98962056,
+    serial: 'DUD - DAMAGE BELT',
+    make: 'GOOD YEAR',
+    pattern: 'MM1',
+    customerName: 'KANYI ILANGA',
+    rejectAccepted: 2,
+  );
+
+  SlipTyre dumped = const SlipTyre(
+    slipNumber: 98962062,
+    serial: '2608F001',
+    make: 'BISON',
+    pattern: 'M38',
+    dump: 1,
+  );
+
+  testWidgets('shows slip, serial, make, pattern and customer',
+      (tester) async {
+    await tester.pumpWidget(wrap(TyreBlock(tyre: good)));
     expect(find.text('96962259'), findsOneWidget);
+    expect(find.text('2608E105'), findsOneWidget);
+    expect(find.text('GOOD YEAR · M90L'), findsOneWidget);
     expect(find.text('EPS COURIERS SERVICES'), findsOneWidget);
-    expect(find.text('315/80R22.5 · GOOD YEAR'), findsOneWidget);
     expect(find.text('D'), findsNothing);
   });
 
-  testWidgets('scrap blocks carry the D badge', (tester) async {
-    await tester.pumpWidget(wrap(const TyreBlock(
-      slipNumber: '98962056',
-      customer: 'KANYI ILANGA',
-      isScrap: true,
-    )));
+  testWidgets('rejected tyre carries the D badge', (tester) async {
+    await tester.pumpWidget(wrap(TyreBlock(tyre: scrap)));
+    expect(find.text('D'), findsOneWidget);
+  });
+
+  testWidgets('dumped tyre carries the D badge too', (tester) async {
+    await tester.pumpWidget(wrap(TyreBlock(tyre: dumped)));
     expect(find.text('D'), findsOneWidget);
   });
 
   testWidgets('tap fires the callback', (tester) async {
     var taps = 0;
-    await tester.pumpWidget(wrap(TyreBlock(
-      slipNumber: '1',
-      onTap: () => taps++,
-    )));
+    await tester.pumpWidget(wrap(TyreBlock(tyre: good, onTap: () => taps++)));
     await tester.tap(find.byType(TyreBlock));
     expect(taps, 1);
   });
@@ -43,14 +64,15 @@ void main() {
     await tester.pumpWidget(wrap(SizedBox(
       width: 360,
       child: TyreBlockGrid(blocks: [
-        const TyreBlock(slipNumber: '1', scanned: false),
-        const TyreBlock(slipNumber: '2', scanned: true),
-        const TyreBlock(slipNumber: '3', scanned: true),
+        TyreBlock(tyre: good),
+        TyreBlock(tyre: scrap, scanned: true),
+        TyreBlock(tyre: dumped),
       ]),
     )));
-    final first = tester.getTopLeft(find.text('1'));
-    final second = tester.getTopLeft(find.text('2'));
-    final third = tester.getTopLeft(find.text('3'));
+    final blocks = find.byType(TyreBlock);
+    final first = tester.getTopLeft(blocks.at(0));
+    final second = tester.getTopLeft(blocks.at(1));
+    final third = tester.getTopLeft(blocks.at(2));
     expect(first.dy, second.dy); // side by side
     expect(third.dy, greaterThan(first.dy)); // wrapped to row 2
     expect(tester.takeException(), isNull);
