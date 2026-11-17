@@ -26,9 +26,17 @@ bool isScrapsEntry(Entry entry) {
   return entry.tags.any((t) => t.toLowerCase() == 'scraps');
 }
 
+/// A truck-load entry (DBN/NLS/BFN/PLK/HI-Q/NLH/TIREPOINT/Custom) — it
+/// carries a non-manual sheet trip. These ALL open the truck hub; the
+/// hub is the truck screen.
+bool isTruckLoadEntry(Entry entry) {
+  final trips = entry.loadingSheetTrips ?? const [];
+  return trips.any((t) => !t.isManual);
+}
+
 /// The hub owns entries with staged documents (multi-document trucks);
-/// every other entry keeps its legacy screen until the hub reaches full
-/// parity (P5). One SQLite read decides — routing stays honest.
+/// truck-load entries also open the hub — staging happens there, so a
+/// fresh truck lands in the hub and stays there. One SQLite read decides.
 Future<bool> hasStagedDocuments(String entryId) async {
   final db = await DatabaseService.database;
   final docs = await StagedDocumentRepository(db).listForEntry(entryId);
@@ -36,9 +44,11 @@ Future<bool> hasStagedDocuments(String entryId) async {
 }
 
 /// Route an entry to the correct detail screen without the flicker of
-/// opening the standard screen first.
+/// opening the standard screen first. Order matters: staged trucks and
+/// truck-loads → hub; scraps → scrap screen; stocks (IBT) → stocks
+/// screen until hub parity; everything else → the counter.
 Future<void> openEntryDetail(BuildContext context, Entry entry) async {
-  final hub = await hasStagedDocuments(entry.id);
+  final hub = await hasStagedDocuments(entry.id) || isTruckLoadEntry(entry);
   if (!context.mounted) return;
   Navigator.push(
     context,
@@ -57,7 +67,7 @@ Future<void> openEntryDetail(BuildContext context, Entry entry) async {
 /// Same smart routing, but replaces the current route (used after creating
 /// a brand-new entry so the back button does not return to the composer).
 Future<void> openEntryDetailReplacing(BuildContext context, Entry entry) async {
-  final hub = await hasStagedDocuments(entry.id);
+  final hub = await hasStagedDocuments(entry.id) || isTruckLoadEntry(entry);
   if (!context.mounted) return;
   Navigator.pushReplacement(
     context,

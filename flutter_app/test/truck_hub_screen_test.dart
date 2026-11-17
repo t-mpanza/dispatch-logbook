@@ -1,3 +1,4 @@
+import 'package:dispatch_diary/core/utils/scan_sounds.dart';
 import 'package:dispatch_diary/data/models/entry.dart';
 import 'package:dispatch_diary/data/models/loading_sheet_trip.dart';
 import 'package:dispatch_diary/data/models/staged_document.dart';
@@ -55,7 +56,9 @@ void main() {
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'nfc_enabled': false});
+    // No audio plugin in widget tests — scan verdicts stay silent.
+    ScanSounds.enabled = false;
   });
 
   setUp(() async {
@@ -185,6 +188,26 @@ void main() {
       await tester.tap(find.textContaining('CASH MODE ARMED'));
       await settle(tester);
       expect(find.textContaining('CASH — tap to arm'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('manual slip entry exists and fails loud when offline',
+      (tester) async {
+    await tester.runAsync(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
+      ));
+      await settle(tester);
+      expect(find.textContaining('TYPE SLIP NUMBER'), findsOneWidget);
+      // Widget tests mock all HTTP to 400 → the lookup fails → banner.
+      await tester.enterText(
+        find.byType(TextField).last,
+        '96962259',
+      );
+      await tester.tap(find.widgetWithText(TextButton, 'SCAN'));
+      await settle(tester);
+      expect(find.text('Connection failed — try again'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'update_download_store.dart';
 
 class UpdateInfo {
   final bool hasUpdate;
@@ -13,6 +16,8 @@ class UpdateInfo {
   final String? releaseTitle;
   final String? releaseNotes;
   final String? apkDownloadUrl;
+  final int? apkSizeBytes;
+  final String? apkSha256;
   final String? releaseUrl;
   final String? publishedAt;
   final String releaseChannel;
@@ -24,6 +29,8 @@ class UpdateInfo {
     this.releaseTitle,
     this.releaseNotes,
     this.apkDownloadUrl,
+    this.apkSizeBytes,
+    this.apkSha256,
     this.releaseUrl,
     this.publishedAt,
     this.releaseChannel = 'Dispatch Diary',
@@ -40,13 +47,13 @@ class UpdateService {
 
   static const String releaseChannel = 'Dispatch Diary';
 
-  /// Get current app version (e.g., 'v3.9.0')
+  /// Get current app version (e.g., 'v3.9.1')
   static Future<String> getCurrentVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
       return 'v${info.version}';
     } catch (_) {
-      return 'v3.9.0';
+      return 'v3.9.1';
     }
   }
 
@@ -120,11 +127,20 @@ class UpdateService {
 
       // Find APK asset (prefer one named after the tag, fall back to first .apk)
       String? apkUrl;
+      int? apkSize;
+      String? apkSha256;
       final assets = bestRelease['assets'] as List<dynamic>? ?? [];
       for (final asset in assets) {
         final aName = (asset['name'] as String? ?? '').toLowerCase();
         if (aName.endsWith('.apk')) {
           apkUrl = asset['browser_download_url'] as String?;
+          apkSize = (asset['size'] as num?)?.toInt();
+          // GitHub exposes asset digests as 'sha256:<hex>' when the
+          // upload had a checksum; absent otherwise.
+          final digest = asset['digest'] as String?;
+          if (digest != null && digest.startsWith('sha256:')) {
+            apkSha256 = digest.substring('sha256:'.length).toLowerCase();
+          }
           break;
         }
       }
@@ -136,6 +152,8 @@ class UpdateService {
         releaseTitle: title,
         releaseNotes: body,
         apkDownloadUrl: apkUrl,
+        apkSizeBytes: apkSize,
+        apkSha256: apkSha256,
         releaseUrl: releaseHtmlUrl,
         publishedAt: publishedAt,
         releaseChannel: releaseChannel,
@@ -197,47 +215,201 @@ class UpdateService {
     return 0;
   }
 
-  /// Download the APK in-app, streaming progress (0.0 – 1.0) via the returned stream.
-  /// Completes with the path to the downloaded file when finished.
-  static Stream<({double progress, String? filePath, String? error})>
-  downloadApk(String apkUrl) async* {
-    final client = http.Client();
+  /// Resumable APK download with persistence + SHA-256 verification.
+  ///
+  /// - A COMPLETE, checksum-verified file → instant (filePath, no error).
+  /// - A partial file from a previous attempt → HTTP Range resume.
+  /// - No state → fresh download to `<support>/updates/<version>.apk.part`.
+  /// - Progress is persisted so kills/dismissals never lose work.
+  /// - [isCancelled] turns true when the operator pauses — the partial
+  ///   file and its byte count are kept for the next resume.
+  static Future<({String? filePath, String? error})> resumeDownload(
+    UpdateInfo info, {
+    http.Client? client,
+    Directory? storageBase,
+    void Function(double progress, int received, int total)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
+    final url = info.apkDownloadUrl;
+    if (url == null) {
+      return (filePath: null, error: 'No APK asset on this release');
+    }
+    final version = info.latestVersion;
+    final store = UpdateDownloadStore(
+      storageBase ?? Directory((await getApplicationSupportDirectory()).path),
+    );
+    await store.ensureDir();
+    final own = client ?? http.Client();
     try {
-      final request = http.Request('GET', Uri.parse(apkUrl));
-      final response = await client.send(request);
+      var state = await store.load(version);
+      final complete = store.apkFile(version);
 
-      if (response.statusCode != 200) {
-        yield (
-          progress: 0.0,
+      // 1. Already complete? Verify (or delete corrupt) and ship it.
+      if (await complete.exists()) {
+        if (await _verifySha256(complete, info.apkSha256)) {
+          await store.save(
+            UpdateDownloadState(
+              version: version,
+              received: await complete.length(),
+              total: await complete.length(),
+              url: url,
+              sha256: info.apkSha256,
+              phase: 'verified',
+            ),
+          );
+          return (filePath: complete.path, error: null);
+        }
+        await complete.delete();
+        state = null;
+      }
+
+      final part = store.partFile(version);
+      var received = 0;
+      if (state != null &&
+          state.url == url &&
+          state.phase == 'downloading' &&
+          await part.exists()) {
+        final onDisk = await part.length();
+        // Trust the persisted count only when it matches the file;
+        // a corrupt partial restarts from zero.
+        received = onDisk == state.received ? onDisk : 0;
+      }
+      if (received == 0) {
+        await part.create(recursive: true);
+        await part.writeAsBytes(const []);
+      }
+
+      // 2. Range-resume (or fresh GET when nothing exists).
+      final request = http.Request('GET', Uri.parse(url));
+      if (received > 0) {
+        request.headers['Range'] = 'bytes=$received-';
+      }
+      final response = await own.send(request);
+
+      if (response.statusCode == 200) {
+        // Server ignored the Range — start over.
+        received = 0;
+        await part.writeAsBytes(const []);
+      } else if (response.statusCode != 206) {
+        return (
           filePath: null,
           error: 'Server error ${response.statusCode}',
         );
-        return;
       }
 
-      final contentLength = response.contentLength ?? 0;
-      final tempDir = await getTemporaryDirectory();
-      final fileName = apkUrl.split('/').last.split('?').first;
-      final file = File('${tempDir.path}/$fileName');
-
-      final sink = file.openWrite();
-      int received = 0;
-
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        received += chunk.length;
-        final progress = contentLength > 0 ? received / contentLength : -1.0;
-        yield (progress: progress.clamp(0.0, 1.0), filePath: null, error: null);
+      final total = response.contentLength != null
+          ? received + response.contentLength!
+          : 0;
+      final sink = part.openWrite(mode: FileMode.append);
+      var lastPersist = received;
+      try {
+        await for (final chunk in response.stream) {
+          if (isCancelled?.call() ?? false) {
+            await sink.flush();
+            await sink.close();
+            await store.save(
+              UpdateDownloadState(
+                version: version,
+                received: received,
+                total: total,
+                url: url,
+                sha256: info.apkSha256,
+              ),
+            );
+            return (
+              filePath: null,
+              error: 'cancelled',
+            );
+          }
+          sink.add(chunk);
+          received += chunk.length;
+          final progress = total > 0 ? received / total : -1.0;
+          onProgress?.call(progress.clamp(0.0, 1.0), received, total);
+          if (received - lastPersist >= 1024 * 1024) {
+            await sink.flush();
+            await store.save(
+              UpdateDownloadState(
+                version: version,
+                received: received,
+                total: total,
+                url: url,
+                sha256: info.apkSha256,
+              ),
+            );
+            lastPersist = received;
+          }
+        }
+        await sink.flush();
+        await sink.close();
+      } catch (e) {
+        await sink.flush();
+        await sink.close();
+        await store.save(
+          UpdateDownloadState(
+            version: version,
+            received: received,
+            total: total,
+            url: url,
+            sha256: info.apkSha256,
+          ),
+        );
+        return (filePath: null, error: e.toString());
       }
 
-      await sink.flush();
-      await sink.close();
-
-      yield (progress: 1.0, filePath: file.path, error: null);
-    } catch (e) {
-      yield (progress: 0.0, filePath: null, error: e.toString());
+      // 3. Complete → move to .apk, verify, keep only this version.
+      await part.rename(complete.path);
+      if (!await _verifySha256(complete, info.apkSha256)) {
+        await store.clear(version);
+        return (filePath: null, error: 'Checksum mismatch — redownloading');
+      }
+      await store.save(
+        UpdateDownloadState(
+          version: version,
+          received: received,
+          total: total,
+          url: url,
+          sha256: info.apkSha256,
+          phase: 'verified',
+        ),
+      );
+      await store.pruneExcept(version);
+      return (filePath: complete.path, error: null);
     } finally {
-      client.close();
+      if (client == null) own.close();
+    }
+  }
+
+  /// Best-effort checksum verification; no expected digest = pass.
+  static Future<bool> _verifySha256(File file, String? expectedHex) async {
+    if (expectedHex == null || expectedHex.isEmpty) return true;
+    try {
+      final digest = await sha256.bind(file.openRead()).first;
+      return digest.toString().toLowerCase() == expectedHex.toLowerCase();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// What a previous attempt left behind — drives RESUME (n%) vs UPDATE
+  /// NOW in the dialog.
+  static Future<UpdateDownloadState?> existingDownloadState(
+    String version, {
+    Directory? storageBase,
+  }) async {
+    try {
+      final store = UpdateDownloadStore(
+        storageBase ??
+            Directory((await getApplicationSupportDirectory()).path),
+      );
+      final state = await store.load(version);
+      if (state == null) return null;
+      final complete = await store.apkFile(version).exists();
+      if (complete) {
+        return state.copyWith(phase: 'verified');
+      }
+      return state;
+    } catch (_) {
+      return null;
     }
   }
 

@@ -109,6 +109,11 @@ Format (append-only, newest at top):
 - Next: what the following session starts with
 ```
 
+### S-009 · 2026-11-17 · main agent · v3.9.1 — hub entry point + enterprise updater
+- Did: truck-load entries now open the TRUCK HUB (staging lives there — the v3.9.0 chicken-and-egg gap fixed); manual slip-number entry in the hub (getSlipWithNumber → CSID → UID hydration — CSID rows lack `loaded`, live-verified); ENTERPRISE UPDATER: persistent download store (app-support dir, not temp), HTTP Range resume, pause-with-saved-progress, SHA-256 verification pre-install, RESUME/INSTALL CTAs, size + release date + digest metadata, prune old versions; DIBT notification permission requested when a DIBT is staged (Android 13+ prompt, best-effort).
+- Evidence: 302 default + 26 live tests green; analyze clean; resume/verify/store behaviours pinned by 9 new updater tests.
+- Next: Sir Kiddow's device feedback; open questions for him on the DIBT reminder (message wording, WhatsApp draft, thresholds).
+
 ### S-008 · 2026-11-17 · main agent · v3.9.0 test release (PUSH UN-GATED by Sir Kiddow)
 - Did: version 3.9.0+1; hub test hardened for CI determinism (clears staged docs per test); the cached-docs-open-CLOSED behaviour pinned; pushed nightly-build + main, tagged v3.9.0 — Sir Kiddow is testing the MVP-on-device.
 - Evidence: 289 default + 26 live tests green; analyze clean; CI monitored.

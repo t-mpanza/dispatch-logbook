@@ -156,16 +156,15 @@ void main() {
         ),
       );
 
-      expect(find.text('UPDATE CANDIDATE'), findsOneWidget);
-      expect(find.text('New Version Available'), findsOneWidget);
+      expect(find.text('A new version is ready'), findsOneWidget);
       expect(find.text('v2.0.0'), findsOneWidget);
       expect(find.text('v2.1.0-rc7'), findsOneWidget);
       expect(
         find.text('Added full IBT manifest tracking subsystem.'),
         findsOneWidget,
       );
-      expect(find.text('AUTO-UPDATE NOW (v2.1.0-rc7)'), findsOneWidget);
-      expect(find.text('View Release on GitHub'), findsOneWidget);
+      expect(find.text('UPDATE NOW — v2.1.0-rc7'), findsOneWidget);
+      expect(find.text('or open the release on GitHub'), findsOneWidget);
     });
   });
 }

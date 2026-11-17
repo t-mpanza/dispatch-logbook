@@ -48,6 +48,7 @@ class TruckHubScreen extends StatefulWidget {
 class _TruckHubScreenState extends State<TruckHubScreen>
     with WidgetsBindingObserver {
   final TextEditingController _pasteController = TextEditingController();
+  final TextEditingController _slipController = TextEditingController();
   final NfcScanService _nfc = NfcScanService();
   StreamSubscription<String>? _scanSub;
 
@@ -101,6 +102,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     _nfc.stop();
     _nfc.dispose();
     _pasteController.dispose();
+    _slipController.dispose();
     super.dispose();
   }
 
@@ -115,6 +117,18 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       _reg = (trip?.reg ?? '').trim().toUpperCase();
       _driver = (trip?.driverName ?? '').trim();
     });
+    // D13 reminders can only land with notification permission — request
+    // it the moment a DIBT is staged (Android 13+ shows the prompt once).
+    // Best-effort: notification plumbing must never break the hub.
+    if (docs.any((d) => d.stream == DocumentStream.dibt)) {
+      unawaited(_requestReminderPermission());
+    }
+  }
+
+  Future<void> _requestReminderPermission() async {
+    try {
+      await NotificationService.requestPermissions();
+    } catch (_) {}
   }
 
   LoadingSheetTrip? _primaryTrip(Entry? entry) {
@@ -218,13 +232,6 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     });
 
     try {
-      final operatorId = await _resolveOperator();
-      if (operatorId == null) {
-        ScanFeedback.wrong();
-        _showBanner('Operator Theolus Mpanza not found', false);
-        return;
-      }
-
       SlipTyre? tyre;
       try {
         tyre = await DispatchApi.fetchTyreByUid(uid);
@@ -238,53 +245,95 @@ class _TruckHubScreenState extends State<TruckHubScreen>
         _showBanner('Tyre Not Found', false);
         return;
       }
-
-      final verdict = MultiDocScanEngine.evaluate(
-        stagedDocs: _docs,
-        tyre: tyre,
-        sessionUids: _sessionUids,
-        cashArmed: _cashArmed,
-        operatorId: operatorId,
-        registration: _reg,
-      );
-
-      switch (verdict) {
-        case AcceptedIntoDocument(:final documentNo, :final lineId, :final line):
-          await _commitLoad(
-            uid: uid,
-            documentNo: documentNo,
-            operatorId: operatorId,
-            onLocal: () => _markLoaded(
-              uid: uid,
-              documentNo: documentNo,
-              lineId: lineId,
-              line: line,
-            ),
-            tyre: tyre,
-          );
-        case AcceptedAsCash():
-          await _commitCash(uid: uid, operatorId: operatorId, tyre: tyre);
-        case AmbiguousDocument(:final documentNos):
-          ScanFeedback.wrong();
-          await _promptApplyToBoth(uid, tyre, documentNos, operatorId);
-        case OffloadPrompt():
-          ScanFeedback.wrong();
-          await _promptOffload(uid, tyre, operatorId);
-        case Collision(:final previousReg):
-          ScanFeedback.wrong();
-          _showBanner('On another truck — $previousReg', false);
-        case DumpedTyre():
-          ScanFeedback.wrong();
-          _showBanner('This tyre is dumped', false);
-        case UntoggleCashPrompt(:final documentNo):
-          ScanFeedback.wrong();
-          await _promptUntoggleCash(documentNo);
-        case Rejected(:final message):
-          ScanFeedback.wrong();
-          _showBanner(message, false);
-      }
+      await _processTyre(tyre);
     } finally {
       if (mounted) setState(() => _scanBusy = false);
+    }
+  }
+
+  /// Manual entry (D9): type the SLIP number — the tag's chip uid is
+  /// never shown or typed. Same pipeline as an NFC scan.
+  Future<void> _submitManualSlip() async {
+    final slip = int.tryParse(_slipController.text.trim());
+    if (slip == null || _scanBusy) return;
+    setState(() {
+      _scanBusy = true;
+      _banner = null;
+    });
+    try {
+      SlipTyre? tyre;
+      try {
+        tyre = await DispatchApi.fetchTyreBySlipNumber(slip);
+      } catch (_) {
+        ScanFeedback.wrong();
+        _showBanner('Connection failed — try again', false);
+        return;
+      }
+      if (tyre == null) {
+        ScanFeedback.wrong();
+        _showBanner('Tyre Not Found', false);
+        return;
+      }
+      await _processTyre(tyre);
+    } finally {
+      if (mounted) setState(() => _scanBusy = false);
+      _slipController.clear();
+    }
+  }
+
+  /// The shared verdict pipeline — NFC and manual scans converge here.
+  Future<void> _processTyre(SlipTyre tyre) async {
+    final uid = tyre.uid!;
+    final operatorId = await _resolveOperator();
+    if (operatorId == null) {
+      ScanFeedback.wrong();
+      _showBanner('Operator Theolus Mpanza not found', false);
+      return;
+    }
+
+    final verdict = MultiDocScanEngine.evaluate(
+      stagedDocs: _docs,
+      tyre: tyre,
+      sessionUids: _sessionUids,
+      cashArmed: _cashArmed,
+      operatorId: operatorId,
+      registration: _reg,
+    );
+
+    switch (verdict) {
+      case AcceptedIntoDocument(:final documentNo, :final lineId, :final line):
+        await _commitLoad(
+          uid: uid,
+          documentNo: documentNo,
+          operatorId: operatorId,
+          onLocal: () => _markLoaded(
+            uid: uid,
+            documentNo: documentNo,
+            lineId: lineId,
+            line: line,
+          ),
+          tyre: tyre,
+        );
+      case AcceptedAsCash():
+        await _commitCash(uid: uid, operatorId: operatorId, tyre: tyre);
+      case AmbiguousDocument(:final documentNos):
+        ScanFeedback.wrong();
+        await _promptApplyToBoth(uid, tyre, documentNos, operatorId);
+      case OffloadPrompt():
+        ScanFeedback.wrong();
+        await _promptOffload(uid, tyre, operatorId);
+      case Collision(:final previousReg):
+        ScanFeedback.wrong();
+        _showBanner('On another truck — $previousReg', false);
+      case DumpedTyre():
+        ScanFeedback.wrong();
+        _showBanner('This tyre is dumped', false);
+      case UntoggleCashPrompt(:final documentNo):
+        ScanFeedback.wrong();
+        await _promptUntoggleCash(documentNo);
+      case Rejected(:final message):
+        ScanFeedback.wrong();
+        _showBanner(message, false);
     }
   }
 
@@ -686,6 +735,8 @@ class _TruckHubScreenState extends State<TruckHubScreen>
           _stageCard(context),
           const SizedBox(height: 10),
           _cashCard(context),
+          const SizedBox(height: 10),
+          _scanCard(context),
           if (_banner != null) ...[
             const SizedBox(height: 10),
             _bannerCard(context),
@@ -884,6 +935,114 @@ class _TruckHubScreenState extends State<TruckHubScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _scanCard(BuildContext context) {
+    final color = _scanArmed
+        ? AppColors.successStrong(context)
+        : AppColors.errorStrong(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.dynamicSurfaceRaised(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _scanArmed
+              ? color.withValues(alpha: 0.5)
+              : AppColors.dynamicBorder(context),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.nfc_rounded, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SCAN',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                        color: AppColors.dynamicTextPrimary(context),
+                      ),
+                    ),
+                    Text(
+                      _scanArmed
+                          ? 'WAITING FOR TAG — hold the tyre to the reader'
+                          : 'Scanner off',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _scanArmed
+                            ? AppColors.successStrong(context)
+                            : AppColors.dynamicTextMuted(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_scanBusy)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                TextButton(
+                  onPressed: _scanArmed ? _disarmScan : () => _armScan(),
+                  child: Text(_scanArmed ? 'Stop' : 'Arm'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _slipController,
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'monospace',
+                    letterSpacing: 1,
+                    color: AppColors.dynamicTextPrimary(context),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'TYPE SLIP NUMBER — NO TAG?',
+                    hintStyle: TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.dynamicTextMuted(context),
+                      letterSpacing: 0.6,
+                    ),
+                    isDense: true,
+                    border: InputBorder.none,
+                  ),
+                  onSubmitted: (_) => _submitManualSlip(),
+                ),
+              ),
+              TextButton(
+                onPressed: _scanBusy ? null : _submitManualSlip,
+                child: const Text('SCAN'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

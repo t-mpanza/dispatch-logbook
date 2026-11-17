@@ -100,6 +100,23 @@ class DispatchApi {
     return rows.isEmpty ? null : SlipTyre.fromJson(rows.first);
   }
 
+  /// Manual slip-number entry (D9). The slip-number resolver gives the
+  /// confirmation-sheet membership; the tyre is then hydrated through
+  /// the UID resolver so the routing engine gets the FULL row
+  /// (rubber_id, job — the CSID row is slimmer, live-verified).
+  static Future<SlipTyre?> fetchTyreBySlipNumber(int slipNumber) async {
+    final slip = await fetchSlipWithNumber(slipNumber);
+    if (slip == null) return null;
+    final byCs = await fetchTyreByCsId(slip.csId);
+    for (final t in byCs) {
+      if (t.idSlip != slip.idSlip) continue;
+      final uid = t.uid;
+      if (uid == null || uid.isEmpty) return t;
+      return await fetchTyreByUid(uid) ?? t;
+    }
+    return null;
+  }
+
   static Future<List<TyreHistoryEntry>> fetchTyreHistory(int slipId) async {
     const q = r'''
     query MyQuery($slip_id: Int) {

@@ -1,4 +1,5 @@
 import 'package:dispatch_diary/data/models/entry.dart';
+import 'package:dispatch_diary/data/models/loading_sheet_trip.dart';
 import 'package:dispatch_diary/data/models/staged_document.dart';
 import 'package:dispatch_diary/data/repositories/entry_repository.dart';
 import 'package:dispatch_diary/data/repositories/staged_document_repository.dart';
@@ -100,6 +101,44 @@ void main() {
 
       expect(find.byType(EntryDetailScreen), findsOneWidget);
       expect(find.byType(TruckHubScreen), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('a truck-load entry opens the hub — staging lives there',
+      (tester) async {
+    await tester.runAsync(() async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final entry = Entry(
+        id: 'truck-route-$runId',
+        title: 'PLK',
+        tags: const ['plk'],
+        notes: const [],
+        attachments: const [],
+        loadingSheetTrips: [
+          LoadingSheetTrip(
+            id: 'truck-route-trip-$runId',
+            entryId: 'truck-route-$runId',
+            reg: 'HW72JS',
+            driverName: 'RICHMORE',
+            tripId: 'PLK',
+            quantityLoaded: 0,
+            createdAt: now,
+          ),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        dayKey: '2026-11-17',
+        monthKey: '2026-11',
+        yearKey: '2026',
+      );
+      await DatabaseService.insertOrUpdateEntry(entry);
+
+      await tester.pumpWidget(launcher(entry));
+      await pushAndPump(tester);
+
+      expect(find.byType(TruckHubScreen), findsOneWidget);
+      expect(find.byType(EntryDetailScreen), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
