@@ -223,7 +223,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     }
 
     if (!mounted) return;
-    openEntryDetailReplacing(context, updated);
+    await openEntryDetailReplacing(context, updated);
   }
 
   @override

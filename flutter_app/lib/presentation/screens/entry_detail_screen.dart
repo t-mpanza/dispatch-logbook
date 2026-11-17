@@ -44,6 +44,15 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
   String _driverFromDb = '';
   Timer? _titleSaveTimer;
 
+  /// Bug b fix: ONE fetch per screen open (see stocks screen).
+  late final Future<Entry?> _entryFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _entryFuture = context.read<EntryRepository>().getEntryById(widget.entryId);
+  }
+
   void _triggerSavedIndicator() {
     if (!mounted) return;
     setState(() => _isSaved = true);
@@ -163,7 +172,7 @@ class _EntryDetailScreenState extends State<EntryDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.dynamicBackground(context),
       body: FutureBuilder<Entry?>(
-        future: repo.getEntryById(widget.entryId),
+        future: _entryFuture,
         builder: (context, snapshot) {
           final entry = snapshot.data;
           if (snapshot.connectionState == ConnectionState.waiting &&

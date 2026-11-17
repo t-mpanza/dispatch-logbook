@@ -60,6 +60,11 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
   bool _isDetailsOpen = false;
   Entry? _cachedEntry;
 
+  /// Bug b fix: ONE fetch per screen open — the future is hoisted into
+  /// state instead of being rebuilt on every notify (the old per-build
+  /// FutureBuilder re-hit SQLite on each rebuild and reset to waiting).
+  late final Future<Entry?> _entryFuture;
+
   /// Focus mode: the line currently docked in the tally bar.
   String? _focusedDocNo;
   String? _focusedLineId;
@@ -93,6 +98,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _entryFuture = context.read<EntryRepository>().getEntryById(widget.entryId);
     _scanSub = _nfc.scans.listen(_handleScan);
     // Auto-arm like the reference scanner: the moment the entry opens we
     // are waiting for a tag. Failures stay silent — the banner appears
@@ -747,7 +753,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
 
     return Scaffold(
       body: FutureBuilder<Entry?>(
-        future: repo.getEntryById(widget.entryId),
+        future: _entryFuture,
         builder: (context, snapshot) {
           final entry = snapshot.data;
           if (snapshot.connectionState == ConnectionState.waiting &&

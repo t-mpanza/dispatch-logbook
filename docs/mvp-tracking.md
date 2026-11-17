@@ -109,6 +109,12 @@ Format (append-only, newest at top):
 - Next: what the following session starts with
 ```
 
+### S-007 · 2026-11-17 · main agent · P4c
+- Did: entry_route now routes entries WITH staged documents to the TruckHubScreen (one SQLite read decides; legacy screens keep serving until P5 parity). Bug b FIXED in both stocks and entry-detail screens: the entry fetch future is hoisted into state (ONE fetch per open; no more per-rebuild re-fetch churn). Routing test pins both directions.
+- Evidence: entry_route_test (2 tests); 289 default tests green; analyze clean.
+- Status flips: P4 remains IN PROGRESS — screen retirement waits for P5 parity (manual entry + block CRUD).
+- Next: P5 — slip-number manual entry + tap-block load/offload CRUD; hide UID everywhere; then retire duplicated screens; then P6 hardening + the single push.
+
 ### S-006 · 2026-11-17 · main agent · P4b
 - Did: TruckHubScreen — the truck hub: parallel document paste → DocumentResolver chips; accordion sections (closed by default) with the CUSTOMER on the header (moved off the blocks per Sir Kiddow); TyreBlockGrid + slip/serial search inside DIBT/INV sections; IBT sections as line progress; cash arm toggle (D7); scan pipeline wired MultiDocScanEngine → commit → ScanFeedback (haptics contract) → local cache upsert + DIBT 90/100% notifications; OFFLOAD window commits loaded:0 and unloads the local slip; apply-to-both dialog (D4). Bug a FIXED: TruckLoadDialog preserves ibtDocuments. NotificationService.showNow added. SlipTyre/StagedDocument copyWith added.
 - Evidence: 4 hub widget tests + truck_load_dialog regression test; 287 default tests green; analyze clean.
