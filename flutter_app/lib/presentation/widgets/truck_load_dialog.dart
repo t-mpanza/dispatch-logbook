@@ -236,6 +236,10 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
       durationMinutes: duration,
       quantityLoaded: _quantityLoaded,
       targetQuantity: targetQty,
+      rejectedCount: widget.existingTrip?.rejectedCount,
+      // Bug a fix: editing a trip through this dialog must NOT strip the
+      // staged IBT manifests — carry them through verbatim.
+      ibtDocuments: widget.existingTrip?.ibtDocuments,
       isManual: widget.existingTrip?.isManual ?? false,
       createdAt: widget.existingTrip?.createdAt ?? startMs ?? now,
     );

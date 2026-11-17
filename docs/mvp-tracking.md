@@ -109,6 +109,12 @@ Format (append-only, newest at top):
 - Next: what the following session starts with
 ```
 
+### S-006 · 2026-11-17 · main agent · P4b
+- Did: TruckHubScreen — the truck hub: parallel document paste → DocumentResolver chips; accordion sections (closed by default) with the CUSTOMER on the header (moved off the blocks per Sir Kiddow); TyreBlockGrid + slip/serial search inside DIBT/INV sections; IBT sections as line progress; cash arm toggle (D7); scan pipeline wired MultiDocScanEngine → commit → ScanFeedback (haptics contract) → local cache upsert + DIBT 90/100% notifications; OFFLOAD window commits loaded:0 and unloads the local slip; apply-to-both dialog (D4). Bug a FIXED: TruckLoadDialog preserves ibtDocuments. NotificationService.showNow added. SlipTyre/StagedDocument copyWith added.
+- Evidence: 4 hub widget tests + truck_load_dialog regression test; 287 default tests green; analyze clean.
+- Status flips: P4 remains IN PROGRESS (P4c left).
+- Next: P4c — consolidation: point entry routing at the hub, retire the duplicate screens, kill the FutureBuilder churn (bug b) on the remaining screens, then P5.
+
 ### S-005 · 2026-11-17 · main agent · P4a
 - Did: ScanFeedback — the SINGLE verdict→feedback point (every error verdict = loud WAV + v3.8.1 vibrator; success = chime + soft impact) so every screen inherits the haptic contract; TyreBlock + TyreBlockGrid (D11: slip #, customer prominent, D badge, white→green, 2 cols); OffloadDialog (D5 yes/no window); DibtProgressReminder thresholds (D13: 90%/100%, upward-only, once each); HI-Q preset added + BLOEM relabelled BFN with tripId 'BFN' (D12) across engine/UI/colors.
 - Evidence: 21 new/updated tests (feedback vibrator pin, block grid layout, dialog yes/no, reminder thresholds, presets); 281 default tests green; analyze clean.

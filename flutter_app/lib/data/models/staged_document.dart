@@ -43,10 +43,40 @@ class StagedDocument {
   /// Tyres already loaded (green blocks on open — D10).
   int get loadedCount => slips.where((s) => s.isLoaded).length;
 
+  /// IBT lines' loaded total (IBT docs have no slip list).
+  int get loadedTotal =>
+      lineItems.fold(0, (sum, l) => sum + l.loadedQuantity);
+
   bool containsUid(String uid) => slips.any((s) => s.uid == uid);
 
   bool containsSlip(int slipNumber) =>
       slips.any((s) => s.slipNumber == slipNumber);
+
+  StagedDocument copyWith({
+    String? id,
+    String? entryId,
+    DocumentStream? stream,
+    String? documentNo,
+    String? customerName,
+    String? customerCode,
+    int? total,
+    List<SlipTyre>? slips,
+    List<IbtLineItem>? lineItems,
+    int? cachedAt,
+  }) {
+    return StagedDocument(
+      id: id ?? this.id,
+      entryId: entryId ?? this.entryId,
+      stream: stream ?? this.stream,
+      documentNo: documentNo ?? this.documentNo,
+      customerName: customerName ?? this.customerName,
+      customerCode: customerCode ?? this.customerCode,
+      total: total ?? this.total,
+      slips: slips ?? this.slips,
+      lineItems: lineItems ?? this.lineItems,
+      cachedAt: cachedAt ?? this.cachedAt,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'stream': stream.name,

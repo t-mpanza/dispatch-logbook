@@ -97,6 +97,56 @@ class SlipTyre {
     return parts.isEmpty ? (serial ?? uid ?? 'Tyre') : parts.join(' · ');
   }
 
+  SlipTyre copyWith({
+    String? uid,
+    int? slipNumber,
+    String? pattern,
+    String? make,
+    String? size,
+    String? serial,
+    String? customerName,
+    int? loaded,
+    String? previousReg,
+    String? scanTime,
+    int? dump,
+    int? rejectAccepted,
+    String? job,
+  }) {
+    return SlipTyre(
+      uid: uid ?? this.uid,
+      idSlip: idSlip,
+      idTyre: idTyre,
+      slipNumber: slipNumber ?? this.slipNumber,
+      pattern: pattern ?? this.pattern,
+      sizeId: sizeId,
+      rubberId: rubberId,
+      idConfirmationSheet: idConfirmationSheet,
+      customerName: customerName ?? this.customerName,
+      csNumber: csNumber,
+      make: make ?? this.make,
+      size: size ?? this.size,
+      serial: serial ?? this.serial,
+      dot: dot,
+      driver: driver,
+      reference: reference,
+      registration: registration,
+      locationId: locationId,
+      rejectAccepted: rejectAccepted ?? this.rejectAccepted,
+      invoiced: invoiced,
+      invoiceNumber: invoiceNumber,
+      orderNumber: orderNumber,
+      dump: dump ?? this.dump,
+      tagged: tagged,
+      job: job ?? this.job,
+      onRim: onRim,
+      loaded: loaded ?? this.loaded,
+      previousReg: previousReg ?? this.previousReg,
+      scanTime: scanTime ?? this.scanTime,
+      name: name,
+      locationCode: locationCode,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'uid': uid,
     'idSlip': idSlip,

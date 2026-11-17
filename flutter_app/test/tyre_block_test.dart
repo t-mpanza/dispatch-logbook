@@ -33,13 +33,14 @@ void main() {
     dump: 1,
   );
 
-  testWidgets('shows slip, serial, make, pattern and customer',
+  testWidgets('shows slip, serial, make and pattern — no customer on the block',
       (tester) async {
     await tester.pumpWidget(wrap(TyreBlock(tyre: good)));
     expect(find.text('96962259'), findsOneWidget);
     expect(find.text('2608E105'), findsOneWidget);
     expect(find.text('GOOD YEAR · M90L'), findsOneWidget);
-    expect(find.text('EPS COURIERS SERVICES'), findsOneWidget);
+    // Customer lives on the document accordion, not the block.
+    expect(find.text('EPS COURIERS SERVICES'), findsNothing);
     expect(find.text('D'), findsNothing);
   });
 

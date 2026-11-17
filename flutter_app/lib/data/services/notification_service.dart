@@ -71,6 +71,36 @@ class NotificationService {
       (r.id.hashCode & 0x7FFFFFFF);
 
   /// Schedule (or replace) the OS notification for [reminder].
+  /// Fire an immediate notification (D13 — DIBT group-post reminders).
+  /// Best-effort: notification plumbing must never break a scan.
+  static Future<void> showNow({
+    required String title,
+    required String body,
+  }) async {
+    try {
+      await ensureInitialized();
+      const details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          _channelName,
+          channelDescription: _channelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+        linux: LinuxNotificationDetails(),
+      );
+      await _plugin.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        details,
+      );
+    } catch (e) {
+      debugPrint('Notification failed (best-effort): $e');
+    }
+  }
+
   static Future<void> scheduleReminder(Reminder reminder) async {
     await ensureInitialized();
     if (reminder.done) {

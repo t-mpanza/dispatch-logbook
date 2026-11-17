@@ -29,7 +29,6 @@ class TyreBlock extends StatelessWidget {
     final fill = scanned
         ? AppColors.successStrong(context).withValues(alpha: 0.14)
         : AppColors.dynamicSurfaceRaised(context);
-    final customer = tyre.customerName?.trim() ?? '';
     final makePattern = [
       if (tyre.make != null && tyre.make!.isNotEmpty) tyre.make!,
       if (tyre.pattern != null && tyre.pattern!.isNotEmpty) tyre.pattern!,
@@ -87,21 +86,6 @@ class TyreBlock extends StatelessWidget {
                 ],
               ],
             ),
-            if (customer.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                customer,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: scanned
-                      ? AppColors.successStrong(context)
-                      : AppColors.dynamicTextPrimary(context),
-                ),
-              ),
-            ],
             if (tyre.serial != null && tyre.serial!.isNotEmpty) ...[
               const SizedBox(height: 3),
               Text(
