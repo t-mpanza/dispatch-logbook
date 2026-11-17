@@ -22,6 +22,15 @@ void main() {
 
   DocumentResolver fakeResolver() => DocumentResolver(
         fetcher: (stream, documentNo) async {
+          if (documentNo.startsWith('DIBT9')) {
+            return FetchedDocument(
+              customerName: 'RECENT CUSTOMER',
+              total: 1,
+              slips: const [
+                SlipTyre(uid: '1D000000000001', slipNumber: 90000001),
+              ],
+            );
+          }
           switch (documentNo) {
             case 'DIBT0179154':
               return FetchedDocument(
@@ -114,22 +123,63 @@ void main() {
     });
   });
 
-  testWidgets('staging pastes documents in parallel with chips',
+  testWidgets('type + digits rows stage in parallel with customer chips',
       (tester) async {
     await tester.runAsync(() async {
       await tester.pumpWidget(MaterialApp(
         home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
       ));
       await settle(tester);
-      await tester.enterText(
-        find.byType(TextField).first,
-        'DIBT0179154, IBT122773',
-      );
-      await tester.tap(find.text('STAGE'));
+
+      // Row 1: DIBT + digits.
+      await tester.tap(find.text('DIBT').first);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(0), '0179154');
+
+      // Row 2 (CC/BCC extension): IBT + digits.
+      await tester.tap(find.text('ADD DOCUMENT'));
+      await tester.pump();
+      await tester.tap(find.text('IBT').last);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(1), '122773');
+
+      await tester.tap(find.text('STAGE ALL'));
       await settle(tester);
 
-      expect(find.text('DIBT0179154'), findsWidgets);
-      expect(find.text('IBT122773'), findsWidgets);
+      expect(find.textContaining('DIBT0179154'), findsWidgets);
+      expect(find.textContaining('IBT122773'), findsWidgets);
+      // The chip carries the CUSTOMER — the staging-time error catcher.
+      expect(find.textContaining('EPS COURIERS'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('RECENT chips appear and stage with one tap', (tester) async {
+    await tester.runAsync(() async {
+      // Seed a past document on another truck — it must show as a recent.
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final recentNo = 'DIBT9${now % 1000000000000}';
+      final db = await DatabaseService.database;
+      await StagedDocumentRepository(db).save(StagedDocument(
+        id: 'other-entry:$recentNo',
+        entryId: 'other-entry',
+        stream: DocumentStream.dibt,
+        documentNo: recentNo,
+        customerName: 'RECENT CUSTOMER',
+        total: 1,
+        cachedAt: now,
+      ));
+
+      await tester.pumpWidget(MaterialApp(
+        home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
+      ));
+      await settle(tester);
+
+      expect(find.text(recentNo), findsOneWidget);
+      await tester.tap(find.text(recentNo));
+      await settle(tester);
+
+      expect(find.textContaining('RECENT CUSTOMER'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
   });
@@ -164,11 +214,14 @@ void main() {
       await settle(tester);
 
       // Header shows document + customer; blocks stay hidden (default
-      // closed — the accordion mentality).
-      expect(find.text('DIBT0179154'), findsOneWidget);
+      // closed — the accordion mentality). The number may also appear as
+      // a RECENT chip from other tests; the header is the last match.
+      expect(find.text('DIBT0179154'), findsWidgets);
       expect(find.text('EPS COURIERS SERVICES'), findsOneWidget);
       expect(find.text('96962259'), findsNothing);
-      await tester.tap(find.text('DIBT0179154'));
+      await tester.ensureVisible(find.text('DIBT0179154').last);
+      await tester.pump();
+      await tester.tap(find.text('DIBT0179154').last);
       await settle(tester);
       expect(find.text('96962259'), findsOneWidget);
       expect(find.text('2608E105'), findsOneWidget);

@@ -159,4 +159,50 @@ void main() {
     final results = await resolver.resolveBatch(entryId: 'e7', input: 'INV9999999');
     expect(results.single.status, DocumentResolveStatus.error);
   });
+
+  test('bare digits probe every stream — the unique hit wins', () async {
+    final resolver = DocumentResolver(fetcher: fakeFetcher, repository: repo);
+    final results = await resolver.resolveBatch(
+      entryId: 'e8',
+      input: '0179154, 2392908',
+    );
+    expect(results.length, 2);
+    expect(results[0].isOk, isTrue);
+    expect(results[0].stream, DocumentStream.dibt);
+    expect(results[0].documentNo, 'DIBT0179154');
+    expect(results[1].isOk, isTrue);
+    expect(results[1].stream, DocumentStream.inv);
+    expect(results[1].documentNo, 'INV2392908');
+  });
+
+  test('input normalizes: case, spaces and dashes do not matter', () async {
+    final resolver = DocumentResolver(fetcher: fakeFetcher, repository: repo);
+    final results = await resolver.resolveBatch(
+      entryId: 'e9',
+      input: 'dibt-0179154,  inv 2392908',
+    );
+    expect(results.length, 2);
+    expect(results.every((r) => r.isOk), isTrue);
+    expect(results[0].documentNo, 'DIBT0179154');
+    expect(results[1].documentNo, 'INV2392908');
+  });
+
+  test('bare digits matching TWO streams demand the prefix — never guess',
+      () async {
+    Future<FetchedDocument> dualFetcher(
+      DocumentStream stream,
+      String documentNo,
+    ) async {
+      if (documentNo == 'DIBT0179154' || documentNo == 'INV0179154') {
+        return FetchedDocument(customerName: 'X', total: 1);
+      }
+      throw Exception('Document number not found');
+    }
+
+    final resolver = DocumentResolver(fetcher: dualFetcher, repository: repo);
+    final results = await resolver.resolveBatch(entryId: 'e10', input: '0179154');
+    expect(results.single.status, DocumentResolveStatus.error);
+    expect(results.single.message, contains('Matches'));
+    expect((await repo.listForEntry('e10')), isEmpty);
+  });
 }

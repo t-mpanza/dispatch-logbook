@@ -95,6 +95,17 @@ class StagedDocumentRepository {
     );
   }
 
+  /// Every document number the operator has ever staged, newest first —
+  /// the RECENT tap-to-stage chips (fewer keystrokes, fewer errors).
+  Future<List<String>> recentDocumentNos({int limit = 8}) async {
+    final rows = await _db.rawQuery(
+      'SELECT DISTINCT document_no FROM staged_documents '
+      'ORDER BY cached_at DESC LIMIT ?',
+      [limit],
+    );
+    return rows.map((r) => r['document_no'] as String).toList();
+  }
+
   StagedDocument _fromRow(Map<String, Object?> row) {
     final manifest = row['manifest_json'] as String?;
     final json = manifest == null

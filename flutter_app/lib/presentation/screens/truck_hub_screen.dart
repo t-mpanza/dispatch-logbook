@@ -48,12 +48,15 @@ class TruckHubScreen extends StatefulWidget {
 
 class _TruckHubScreenState extends State<TruckHubScreen>
     with WidgetsBindingObserver {
-  final TextEditingController _pasteController = TextEditingController();
   final TextEditingController _slipController = TextEditingController();
   final NfcScanService _nfc = NfcScanService();
   StreamSubscription<String>? _scanSub;
 
+  /// CC/BCC-style document rows — each row is a TYPE + digits.
+  final List<_DocRow> _docRows = [_DocRow()];
+
   List<StagedDocument> _docs = [];
+  List<String> _recents = [];
   final Map<String, DocumentResolveResult> _results = {};
   final Set<String> _openSections = {};
   final Map<String, String> _filters = {};
@@ -103,19 +106,23 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     _scanSub?.cancel();
     _nfc.stop();
     _nfc.dispose();
-    _pasteController.dispose();
     _slipController.dispose();
+    for (final row in _docRows) {
+      row.controller.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _load() async {
     final db = await _dbFuture;
     final docs = await _resolvedRepo(db).listForEntry(widget.entryId);
+    final recents = await _resolvedRepo(db).recentDocumentNos();
     final entry = await EntryRepository().getEntryById(widget.entryId);
     final trip = _primaryTrip(entry);
     if (!mounted) return;
     setState(() {
       _docs = docs;
+      _recents = recents;
       _reg = (trip?.reg ?? '').trim().toUpperCase();
       _driver = (trip?.driverName ?? '').trim();
       _tripId = (trip?.tripId ?? '').trim().toUpperCase();
@@ -154,29 +161,46 @@ class _TruckHubScreenState extends State<TruckHubScreen>
 
   // ── Document staging (D16 parallel, D8 duplicates) ─────────────────
 
-  Future<void> _stageDocuments() async {
-    final input = _pasteController.text.trim();
-    if (input.isEmpty || _resolving) return;
+  /// Stage every filled row (type + digits) in parallel. Each document's
+  /// type is EXPLICIT — no guessing, no fat-finger prefixes.
+  Future<void> _stageDocuments({String? preset}) async {
+    final tokens = <String>[];
+    if (preset != null) {
+      tokens.add(preset);
+    } else {
+      for (final row in _docRows) {
+        final digits = row.controller.text.trim();
+        if (digits.isEmpty) continue;
+        tokens.add('${row.type.code}$digits');
+      }
+    }
+    if (tokens.isEmpty || _resolving) return;
     setState(() => _resolving = true);
     final db = await _dbFuture;
     final repo = _resolvedRepo(db);
     final resolver = widget.resolver ?? DocumentResolver();
     final results = await resolver.resolveBatch(
       entryId: widget.entryId,
-      input: input,
+      input: tokens.join(','),
     );
     final docs = await repo.listForEntry(widget.entryId);
+    final recents = await repo.recentDocumentNos();
     if (!mounted) return;
     setState(() {
       for (final r in results) {
         _results[r.input] = r;
       }
       _docs = docs;
+      _recents = recents;
       for (final r in results.where((r) => r.isOk)) {
         _openSections.add(r.document!.documentNo);
       }
       _resolving = false;
-      _pasteController.clear();
+      if (preset == null) {
+        for (final row in _docRows) {
+          row.controller.clear();
+        }
+      }
     });
     final ok = results.where((r) => r.isOk).length;
     final failed = results.length - ok;
@@ -776,7 +800,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'No documents staged.\nPaste them all at once above.',
+                    'No documents staged.\nPick a type and add the digits above.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13,
@@ -820,20 +844,80 @@ class _TruckHubScreenState extends State<TruckHubScreen>
             ],
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _pasteController,
-            textCapitalization: TextCapitalization.characters,
-            onSubmitted: (_) => _stageDocuments(),
-            decoration: InputDecoration(
-              hintText: 'INV2392908, DIBT0179154, IBT122773…',
-              hintStyle: TextStyle(
-                fontSize: 12,
-                color: AppColors.dynamicTextMuted(context),
+          // CC/BCC-style rows: pick the TYPE, type the DIGITS. Explicit
+          // — no prefix guessing, no fat-finger errors.
+          for (var i = 0; i < _docRows.length; i++) ...[
+            _docRow(context, i),
+            if (i < _docRows.length - 1) const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () {
+                AppHaptics.light();
+                setState(() => _docRows.add(_DocRow()));
+              },
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('ADD DOCUMENT'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.dynamicTextMuted(context),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-              isDense: true,
-              border: InputBorder.none,
             ),
           ),
+          if (_recents.isNotEmpty && !_resolving) ...[
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final no in _recents)
+                  GestureDetector(
+                    onTap: () {
+                      AppHaptics.light();
+                      _stageDocuments(preset: no);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.dynamicSurfaceSunk(context),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(
+                          color: AppColors.dynamicBorder(context),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.history_rounded,
+                            size: 12,
+                            color: AppColors.dynamicTextMuted(context),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            no,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'monospace',
+                              color: AppColors.dynamicTextPrimary(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 6),
           Row(
             children: [
@@ -855,11 +939,127 @@ class _TruckHubScreenState extends State<TruckHubScreen>
               ),
               TextButton(
                 onPressed: _resolving ? null : _stageDocuments,
-                child: const Text('STAGE'),
+                child: const Text('STAGE ALL'),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _docRow(BuildContext context, int index) {
+    final row = _docRows[index];
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.dynamicSurfaceSunk(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.dynamicBorderLight(context),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              for (final type in const [
+                DocumentStream.inv,
+                DocumentStream.dibt,
+                DocumentStream.ibt,
+                DocumentStream.amsInv,
+              ]) ...[
+                _typeChip(context, row, type),
+                const SizedBox(width: 6),
+              ],
+              const Spacer(),
+              if (_docRows.length > 1)
+                GestureDetector(
+                  onTap: () {
+                    AppHaptics.light();
+                    setState(() {
+                      _docRows.removeAt(index).controller.dispose();
+                    });
+                  },
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: AppColors.dynamicTextMuted(context),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: row.controller,
+            keyboardType: TextInputType.number,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'monospace',
+              letterSpacing: 1,
+              color: AppColors.dynamicTextPrimary(context),
+            ),
+            onSubmitted: (_) => _stageDocuments(),
+            decoration: InputDecoration(
+              prefixText: '${row.type.code} ',
+              prefixStyle: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'monospace',
+                color: AppColors.dynamicTextMuted(context),
+              ),
+              hintText: 'digits only',
+              hintStyle: TextStyle(
+                fontSize: 12,
+                color: AppColors.dynamicTextMuted(context),
+              ),
+              isDense: true,
+              border: InputBorder.none,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _typeChip(
+    BuildContext context,
+    _DocRow row,
+    DocumentStream type,
+  ) {
+    final selected = row.type == type;
+    final color = selected
+        ? AppColors.infoStrong(context)
+        : AppColors.dynamicTextMuted(context);
+    return GestureDetector(
+      onTap: () {
+        AppHaptics.light();
+        setState(() => row.type = type);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.infoStrong(context).withValues(alpha: 0.16)
+              : AppColors.dynamicSurfaceRaised(context),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected
+                ? AppColors.infoStrong(context).withValues(alpha: 0.7)
+                : AppColors.dynamicBorder(context),
+          ),
+        ),
+        child: Text(
+          type.code,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+            color: color,
+          ),
+        ),
       ),
     );
   }
@@ -869,8 +1069,15 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     String input,
     DocumentResolveResult r,
   ) {
+    String customer = (r.document?.customerName ?? '').trim();
+    if (customer.length > 18) customer = '${customer.substring(0, 18)}…';
     final (color, label) = switch (r.status) {
-      DocumentResolveStatus.ok => (AppColors.successStrong(context), r.documentNo!),
+      DocumentResolveStatus.ok => (
+          AppColors.successStrong(context),
+          customer.isEmpty
+              ? r.documentNo!
+              : '${r.documentNo} · $customer',
+        ),
       DocumentResolveStatus.duplicate => (
           AppColors.warningStrong(context),
           '${r.documentNo} dup'
@@ -881,7 +1088,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
         ),
       DocumentResolveStatus.error => (
           AppColors.errorStrong(context),
-          '${r.documentNo} offline'
+          '${r.message ?? r.documentNo}'
         ),
       DocumentResolveStatus.unsupported => (
           AppColors.dynamicTextMuted(context),
@@ -1285,4 +1492,12 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       ],
     );
   }
+}
+
+/// One CC/BCC-style document row: a TYPE + a digits-only controller.
+class _DocRow {
+  _DocRow();
+
+  DocumentStream type = DocumentStream.inv;
+  final TextEditingController controller = TextEditingController();
 }

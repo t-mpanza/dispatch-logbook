@@ -53,6 +53,14 @@ typedef DocumentFetcher = Future<FetchedDocument> Function(
   String documentNo,
 );
 
+/// One parsed staging token — [stream] is null for bare digits (probe).
+class _Spec {
+  const _Spec(this.stream, this.documentNo);
+
+  final DocumentStream? stream;
+  final String documentNo;
+}
+
 /// Stage ALL of a truck's documents at once, in PARALLEL (D16).
 ///
 /// The operator pastes `INV2392908, DIBT0179154, IBT122773`; the resolver
@@ -108,39 +116,145 @@ class DocumentResolver {
     if (specs.isEmpty) return const [];
     final repo = _repository ?? StagedDocumentRepository(await DatabaseService.database);
     return Future.wait([
-      for (final (stream, number) in specs)
-        _resolveOne(
-          entryId: entryId,
-          stream: stream,
-          documentNo: number,
-          repo: repo,
-        ),
+      for (final spec in specs)
+        spec.stream == null
+            ? _resolveBare(
+                entryId: entryId,
+                digits: spec.documentNo,
+                fallback: fallback,
+                repo: repo,
+              )
+            : _resolveOne(
+                entryId: entryId,
+                stream: spec.stream!,
+                documentNo: spec.documentNo,
+                repo: repo,
+              ),
     ]);
   }
 
-  /// Comma/newline/space-separated tokens → (stream, number) pairs.
-  /// Prefix wins over the fallback chip; duplicates within one paste are
-  /// silently collapsed (cross-paste duplicates hit the DB constraint).
-  List<(DocumentStream, String)> _parseInputs(
-    String input,
-    DocumentStream fallback,
-  ) {
-    final specs = <(DocumentStream, String)>[];
+  /// Comma/newline/space-separated tokens → specs. Prefix wins over the
+  /// fallback chip; a BARE digits-only token probes all streams (the
+  /// unique hit wins — no chip picking, no fat-finger prefix errors).
+  /// Duplicates within one paste are silently collapsed.
+  List<_Spec> _parseInputs(String input, DocumentStream fallback) {
+    final specs = <_Spec>[];
     final seen = <String>{};
     for (final raw in input.split(RegExp(r'[,\n]+'))) {
-      final token = raw.trim().toUpperCase();
+      // Normalize: upper-case, no spaces/dashes ('dibt-0179154' →
+      // 'DIBT0179154').
+      final token =
+          raw.trim().toUpperCase().replaceAll(RegExp(r'[\s-]+'), '');
       if (token.isEmpty) continue;
       if (token.startsWith('SCRAP')) {
-        specs.add((DocumentStream.rejects, 'SCRAPS'));
+        specs.add(_Spec(DocumentStream.rejects, 'SCRAPS'));
+        continue;
+      }
+      // Bare digits-only token → probe all streams (stream = null).
+      if (RegExp(r'^\d+$').hasMatch(token)) {
+        if (seen.add('?:$token')) {
+          specs.add(_Spec(null, token));
+        }
         continue;
       }
       final parsed = DocumentNumberParser.parse(token, fallback);
       if (parsed == null) continue;
-      if (seen.add('${parsed.$1.name}:${parsed.$2}')) {
-        specs.add(parsed);
+      final spec = _Spec(parsed.$1, parsed.$2);
+      if (seen.add('${spec.stream?.name ?? '?'}:${spec.documentNo}')) {
+        specs.add(spec);
       }
     }
     return specs;
+  }
+
+  /// A bare digits-only token — probe every stream in parallel and let
+  /// the unique hit decide. Zero hits = not found; two+ = ask for the
+  /// prefix (never guess).
+  Future<DocumentResolveResult> _resolveBare({
+    required String entryId,
+    required String digits,
+    required DocumentStream fallback,
+    required StagedDocumentRepository repo,
+  }) async {
+    final streams = [
+      fallback,
+      ...DocumentStream.values.where(
+        (s) => s != fallback && s != DocumentStream.rejects && s != DocumentStream.amsInv,
+      ),
+    ];
+    final hits = <(DocumentStream, FetchedDocument)>[];
+    Object? connectionError;
+    await Future.wait([
+      for (final s in streams)
+        () async {
+          try {
+            final doc = await _fetcher(s, '${s.code}$digits');
+            hits.add((s, doc));
+          } on Exception catch (e) {
+            if (!_isNotFound(e)) connectionError = e;
+          }
+        }(),
+    ]);
+
+    if (hits.isEmpty) {
+      final status = connectionError != null
+          ? DocumentResolveStatus.error
+          : DocumentResolveStatus.notFound;
+      return DocumentResolveResult._(
+        input: digits,
+        documentNo: digits,
+        status: status,
+        message: connectionError?.toString() ?? 'Document number not found',
+      );
+    }
+    if (hits.length > 1) {
+      final names = hits.map((h) => h.$1.code).join('/');
+      return DocumentResolveResult._(
+        input: digits,
+        documentNo: digits,
+        status: DocumentResolveStatus.error,
+        message: 'Matches $names — add the prefix',
+      );
+    }
+    final (stream, fetched) = hits.single;
+    final documentNo = '${stream.code}$digits';
+    final doc = StagedDocument(
+      id: '$entryId:${stream.name}:$documentNo',
+      entryId: entryId,
+      stream: stream,
+      documentNo: documentNo,
+      customerName: fetched.customerName,
+      customerCode: fetched.customerCode,
+      total: fetched.total,
+      slips: fetched.slips,
+      lineItems: fetched.lineItems,
+      cachedAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    try {
+      await repo.save(doc);
+    } on DuplicateDocumentException catch (e) {
+      return DocumentResolveResult._(
+        input: digits,
+        stream: stream,
+        documentNo: documentNo,
+        status: DocumentResolveStatus.duplicate,
+        message: e.toString(),
+      );
+    }
+    return DocumentResolveResult._(
+      input: digits,
+      stream: stream,
+      documentNo: documentNo,
+      status: DocumentResolveStatus.ok,
+      document: doc,
+    );
+  }
+
+  bool _isNotFound(Exception e) {
+    final m = e.toString().toLowerCase();
+    return m.contains('not found') ||
+        m.contains('no document') ||
+        m.contains('invalid document');
   }
 
   Future<DocumentResolveResult> _resolveOne({
@@ -199,15 +313,11 @@ class DocumentResolver {
         message: e.toString(),
       );
     } on Exception catch (e) {
-      final m = e.toString().toLowerCase();
-      final notFound = m.contains('not found') ||
-          m.contains('no document') ||
-          m.contains('invalid document');
       return DocumentResolveResult._(
         input: documentNo,
         stream: stream,
         documentNo: documentNo,
-        status: notFound
+        status: _isNotFound(e)
             ? DocumentResolveStatus.notFound
             : DocumentResolveStatus.error,
         message: e.toString(),

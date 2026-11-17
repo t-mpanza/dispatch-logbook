@@ -91,4 +91,24 @@ void main() {
     await repo.clearForEntry(entryId);
     expect(await repo.listForEntry(entryId), isEmpty);
   });
+
+  test('recentDocumentNos returns distinct numbers, newest first', () async {
+    final repo = StagedDocumentRepository(await DatabaseService.database);
+    await repo.save(make());
+    await repo.save(StagedDocument(
+      id: '$entryId:dibt:DIBT0177452',
+      entryId: entryId,
+      stream: DocumentStream.dibt,
+      documentNo: 'DIBT0177452',
+      total: 32,
+      cachedAt: 99, // older
+    ));
+    final recents = await repo.recentDocumentNos();
+    expect(recents, containsAll(['DIBT0179154', 'DIBT0177452']));
+    // cachedAt 99 (DIBT0177452) is newer than 1 — newest first.
+    expect(
+      recents.indexOf('DIBT0177452'),
+      lessThan(recents.indexOf('DIBT0179154')),
+    );
+  });
 }
