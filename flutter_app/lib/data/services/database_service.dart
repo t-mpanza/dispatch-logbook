@@ -19,6 +19,13 @@ class DatabaseService {
     return await openDatabase(
       path,
       version: 7,
+      onConfigure: (db) async {
+        // WAL + busy timeout: concurrent readers/writers (CI runs test
+        // files in parallel isolates on one DB file) wait instead of
+        // failing with SQLITE_BUSY. Harmless and beneficial in prod.
+        await db.execute('PRAGMA journal_mode = WAL');
+        await db.execute('PRAGMA busy_timeout = 5000');
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
