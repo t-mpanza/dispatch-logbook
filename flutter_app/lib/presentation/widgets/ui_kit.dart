@@ -463,7 +463,8 @@ Color presetColor(PresetKey? key, String tripId) {
   if (name.contains('STOCKS')) return AppColors.presetStocks;
   if (name.contains('DBN')) return AppColors.presetDbn;
   if (name.contains('PLK')) return AppColors.presetPlk;
-  if (name.contains('BLOEM')) return AppColors.presetBloem;
+  if (name.contains('HIQ') || name.contains('HI-Q')) return AppColors.presetHiq;
+  if (name.contains('BLOEM') || name.contains('BFN')) return AppColors.presetBloem;
   if (name.contains('TIREPOINT')) return AppColors.presetTirepoint;
   return AppColors.presetCustom;
 }

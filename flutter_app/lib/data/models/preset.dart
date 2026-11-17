@@ -1,5 +1,5 @@
 // ignore_for_file: constant_identifier_names
-enum PresetKey { DBN, NLS, BLOEM, PLK, STOCKS, NLH, TIREPOINT, CUSTOM }
+enum PresetKey { DBN, NLS, BLOEM, PLK, HIQ, STOCKS, NLH, TIREPOINT, CUSTOM }
 
 class PresetConfig {
   final PresetKey key;
@@ -21,8 +21,12 @@ class PresetEngine {
   static const List<PresetConfig> loadingPresets = [
     PresetConfig(key: PresetKey.DBN, label: "DBN"),
     PresetConfig(key: PresetKey.NLS, label: "NLS"),
-    PresetConfig(key: PresetKey.BLOEM, label: "BLOEM"),
+    // BLOEM is BFN on the floor (D12) — the key stays for data stability,
+    // the label and trip id carry the floor's word.
+    PresetConfig(key: PresetKey.BLOEM, label: "BFN"),
     PresetConfig(key: PresetKey.PLK, label: "PLK"),
+    // HI-Q is the other Polokwane route — separate from PLK (D12).
+    PresetConfig(key: PresetKey.HIQ, label: "HI-Q"),
     PresetConfig(key: PresetKey.STOCKS, label: "STOCKS [i]", isDynamic: true),
     PresetConfig(
       key: PresetKey.NLH,
@@ -64,6 +68,10 @@ class PresetEngine {
           driverName: 'Neil',
           reg: 'MN05XNGP',
         );
+      case PresetKey.BLOEM:
+        return const PresetFillResult(presetKey: PresetKey.BLOEM, tripId: 'BFN');
+      case PresetKey.HIQ:
+        return const PresetFillResult(presetKey: PresetKey.HIQ, tripId: 'HI-Q');
       case PresetKey.STOCKS:
         return PresetFillResult(
           presetKey: PresetKey.STOCKS,

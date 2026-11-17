@@ -106,11 +106,14 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         _titleController.text = 'NLS';
         _ensureTag('nls');
       case PresetKey.BLOEM:
-        _titleController.text = 'BLOEM';
-        _ensureTag('bloem');
+        _titleController.text = 'BFN';
+        _ensureTag('bfn');
       case PresetKey.PLK:
         _titleController.text = 'PLK';
         _ensureTag('plk');
+      case PresetKey.HIQ:
+        _titleController.text = 'HI-Q';
+        _ensureTag('hiq');
       case PresetKey.STOCKS:
         final todayEntries = await vm.getTodayEntries();
         final titles = todayEntries.map((e) => e.title).toList();

@@ -84,7 +84,7 @@ APK — the definitive scan/offload contract).
 | P1 | Live recon: reject_accepted, DIBT/INV shapes, slip lookups, cash document_no | `IN PROGRESS` |
 | P2 | Data model: staged-document cache (SQLite v7), parallel resolver, truck-hub model | `DONE` (2026-11-17, evidence S-003) |
 | P3 | Routing engine v2 (TDD): precedence, first-line-first IBT, ambiguity, cash arm, offload flow | `DONE` (2026-11-17, evidence S-004) |
-| P4 | UI rewire: truck hub, 2-col blocks, accordion+search, cash toggle, offload dialog, reminders, HI-Q/BFN, consolidation (bug a + b) | `PLANNED` |
+| P4 | UI rewire: truck hub, 2-col blocks, accordion+search, cash toggle, offload dialog, reminders, HI-Q/BFN, consolidation (bug a + b) | `IN PROGRESS` (P4a done 2026-11-17) |
 | P5 | Slip-number UX, manual CRUD, UID hidden | `PLANNED` |
 | P6 | Hardening: scenario catalogue, live dry-runs, release | `PLANNED` |
 
@@ -108,6 +108,12 @@ Format (append-only, newest at top):
 - Status flips: P1 PLANNED → IN PROGRESS
 - Next: what the following session starts with
 ```
+
+### S-005 · 2026-11-17 · main agent · P4a
+- Did: ScanFeedback — the SINGLE verdict→feedback point (every error verdict = loud WAV + v3.8.1 vibrator; success = chime + soft impact) so every screen inherits the haptic contract; TyreBlock + TyreBlockGrid (D11: slip #, customer prominent, D badge, white→green, 2 cols); OffloadDialog (D5 yes/no window); DibtProgressReminder thresholds (D13: 90%/100%, upward-only, once each); HI-Q preset added + BLOEM relabelled BFN with tripId 'BFN' (D12) across engine/UI/colors.
+- Evidence: 21 new/updated tests (feedback vibrator pin, block grid layout, dialog yes/no, reminder thresholds, presets); 281 default tests green; analyze clean.
+- Status flips: P4 PLANNED → IN PROGRESS.
+- Next: P4b — the TruckHubScreen: parallel document paste + chips (DocumentResolver), per-doc accordion sections with TyreBlockGrid + search, cash arm toggle, NFC scan wiring through MultiDocScanEngine → ScanFeedback → OffloadDialog, reminder notifications, and the consolidation surgery (bug a + b). NO git pushes until MVP closed.
 
 ### S-004 · 2026-11-17 · main agent · P3 (DONE)
 - Did: MultiDocScanEngine — the head-down routing brain (D2-D7, D9): dump blocks in every mode → session re-scan = offload window → loaded-elsewhere = own-truck offload vs cross-truck collision → cash armed: membership/IBT-fit = untoggle prompt else CASH → membership (uid OR slip number) with two-doc ambiguity → IBT first-line-first with spill → loud reject. commitScan gains `loaded` param (0 = offload, the backend's only removal). CI-found bug fixed: fresh-install onCreate now creates scan_logs + staged_documents (local v6 DB had masked it).

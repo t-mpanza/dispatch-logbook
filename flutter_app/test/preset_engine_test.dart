@@ -44,13 +44,30 @@ void main() {
       for (final key in [
         PresetKey.DBN,
         PresetKey.NLS,
-        PresetKey.BLOEM,
         PresetKey.PLK,
         PresetKey.TIREPOINT,
       ]) {
         final fill = PresetEngine.getPresetFill(key);
         expect(fill.tripId, equals(key.name));
       }
+    });
+
+    test('HI-Q is its own Polokwane route, not PLK (D12)', () {
+      final config = PresetEngine.loadingPresets
+          .firstWhere((p) => p.key == PresetKey.HIQ);
+      expect(config.label, 'HI-Q');
+      expect(config.isDynamic, isFalse);
+      final fill = PresetEngine.getPresetFill(PresetKey.HIQ);
+      expect(fill.tripId, 'HI-Q');
+      expect(fill.tripId, isNot('PLK'));
+    });
+
+    test('BLOEM displays as BFN — the floor\'s word (D12)', () {
+      final config = PresetEngine.loadingPresets
+          .firstWhere((p) => p.key == PresetKey.BLOEM);
+      expect(config.label, 'BFN');
+      final fill = PresetEngine.getPresetFill(PresetKey.BLOEM);
+      expect(fill.tripId, 'BFN');
     });
   });
 }

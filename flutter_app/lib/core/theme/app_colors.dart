@@ -61,6 +61,7 @@ class AppColors {
   static const Color presetNls = Color(0xFF22D3EE);
   static const Color presetPlk = Color(0xFFFFA04D);
   static const Color presetBloem = Color(0xFFF472B6);
+  static const Color presetHiq = Color(0xFFFBBF24);
   static const Color presetTirepoint = Color(0xFF2DD4BF);
   static const Color presetCustom = Color(0xFF8B9BB8);
 

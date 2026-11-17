@@ -266,6 +266,8 @@ class _TruckLoadDialogState extends State<TruckLoadDialog> {
         return AppColors.presetBloem;
       case PresetKey.PLK:
         return AppColors.presetPlk;
+      case PresetKey.HIQ:
+        return AppColors.presetHiq;
       case PresetKey.STOCKS:
         return AppColors.presetStocks;
       case PresetKey.NLH:
