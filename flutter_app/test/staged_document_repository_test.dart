@@ -103,7 +103,7 @@ void main() {
       total: 32,
       cachedAt: 99, // older
     ));
-    final recents = await repo.recentDocumentNos();
+    final recents = await repo.recentDocumentNos(limit: 100);
     expect(recents, containsAll(['DIBT0179154', 'DIBT0177452']));
     // cachedAt 99 (DIBT0177452) is newer than 1 — newest first.
     expect(

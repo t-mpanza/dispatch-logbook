@@ -109,6 +109,11 @@ Format (append-only, newest at top):
 - Next: what the following session starts with
 ```
 
+### S-012 · 2026-11-18 · main agent · v3.9.4 — field-bug sweep + audits + rollback + visual tests
+- Did (Sir Kiddow's overnight bug list): REG/driver/target/trip/title editable from the hub header (persisted); legacy entries import their trip IBTs into the staged cache and show their 24/24 tally (nothing looks empty); MANUAL COUNT card restores the tag-free tally (persisted to the sheet trip); remove-document action; long-press tyre blocks for manual load/offload; accordions CLOSED by default. Two parallel subagent audits (parity + robustness, 26 findings) → fixed the criticals: mounted-guard sweep + scan try/catch, queued pending scans (no dropped tags), badge-uids filtered, stuck-resolver guard, load/stage race guards, sessionLineByUid now recorded (IBT offload decrements correctly), offload persisted to cache, serialized snapshot-based persist chain, slip-number matching in _markLoaded, apply-to-both mounted checks, manual-tally re-entrancy guard, remove-doc session pruning, controller disposal, reminder div-0 guard + flag-after-success, stocks entries routed to their mature screen (no capability loss). ROLLBACK: Settings → App versions → install or roll back to any release through the same resumable SHA-256-verified pipeline (downgrade guidance included). VISUAL TESTS: golden snapshots for the hub (empty + staged-open).
+- Evidence: 319 default + 2 goldens + 26 live tests green; analyze clean; audits archived in tracker §7 references.
+- Next: device feedback; remaining parity gaps (notes/photos/event log on the hub, IBT batch/undo — tracked).
+
 ### S-011 · 2026-11-17 · main agent · v3.9.3 — explicit type+digits staging rows (Sir Kiddow's spec)
 - Did: staging is now CC/BCC-style rows — each document picks a TYPE chip (INV/DIBT/IBT/AMS, prefix rendered live in the field) then types DIGITS ONLY; ADD DOCUMENT extends rows; STAGE ALL resolves in parallel. No prefix typing, no guessing. Chips show CUSTOMER as the error-catcher; RECENT tap-to-stage chips keep keystrokes down; input normalizes case/spaces/dashes. Resolver bare-number probing stays as a safety net; ambiguity demands the prefix.
 - Evidence: 309 default tests green (row UI, recents, probe, normalization, repo); analyze clean.

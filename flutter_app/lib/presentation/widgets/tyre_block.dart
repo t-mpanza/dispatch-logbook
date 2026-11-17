@@ -15,11 +15,13 @@ class TyreBlock extends StatelessWidget {
     required this.tyre,
     this.scanned = false,
     this.onTap,
+    this.onLongPress,
   });
 
   final SlipTyre tyre;
   final bool scanned;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +38,7 @@ class TyreBlock extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(

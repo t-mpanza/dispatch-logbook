@@ -48,7 +48,11 @@ Future<bool> hasStagedDocuments(String entryId) async {
 /// truck-loads → hub; scraps → scrap screen; stocks (IBT) → stocks
 /// screen until hub parity; everything else → the counter.
 Future<void> openEntryDetail(BuildContext context, Entry entry) async {
-  final hub = await hasStagedDocuments(entry.id) || isTruckLoadEntry(entry);
+  // Stocks (IBT) entries keep their dedicated tally screen until the hub
+  // reaches full line-tally parity (audit 2026-11-17) — routing them to
+  // the hub would hide live tallies and batch tools.
+  final hub = !isStocksEntry(entry) &&
+      (await hasStagedDocuments(entry.id) || isTruckLoadEntry(entry));
   if (!context.mounted) return;
   Navigator.push(
     context,
@@ -67,7 +71,8 @@ Future<void> openEntryDetail(BuildContext context, Entry entry) async {
 /// Same smart routing, but replaces the current route (used after creating
 /// a brand-new entry so the back button does not return to the composer).
 Future<void> openEntryDetailReplacing(BuildContext context, Entry entry) async {
-  final hub = await hasStagedDocuments(entry.id) || isTruckLoadEntry(entry);
+  final hub = !isStocksEntry(entry) &&
+      (await hasStagedDocuments(entry.id) || isTruckLoadEntry(entry));
   if (!context.mounted) return;
   Navigator.pushReplacement(
     context,

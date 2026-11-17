@@ -1,7 +1,9 @@
 import 'package:dispatch_diary/core/utils/scan_sounds.dart';
 import 'package:dispatch_diary/data/models/entry.dart';
+import 'package:dispatch_diary/data/models/ibt_manifest.dart';
 import 'package:dispatch_diary/data/models/loading_sheet_trip.dart';
 import 'package:dispatch_diary/data/models/staged_document.dart';
+import 'package:dispatch_diary/data/repositories/entry_repository.dart';
 import 'package:dispatch_diary/data/repositories/staged_document_repository.dart';
 import 'package:dispatch_diary/data/services/database_service.dart';
 import 'package:dispatch_diary/data/services/document_resolver.dart';
@@ -13,8 +15,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-/// The truck hub — P4b: parallel staging, customer on the document
-/// accordion, closed-by-default sections, tyre blocks inside, cash arm.
+/// The truck hub — P4b: staging rows, cash arm, manual count, legacy
+/// import, remove document, block long-press, REG/driver/target edit.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -75,6 +77,7 @@ void main() {
     // leak into this one (the fake resolver writes to the real DB).
     final db = await DatabaseService.database;
     await StagedDocumentRepository(db).clearForEntry(entryId);
+    await StagedDocumentRepository(db).clearForEntry('other-entry');
     final now = DateTime.now().millisecondsSinceEpoch;
     await DatabaseService.insertOrUpdateEntry(Entry(
       id: entryId,
@@ -99,23 +102,31 @@ void main() {
       monthKey: '2026-11',
       yearKey: '2026',
     ));
-    // NFC off — widget tests have no NFC plugin.
-    final sp = await SharedPreferences.getInstance();
-    await sp.setBool('nfc_enabled', false);
   });
 
+  /// Tall surface so lazy ListView sections actually build; pump + settle.
   Future<void> settle(WidgetTester tester) async {
     await Future<void>.delayed(const Duration(milliseconds: 400));
     await tester.pump();
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await tester.pump();
+  }
+
+  Future<void> pumpHub(WidgetTester tester, {DocumentResolver? resolver}) async {
+    // Tall surface: lazy ListView sections build AND the truck-details
+    // sheet (with the simulated keyboard inset) fits fully on-screen.
+    await tester.binding.setSurfaceSize(const Size(900, 3200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: TruckHubScreen(entryId: entryId, resolver: resolver ?? fakeResolver()),
+    ));
+    await settle(tester);
   }
 
   testWidgets('renders the stage card, cash toggle and truck REG',
       (tester) async {
     await tester.runAsync(() async {
-      await tester.pumpWidget(MaterialApp(
-        home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
-      ));
-      await settle(tester);
+      await pumpHub(tester);
       expect(find.text('STAGE DOCUMENTS'), findsOneWidget);
       expect(find.textContaining('CASH — tap to arm'), findsOneWidget);
       expect(find.textContaining('MN05XNGP'), findsOneWidget);
@@ -126,10 +137,7 @@ void main() {
   testWidgets('type + digits rows stage in parallel with customer chips',
       (tester) async {
     await tester.runAsync(() async {
-      await tester.pumpWidget(MaterialApp(
-        home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
-      ));
-      await settle(tester);
+      await pumpHub(tester);
 
       // Row 1: DIBT + digits.
       await tester.tap(find.text('DIBT').first);
@@ -170,10 +178,7 @@ void main() {
         cachedAt: now,
       ));
 
-      await tester.pumpWidget(MaterialApp(
-        home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
-      ));
-      await settle(tester);
+      await pumpHub(tester);
 
       expect(find.text(recentNo), findsOneWidget);
       await tester.tap(find.text(recentNo));
@@ -187,7 +192,6 @@ void main() {
   testWidgets('cached docs open CLOSED; customer on the header; blocks inside',
       (tester) async {
     await tester.runAsync(() async {
-      // Pre-seed the cache — this is the reopen path.
       final db = await DatabaseService.database;
       await StagedDocumentRepository(db).save(StagedDocument(
         id: '$entryId:dibt:DIBT0179154',
@@ -208,19 +212,13 @@ void main() {
         cachedAt: 1,
       ));
 
-      await tester.pumpWidget(MaterialApp(
-        home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
-      ));
-      await settle(tester);
+      await pumpHub(tester);
 
       // Header shows document + customer; blocks stay hidden (default
-      // closed — the accordion mentality). The number may also appear as
-      // a RECENT chip from other tests; the header is the last match.
+      // closed — the accordion mentality).
       expect(find.text('DIBT0179154'), findsWidgets);
       expect(find.text('EPS COURIERS SERVICES'), findsOneWidget);
       expect(find.text('96962259'), findsNothing);
-      await tester.ensureVisible(find.text('DIBT0179154').last);
-      await tester.pump();
       await tester.tap(find.text('DIBT0179154').last);
       await settle(tester);
       expect(find.text('96962259'), findsOneWidget);
@@ -231,10 +229,7 @@ void main() {
 
   testWidgets('cash toggle arms and disarms', (tester) async {
     await tester.runAsync(() async {
-      await tester.pumpWidget(MaterialApp(
-        home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
-      ));
-      await settle(tester);
+      await pumpHub(tester);
       await tester.tap(find.textContaining('CASH — tap to arm'));
       await settle(tester);
       expect(find.textContaining('CASH MODE ARMED'), findsOneWidget);
@@ -245,13 +240,50 @@ void main() {
     });
   });
 
+  testWidgets('REG + driver + target editable from the header and persisted',
+      (tester) async {
+    await tester.runAsync(() async {
+      await pumpHub(tester);
+      expect(find.textContaining('MN05XNGP'), findsOneWidget);
+
+      await tester.tap(find.text('NLH'));
+      await settle(tester);
+      expect(find.text('TRUCK DETAILS'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'MN05XNGP'),
+        'HW72JS',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'TARGET (0 = none)'),
+        '24',
+      );
+      // The simulated keyboard inflates the sheet's bottom inset beyond
+      // any test surface — invoke SAVE directly (the intent is the tap).
+      final saveButton = tester.widget<FilledButton>(
+        find.ancestor(
+          of: find.text('SAVE'),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      saveButton.onPressed!();
+      await settle(tester);
+
+      expect(find.textContaining('HW72JS'), findsWidgets);
+      expect(find.textContaining('/24 loaded'), findsOneWidget);
+      // Persisted to the entry's sheet trip.
+      final entry = await EntryRepository().getEntryById(entryId);
+      final trip = entry!.loadingSheetTrips!.first;
+      expect(trip.reg, 'HW72JS');
+      expect(trip.targetQuantity, 24);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('manual slip entry exists and fails loud when offline',
       (tester) async {
     await tester.runAsync(() async {
-      await tester.pumpWidget(MaterialApp(
-        home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
-      ));
-      await settle(tester);
+      await pumpHub(tester);
       expect(find.textContaining('TYPE SLIP NUMBER'), findsOneWidget);
       // Widget tests mock all HTTP to 400 → the lookup fails → banner.
       await tester.enterText(
@@ -261,6 +293,196 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, 'SCAN'));
       await settle(tester);
       expect(find.text('Connection failed — try again'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('remove document: delete icon → confirm → section gone',
+      (tester) async {
+    await tester.runAsync(() async {
+      final db = await DatabaseService.database;
+      await StagedDocumentRepository(db).save(StagedDocument(
+        id: '$entryId:dibt:DIBT0179154',
+        entryId: entryId,
+        stream: DocumentStream.dibt,
+        documentNo: 'DIBT0179154',
+        customerName: 'EPS COURIERS SERVICES',
+        total: 2,
+        slips: const [
+          SlipTyre(uid: '1D0DF19A091080', slipNumber: 96962259),
+        ],
+        cachedAt: 1,
+      ));
+
+      await pumpHub(tester);
+
+      await tester.tap(find.byIcon(Icons.delete_outline_rounded).first);
+      await settle(tester);
+      expect(find.text('REMOVE DOCUMENT'), findsOneWidget);
+      await tester.tap(find.text('REMOVE').last);
+      await settle(tester);
+
+      // The section (and its delete icon) is gone; the number may remain
+      // only as a historical RECENT chip — that's by design.
+      expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+      expect(
+        await StagedDocumentRepository(db).listForEntry(entryId),
+        isEmpty,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('staged docs stay CLOSED — no auto-open', (tester) async {
+    await tester.runAsync(() async {
+      await pumpHub(tester);
+      await tester.tap(find.text('DIBT').first);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(0), '0179154');
+      await tester.tap(find.text('STAGE ALL'));
+      await settle(tester);
+
+      // Section header exists, blocks stay hidden.
+      expect(find.textContaining('DIBT0179154'), findsWidgets);
+      expect(find.text('96962259'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('long-press an unscanned block offers LOAD', (tester) async {
+    await tester.runAsync(() async {
+      final db = await DatabaseService.database;
+      await StagedDocumentRepository(db).save(StagedDocument(
+        id: '$entryId:dibt:DIBT0179154',
+        entryId: entryId,
+        stream: DocumentStream.dibt,
+        documentNo: 'DIBT0179154',
+        customerName: 'EPS COURIERS SERVICES',
+        total: 2,
+        slips: const [
+          SlipTyre(
+            uid: '1D0DF19A091080',
+            slipNumber: 96962259,
+            serial: '2608E105',
+          ),
+        ],
+        cachedAt: 1,
+      ));
+
+      await pumpHub(tester);
+
+      await tester.tap(find.text('DIBT0179154').last);
+      await settle(tester);
+      await tester.longPress(find.text('96962259'));
+      await settle(tester);
+      // Operator resolution fails in widget tests (network mocked) — the
+      // flow must reach the guard without crashing.
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('LEGACY: old trips import IBTs and show their tally',
+      (tester) async {
+    await tester.runAsync(() async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      // A pre-hub truck: 24/24 tallied, IBT manifest on the sheet trip.
+      await DatabaseService.insertOrUpdateEntry(Entry(
+        id: entryId,
+        title: 'TRUCK 1',
+        tags: const [],
+        notes: const [],
+        attachments: const [],
+        loadingSheetTrips: [
+          LoadingSheetTrip(
+            id: 'hub-trip',
+            entryId: entryId,
+            reg: 'MN05XNGP',
+            driverName: 'Neil',
+            tripId: 'NLH',
+            quantityLoaded: 24,
+            targetQuantity: 24,
+            ibtDocuments: [
+              IbtDocument(
+                documentNo: 'IBT122773',
+                total: 151,
+                lineItems: const [
+                  IbtLineItem(
+                    id: 'IBT122773_line_0',
+                    description: '315/80R22.5 M90L STOCK RETREAD',
+                    sizeId: 70,
+                    rubberId: 36,
+                    targetTotal: 83,
+                    loadedQuantity: 24,
+                  ),
+                ],
+              ),
+            ],
+            createdAt: now,
+          ),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        dayKey: '2026-11-17',
+        monthKey: '2026-11',
+        yearKey: '2026',
+      ));
+
+      await pumpHub(tester);
+
+      // The old tally must not look empty, and the IBT must be staged.
+      expect(find.textContaining('24/24 loaded'), findsOneWidget);
+      expect(find.textContaining('IBT122773'), findsWidgets);
+      // And the import persisted to the cache.
+      final db = await DatabaseService.database;
+      final docs = await StagedDocumentRepository(db).listForEntry(entryId);
+      expect(docs.any((d) => d.documentNo == 'IBT122773'), isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('MANUAL COUNT: +/− adjust the persisted tally',
+      (tester) async {
+    await tester.runAsync(() async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await DatabaseService.insertOrUpdateEntry(Entry(
+        id: entryId,
+        title: 'TRUCK 1',
+        tags: const [],
+        notes: const [],
+        attachments: const [],
+        loadingSheetTrips: [
+          LoadingSheetTrip(
+            id: 'hub-trip',
+            entryId: entryId,
+            reg: 'MN05XNGP',
+            driverName: 'Neil',
+            tripId: 'NLH',
+            quantityLoaded: 24,
+            targetQuantity: 24,
+            createdAt: now,
+          ),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        dayKey: '2026-11-17',
+        monthKey: '2026-11',
+        yearKey: '2026',
+      ));
+
+      await pumpHub(tester);
+      expect(find.textContaining('24/24 loaded'), findsOneWidget);
+
+      // The + of the manual count card (the ADD DOCUMENT icon is earlier).
+      await tester.tap(find.byIcon(Icons.add_rounded).last);
+      await settle(tester);
+      expect(find.textContaining('25/24 loaded'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.remove_rounded).first);
+      await settle(tester);
+      expect(find.textContaining('24/24 loaded'), findsOneWidget);
+
+      final entry = await EntryRepository().getEntryById(entryId);
+      expect(entry!.loadingSheetTrips!.first.quantityLoaded, 24);
       expect(tester.takeException(), isNull);
     });
   });

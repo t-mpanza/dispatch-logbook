@@ -63,7 +63,12 @@ class _TruckHubScreenState extends State<TruckHubScreen>
   final Set<String> _sessionUids = {};
   final Map<String, String> _sessionDocByUid = {};
   final Map<String, (String, String)> _sessionLineByUid = {};
+  final Set<String> _cashUids = {};
   int _cashCount = 0;
+
+  /// Scans arriving while a commit is in flight are QUEUED, never
+  /// dropped (the legacy stocks screen's pending-uid contract).
+  final List<String> _pendingUids = [];
 
   bool _resolving = false;
   bool _cashArmed = false;
@@ -75,6 +80,8 @@ class _TruckHubScreenState extends State<TruckHubScreen>
   String _reg = '';
   String _driver = '';
   String _tripId = '';
+  int _legacyLoaded = 0;
+  int? _legacyTarget;
   int? _operatorId;
 
   late final Future<Database> _dbFuture = DatabaseService.database;
@@ -97,6 +104,10 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     if (state != AppLifecycleState.resumed && _scanArmed) {
       _disarmScan();
     }
+    // Auto re-arm on resume — the scanner keeps waiting for the next tag.
+    if (state == AppLifecycleState.resumed && !_scanArmed && mounted) {
+      unawaited(_armScan(announceFailure: false));
+    }
   }
 
   @override
@@ -114,24 +125,60 @@ class _TruckHubScreenState extends State<TruckHubScreen>
   }
 
   Future<void> _load() async {
-    final db = await _dbFuture;
-    final docs = await _resolvedRepo(db).listForEntry(widget.entryId);
-    final recents = await _resolvedRepo(db).recentDocumentNos();
-    final entry = await EntryRepository().getEntryById(widget.entryId);
-    final trip = _primaryTrip(entry);
-    if (!mounted) return;
-    setState(() {
-      _docs = docs;
-      _recents = recents;
-      _reg = (trip?.reg ?? '').trim().toUpperCase();
-      _driver = (trip?.driverName ?? '').trim();
-      _tripId = (trip?.tripId ?? '').trim().toUpperCase();
-    });
-    // D13 reminders can only land with notification permission — request
-    // it the moment a DIBT is staged (Android 13+ shows the prompt once).
-    // Best-effort: notification plumbing must never break the hub.
-    if (docs.any((d) => d.stream == DocumentStream.dibt)) {
-      unawaited(_requestReminderPermission());
+    try {
+      final db = await _dbFuture;
+      final repo = _resolvedRepo(db);
+      var docs = await repo.listForEntry(widget.entryId);
+      final recents = await repo.recentDocumentNos();
+      final entry = await EntryRepository().getEntryById(widget.entryId);
+      final trip = _primaryTrip(entry);
+
+      // LEGACY IMPORT: entries made before the hub kept their IBT
+      // manifests on the sheet trip — surface them as staged documents so
+      // nothing the operator loaded yesterday looks empty today.
+      final legacyIbts = trip?.ibtDocuments ?? const <IbtDocument>[];
+      final existing = docs.map((d) => d.documentNo).toSet();
+      for (final ibt in legacyIbts) {
+        if (ibt.documentNo.isEmpty || existing.contains(ibt.documentNo)) {
+          continue;
+        }
+        try {
+          await repo.save(StagedDocument(
+            id: '${widget.entryId}:ibt:${ibt.documentNo}',
+            entryId: widget.entryId,
+            stream: DocumentStream.ibt,
+            documentNo: ibt.documentNo,
+            total: ibt.total,
+            lineItems: ibt.lineItems,
+            cachedAt: DateTime.now().millisecondsSinceEpoch,
+          ));
+        } catch (_) {
+          // Concurrent staging won the race — the doc already exists.
+        }
+      }
+
+      // Re-read right before setState so a concurrent stage is never
+      // clobbered out of the UI (audit #2).
+      docs = await repo.listForEntry(widget.entryId);
+
+      if (!mounted) return;
+      setState(() {
+        _docs = docs;
+        _recents = recents;
+        _reg = (trip?.reg ?? '').trim().toUpperCase();
+        _driver = (trip?.driverName ?? '').trim();
+        _tripId = (trip?.tripId ?? '').trim().toUpperCase();
+        _legacyLoaded = trip?.quantityLoaded ?? 0;
+        _legacyTarget = trip?.targetQuantity;
+      });
+      // D13 reminders can only land with notification permission — the
+      // moment a DIBT is staged (Android 13+ shows the prompt once).
+      if (docs.any((d) => d.stream == DocumentStream.dibt)) {
+        unawaited(_requestReminderPermission());
+      }
+    } catch (e) {
+      debugPrint('Hub load failed: $e');
+      if (mounted) _showBanner('Could not load the truck — retry', false);
     }
   }
 
@@ -149,6 +196,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
   }
 
   void _showBanner(String message, bool ok) {
+    if (!mounted) return;
     _bannerTimer?.cancel();
     setState(() {
       _banner = message;
@@ -176,40 +224,48 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     }
     if (tokens.isEmpty || _resolving) return;
     setState(() => _resolving = true);
-    final db = await _dbFuture;
-    final repo = _resolvedRepo(db);
-    final resolver = widget.resolver ?? DocumentResolver();
-    final results = await resolver.resolveBatch(
-      entryId: widget.entryId,
-      input: tokens.join(','),
-    );
-    final docs = await repo.listForEntry(widget.entryId);
-    final recents = await repo.recentDocumentNos();
-    if (!mounted) return;
-    setState(() {
-      for (final r in results) {
-        _results[r.input] = r;
-      }
-      _docs = docs;
-      _recents = recents;
-      for (final r in results.where((r) => r.isOk)) {
-        _openSections.add(r.document!.documentNo);
-      }
-      _resolving = false;
-      if (preset == null) {
-        for (final row in _docRows) {
-          row.controller.clear();
+    try {
+      final db = await _dbFuture;
+      final repo = _resolvedRepo(db);
+      final resolver = widget.resolver ?? DocumentResolver();
+      final results = await resolver.resolveBatch(
+        entryId: widget.entryId,
+        input: tokens.join(','),
+      );
+      final docs = await repo.listForEntry(widget.entryId);
+      final recents = await repo.recentDocumentNos();
+      if (!mounted) return;
+      setState(() {
+        // Chips reflect the latest batch only.
+        _results.clear();
+        for (final r in results) {
+          _results[r.input] = r;
         }
-      }
-    });
-    final ok = results.where((r) => r.isOk).length;
-    final failed = results.length - ok;
-    _showBanner(
-      failed == 0
-          ? 'Staged ${results.length} document${results.length == 1 ? '' : 's'}'
-          : 'Staged $ok · $failed failed — check the chips',
-      failed == 0,
-    );
+        _docs = docs;
+        _recents = recents;
+        // Accordions stay CLOSED by default — the operator opens what
+        // they need (Sir Kiddow, 2026-11-17).
+        if (preset == null) {
+          for (final row in _docRows) {
+            row.controller.clear();
+          }
+        }
+      });
+      final ok = results.where((r) => r.isOk).length;
+      final failed = results.length - ok;
+      _showBanner(
+        failed == 0
+            ? 'Staged ${results.length} document${results.length == 1 ? '' : 's'}'
+            : 'Staged $ok · $failed failed — check the chips',
+        failed == 0,
+      );
+    } catch (e) {
+      debugPrint('Staging failed: $e');
+      if (mounted) _showBanner('Staging failed — try again', false);
+    } finally {
+      // The STAGE button must never stay disabled (audit #3).
+      if (mounted) setState(() => _resolving = false);
+    }
   }
 
   // ── Scanning ───────────────────────────────────────────────────────
@@ -252,7 +308,18 @@ class _TruckHubScreenState extends State<TruckHubScreen>
   }
 
   Future<void> _handleScan(String uid) async {
-    if (_scanBusy || !mounted) return;
+    // Badge tags are 8-hex; tyres are 14-hex — never call the tyre API
+    // with a personnel badge (audit #22).
+    if (!RegExp(r'^[0-9A-Fa-f]{14}$').hasMatch(uid)) {
+      ScanFeedback.wrong();
+      _showBanner('Personnel badge — scan a tyre tag', false);
+      return;
+    }
+    if (_scanBusy) {
+      _pendingUids.add(uid);
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _scanBusy = true;
       _banner = null;
@@ -273,8 +340,18 @@ class _TruckHubScreenState extends State<TruckHubScreen>
         return;
       }
       await _processTyre(tyre);
+    } catch (e) {
+      // Never let a scan exception escape to the NFC stream listener.
+      debugPrint('Scan pipeline error: $e');
+      ScanFeedback.wrong();
+      _showBanner('Scan failed — try again', false);
     } finally {
       if (mounted) setState(() => _scanBusy = false);
+      // Drain the queue — tags that arrived mid-commit get their turn.
+      if (_pendingUids.isNotEmpty && mounted) {
+        final next = _pendingUids.removeAt(0);
+        unawaited(_handleScan(next));
+      }
     }
   }
 
@@ -303,8 +380,10 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       }
       await _processTyre(tyre);
     } finally {
-      if (mounted) setState(() => _scanBusy = false);
-      _slipController.clear();
+      if (mounted) {
+        setState(() => _scanBusy = false);
+        _slipController.clear();
+      }
     }
   }
 
@@ -335,6 +414,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
           operatorId: operatorId,
           onLocal: () => _markLoaded(
             uid: uid,
+            slipNumber: tyre.slipNumber,
             documentNo: documentNo,
             lineId: lineId,
             line: line,
@@ -448,6 +528,8 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       case ScanCommitSuccess():
         setState(() {
           _sessionUids.add(uid);
+          _sessionDocByUid[uid] = ibts.single.documentNo;
+          _cashUids.add(uid);
           _cashCount++;
         });
         ScanFeedback.correct();
@@ -467,12 +549,19 @@ class _TruckHubScreenState extends State<TruckHubScreen>
 
   void _markLoaded({
     required String uid,
+    int? slipNumber,
     required String documentNo,
     String? lineId,
     IbtLineItem? line,
   }) {
+    if (!mounted) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     setState(() {
+      if (lineId != null) {
+        // IBT loads must remember their line for a correct offload
+        // decrement (audit #6).
+        _sessionLineByUid[uid] = (documentNo, lineId);
+      }
       _docs = [
         for (final d in _docs)
           if (d.documentNo != documentNo)
@@ -499,7 +588,10 @@ class _TruckHubScreenState extends State<TruckHubScreen>
               cachedAt: now,
               slips: [
                 for (final s in d.slips)
-                  if (s.uid != uid)
+                  // Match by uid OR slip number — manual slip entries
+                  // resolve to the same tyre (audit #9).
+                  if (s.uid != uid &&
+                      (slipNumber == null || s.slipNumber != slipNumber))
                     s
                   else
                     s.copyWith(
@@ -511,7 +603,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       ];
     });
     _checkDibtReminder(documentNo, now);
-    unawaited(_persistDocs());
+    _persistDocs();
   }
 
   void _checkDibtReminder(String documentNo, int now) {
@@ -524,7 +616,8 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     }
     if (doc == null ||
         doc.stream != DocumentStream.dibt ||
-        doc.total == null) {
+        doc.total == null ||
+        doc.total! <= 0) {
       return;
     }
     final after = doc.loadedCount / doc.total!;
@@ -547,20 +640,34 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     try {
       final sp = await SharedPreferences.getInstance();
       if (sp.getBool(flag) ?? false) return;
-      await sp.setBool(flag, true);
       await NotificationService.showNow(
         title: documentNo,
         body: DibtProgressReminder.messageFor(point, label),
       );
+      // Consume the flag only AFTER the notification landed (audit #24).
+      await sp.setBool(flag, true);
     } catch (_) {}
   }
 
-  Future<void> _persistDocs() async {
-    final db = await _dbFuture;
-    final repo = _resolvedRepo(db);
-    for (final d in _docs) {
-      await repo.upsert(d);
-    }
+  /// Serialized, snapshot-based persist — concurrent loads can never
+  /// interleave stale snapshots, and a disk failure never crashes a scan
+  /// (audit #8).
+  Future<void> _persistChain = Future<void>.value();
+
+  void _persistDocs() {
+    final snapshot = List<StagedDocument>.of(_docs);
+    _persistChain = _persistChain.then((_) async {
+      try {
+        final db = await _dbFuture;
+        final repo = _resolvedRepo(db);
+        for (final d in snapshot) {
+          await repo.upsert(d);
+        }
+      } catch (e) {
+        debugPrint('Cache persist failed: $e');
+        if (mounted) _showBanner('Saved to backend — local cache write failed', false);
+      }
+    });
   }
 
   // ── Verdict dialogs (D4, D5, D7) ───────────────────────────────────
@@ -604,11 +711,16 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     if (chosen == null || !mounted) return;
     final targets = chosen == 'BOTH' ? documentNos : [chosen];
     for (final no in targets) {
+      if (!mounted) return;
       await _commitLoad(
         uid: uid,
         documentNo: no,
         operatorId: operatorId,
-        onLocal: () => _markLoaded(uid: uid, documentNo: no),
+        onLocal: () => _markLoaded(
+          uid: uid,
+          slipNumber: tyre.slipNumber,
+          documentNo: no,
+        ),
         tyre: tyre,
       );
     }
@@ -646,17 +758,18 @@ class _TruckHubScreenState extends State<TruckHubScreen>
         setState(() {
           _sessionUids.remove(uid);
           _sessionDocByUid.remove(uid);
-          if (_sessionLineByUid.containsKey(uid)) {
+          if (_cashUids.remove(uid)) {
+            // Cash offload: no manifest line to touch — drop the tally.
+            if (_cashCount > 0) _cashCount--;
+          } else if (_sessionLineByUid.containsKey(uid)) {
             final (docNo, lineId) = _sessionLineByUid.remove(uid)!;
             _docs = _decrementLine(docNo, lineId);
           } else {
             _docs = _unloadSlip(documentNo, uid, tyre.slipNumber);
           }
-          if (_cashCount > 0 && !_docs.any((d) => d.containsUid(uid))) {
-            // Cash offload: no manifest line to touch; drop the count if
-            // it was a session cash scan.
-          }
         });
+        // The offload must survive a restart too (audit #7).
+        _persistDocs();
         ScanFeedback.correct();
         _showBanner('OFFLOADED — $documentNo', true);
       default:
@@ -720,6 +833,169 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     return null;
   }
 
+  /// Remove a staged document from the truck (local staging bookkeeping
+  /// — the backend has no deletes; committed scans stay committed).
+  Future<void> _removeDocument(StagedDocument doc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'REMOVE DOCUMENT',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: Text('Remove ${doc.documentNo} from this truck?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('KEEP'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'REMOVE',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppColors.errorStrong(context),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final db = await _dbFuture;
+    await _resolvedRepo(db).remove(widget.entryId, doc.documentNo);
+    if (!mounted) return;
+    setState(() {
+      _docs = _docs.where((d) => d.documentNo != doc.documentNo).toList();
+      _openSections.remove(doc.documentNo);
+      _filters.remove(doc.documentNo);
+      // Session maps must not keep tyres that belong to a removed doc
+      // (audit #11).
+      _sessionDocByUid.removeWhere((_, no) => no == doc.documentNo);
+      _sessionLineByUid.removeWhere((_, v) => v.$1 == doc.documentNo);
+    });
+    AppHaptics.medium();
+    _showBanner('Removed ${doc.documentNo}', true);
+  }
+
+  /// Long-press on a tyre block: manual LOAD (unscanned) or OFFLOAD
+  /// (scanned) — the tag-free path (P5/D9). Same pipeline as a scan.
+  Future<void> _manualBlockAction(StagedDocument doc, SlipTyre tyre) async {
+    AppHaptics.medium();
+    final uid = tyre.uid;
+    if (uid == null || uid.isEmpty) {
+      ScanFeedback.wrong();
+      _showBanner('No tag uid for this slip', false);
+      return;
+    }
+    if (tyre.isDump) {
+      ScanFeedback.wrong();
+      _showBanner('This tyre is dumped', false);
+      return;
+    }
+    final operatorId = await _resolveOperator();
+    if (operatorId == null) {
+      ScanFeedback.wrong();
+      _showBanner('Operator Theolus Mpanza not found', false);
+      return;
+    }
+    if (!mounted) return;
+
+    final prev = (tyre.previousReg ?? '').trim().toUpperCase();
+    if (tyre.isLoaded && prev.isNotEmpty && prev != _reg) {
+      ScanFeedback.wrong();
+      _showBanner('On another truck — ${tyre.previousReg}', false);
+      return;
+    }
+
+    if (tyre.isLoaded) {
+      // Scanned block → the offload window (D5).
+      await _promptOffload(uid, tyre, operatorId);
+      return;
+    }
+
+    final label = '${tyre.slipNumber ?? uid} · ${tyre.size ?? ''}';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'LOAD TYRE',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: Text('Load $label under ${doc.documentNo}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'LOAD',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _commitLoad(
+      uid: uid,
+      documentNo: doc.documentNo,
+      operatorId: operatorId,
+      onLocal: () => _markLoaded(
+        uid: uid,
+        slipNumber: tyre.slipNumber,
+        documentNo: doc.documentNo,
+      ),
+      tyre: tyre,
+    );
+  }
+
+  /// The truck's loaded total: staged docs + cash, or the legacy sheet
+  /// tally for trucks that predate the hub (nothing looks empty).
+  int _truckTotal() {
+    var n = 0;
+    for (final d in _docs) {
+      n += d.isIbt ? d.loadedTotal : d.loadedCount;
+    }
+    n += _cashCount;
+    return n > 0 ? n : _legacyLoaded;
+  }
+
+  /// Manual tally — the tag-free count the floor has always had. Syncs
+  /// the sheet trip's quantityLoaded (same field the old counter wrote).
+  bool _manualBusy = false;
+
+  Future<void> _manualDelta(int delta) async {
+    if (_manualBusy) return;
+    _manualBusy = true;
+    try {
+      AppHaptics.medium();
+      final entry = await EntryRepository().getEntryById(widget.entryId);
+      final trip = _primaryTrip(entry);
+      if (entry == null || trip == null) {
+        ScanFeedback.wrong();
+        _showBanner('Truck row not found', false);
+        return;
+      }
+      final qty = (trip.quantityLoaded + delta).clamp(0, 1 << 30);
+      final updated = trip.copyWith(quantityLoaded: qty);
+      await EntryRepository().saveEntry(
+        entry.copyWith(loadingSheetTrips: [
+          for (final t in entry.loadingSheetTrips ?? const <LoadingSheetTrip>[])
+            t.id == trip.id ? updated : t,
+        ]),
+      );
+      if (!mounted) return;
+      setState(() => _legacyLoaded = qty);
+      _showBanner('Manual count — $qty loaded', true);
+    } finally {
+      _manualBusy = false;
+    }
+  }
+
   Future<void> _promptUntoggleCash(String documentNo) async {
     final untoggle = await showDialog<bool>(
       context: context,
@@ -750,25 +1026,244 @@ class _TruckHubScreenState extends State<TruckHubScreen>
 
   // ── UI ─────────────────────────────────────────────────────────────
 
+  /// Edit the truck's REG + driver + target + trip name from inside the
+  /// entry — persists to the entry and its loading-sheet trip
+  /// (ibtDocuments carried verbatim).
+  Future<void> _editTruck() async {
+    AppHaptics.medium();
+    final regController = TextEditingController(text: _reg);
+    final driverController = TextEditingController(text: _driver);
+    final tripIdController = TextEditingController(text: _tripId);
+    final targetController = TextEditingController(
+      text: _legacyTarget != null && _legacyTarget! > 0
+          ? '$_legacyTarget'
+          : '',
+    );
+    Entry? cachedEntry;
+    try {
+      cachedEntry = await EntryRepository().getEntryById(widget.entryId);
+    } catch (_) {}
+    final titleController = TextEditingController(
+      text: cachedEntry?.title ?? '',
+    );
+    if (!mounted) return;
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          20 + MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.dynamicSurfaceRaised(sheetContext),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+          border: Border.all(color: AppColors.dynamicBorder(sheetContext)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'TRUCK DETAILS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: AppColors.dynamicTextMuted(sheetContext),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: regController,
+                textCapitalization: TextCapitalization.characters,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                  color: AppColors.dynamicTextPrimary(sheetContext),
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'REG NUMBER',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: driverController,
+                textCapitalization: TextCapitalization.words,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.dynamicTextPrimary(sheetContext),
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'DRIVER',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: tripIdController,
+                textCapitalization: TextCapitalization.characters,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.dynamicTextPrimary(sheetContext),
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'TRIP ID',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: targetController,
+                keyboardType: TextInputType.number,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'monospace',
+                  color: AppColors.dynamicTextPrimary(sheetContext),
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'TARGET (0 = none)',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: titleController,
+                textCapitalization: TextCapitalization.words,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.dynamicTextPrimary(sheetContext),
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'ENTRY TITLE',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(sheetContext, true),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'SAVE',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (saved != true || !mounted) {
+      regController.dispose();
+      driverController.dispose();
+      tripIdController.dispose();
+      targetController.dispose();
+      titleController.dispose();
+      return;
+    }
+
+    final reg = regController.text.trim().toUpperCase();
+    final driver = driverController.text.trim();
+    final tripId = tripIdController.text.trim().toUpperCase();
+    final target = int.tryParse(targetController.text.trim()) ?? 0;
+    final title = titleController.text.trim();
+    regController.dispose();
+    driverController.dispose();
+    tripIdController.dispose();
+    targetController.dispose();
+    titleController.dispose();
+    final entry = await EntryRepository().getEntryById(widget.entryId);
+    final trip = _primaryTrip(entry);
+    if (entry == null || trip == null) {
+      if (mounted) {
+        ScanFeedback.wrong();
+        _showBanner('Truck row not found — entry unchanged', false);
+      }
+      return;
+    }
+    final updatedTrip = trip.copyWith(
+      reg: reg,
+      driverName: driver,
+      tripId: tripId.isEmpty ? trip.tripId : tripId,
+      targetQuantity: target > 0 ? target : null,
+    );
+    var updatedEntry = entry.copyWith(loadingSheetTrips: [
+      for (final t in entry.loadingSheetTrips ?? const <LoadingSheetTrip>[])
+        t.id == trip.id ? updatedTrip : t,
+    ]);
+    if (title.isNotEmpty) {
+      updatedEntry = updatedEntry.copyWith(title: title);
+    }
+    await EntryRepository().saveEntry(updatedEntry);
+    if (!mounted) return;
+    setState(() {
+      _reg = reg;
+      _driver = driver;
+      _tripId = updatedTrip.tripId;
+      _legacyTarget = target > 0 ? target : null;
+    });
+    AppHaptics.success();
+    _showBanner('Truck updated — $reg · $driver', true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'TRUCK',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-            ),
-            Text(
-              _reg.isEmpty ? 'no REG set' : '$_reg · $_driver',
-              style: TextStyle(
-                fontSize: 11,
+        title: GestureDetector(
+          onTap: _editTruck,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _tripId.isNotEmpty ? _tripId : 'TRUCK',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    '${_reg.isEmpty ? 'no REG' : _reg} · $_driver'
+                    ' · ${_truckTotal()}${_legacyTarget != null && _legacyTarget! > 0 ? '/$_legacyTarget' : ''} loaded',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.dynamicTextMuted(context),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.edit_rounded,
+                size: 15,
                 color: AppColors.dynamicTextMuted(context),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       body: ListView(
@@ -777,6 +1272,8 @@ class _TruckHubScreenState extends State<TruckHubScreen>
           _stageCard(context),
           const SizedBox(height: 10),
           _cashCard(context),
+          const SizedBox(height: 10),
+          _manualCountCard(context),
           const SizedBox(height: 10),
           _scanCard(context),
           if (_banner != null) ...[
@@ -978,9 +1475,13 @@ class _TruckHubScreenState extends State<TruckHubScreen>
                 GestureDetector(
                   onTap: () {
                     AppHaptics.light();
-                    setState(() {
-                      _docRows.removeAt(index).controller.dispose();
+                    final row = _docRows.removeAt(index);
+                    // Dispose after the frame — the TextField is still
+                    // mounted during setState (audit #20).
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      row.controller.dispose();
                     });
+                    setState(() {});
                   },
                   child: Icon(
                     Icons.close_rounded,
@@ -1272,6 +1773,62 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     );
   }
 
+  Widget _manualCountCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.dynamicSurfaceRaised(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.dynamicBorder(context)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'MANUAL COUNT',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+              color: AppColors.dynamicTextMuted(context),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '$_legacyLoaded',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'monospace',
+              color: AppColors.dynamicTextPrimary(context),
+            ),
+          ),
+          const Spacer(),
+          _countButton(context, Icons.remove_rounded, () => _manualDelta(-1)),
+          const SizedBox(width: 8),
+          _countButton(context, Icons.add_rounded, () => _manualDelta(1)),
+        ],
+      ),
+    );
+  }
+
+  Widget _countButton(BuildContext context, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppColors.infoStrong(context).withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.infoStrong(context).withValues(alpha: 0.4),
+          ),
+        ),
+        child: Icon(icon, size: 22, color: AppColors.infoStrong(context)),
+      ),
+    );
+  }
+
   Widget _bannerCard(BuildContext context) {
     final color = _bannerOk
         ? AppColors.successStrong(context)
@@ -1384,6 +1941,15 @@ class _TruckHubScreenState extends State<TruckHubScreen>
                     ),
                   ),
                   const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => _removeDocument(doc),
+                    child: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: AppColors.dynamicTextMuted(context),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
                   Icon(
                     open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
                     size: 20,
@@ -1486,7 +2052,11 @@ class _TruckHubScreenState extends State<TruckHubScreen>
           TyreBlockGrid(
             blocks: [
               for (final s in slips)
-                TyreBlock(tyre: s, scanned: s.isLoaded),
+                TyreBlock(
+                  tyre: s,
+                  scanned: s.isLoaded,
+                  onLongPress: () => _manualBlockAction(doc, s),
+                ),
             ],
           ),
       ],

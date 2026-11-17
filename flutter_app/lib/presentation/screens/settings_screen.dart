@@ -15,6 +15,7 @@ import '../../data/services/update_service.dart';
 import '../widgets/aws_auth_dialog.dart';
 import '../widgets/ui_kit.dart';
 import '../widgets/update_dialog.dart';
+import '../widgets/version_picker_sheet.dart';
 import '../widgets/welcome_sheet.dart';
 
 /// One place for account, cloud and app care. Kept out of the working flow
@@ -640,6 +641,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: 2),
                       Text(
                         'Look for a newer release on GitHub',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.dynamicTextMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.dynamicTextMuted(context),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          AppCard(
+            onTap: () {
+              AppHaptics.light();
+              VersionPickerSheet.show(context);
+            },
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.history_rounded,
+                    color: AppColors.warning,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'App versions — install or roll back',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.dynamicTextPrimary(context),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Pick any release, including older ones',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.dynamicTextMuted(context),

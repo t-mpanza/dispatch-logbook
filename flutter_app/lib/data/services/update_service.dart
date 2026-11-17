@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -36,6 +37,44 @@ class UpdateInfo {
     this.releaseChannel = 'Dispatch Diary',
   });
 }
+/// One published GitHub release — drives the in-app version/rollback
+/// picker.
+class ReleaseInfo {
+  const ReleaseInfo({
+    required this.tag,
+    required this.name,
+    this.notes,
+    this.publishedAt,
+    this.apkUrl,
+    this.apkSizeBytes,
+    this.apkSha256,
+  });
+
+  final String tag;
+  final String name;
+  final String? notes;
+  final String? publishedAt;
+  final String? apkUrl;
+  final int? apkSizeBytes;
+  final String? apkSha256;
+
+  UpdateInfo asUpdateInfo(String currentVersion) => UpdateInfo(
+        hasUpdate: tag != currentVersion,
+        currentVersion: currentVersion,
+        latestVersion: tag,
+        releaseTitle: name,
+        releaseNotes: notes,
+        apkDownloadUrl: apkUrl,
+        apkSizeBytes: apkSizeBytes,
+        apkSha256: apkSha256,
+        releaseUrl: UpdateService.releasesPageUrl,
+        publishedAt: publishedAt,
+        releaseChannel: UpdateService.releaseChannel,
+      );
+}
+
+
+
 
 class UpdateService {
   static const String repoOwner = 't-mpanza';
@@ -47,15 +86,78 @@ class UpdateService {
 
   static const String releaseChannel = 'Dispatch Diary';
 
-  /// Get current app version (e.g., 'v3.9.3')
+  /// Get current app version (e.g., 'v3.9.4')
   static Future<String> getCurrentVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
       return 'v${info.version}';
     } catch (_) {
-      return 'v3.9.3';
+      return 'v3.9.4';
     }
   }
+
+  /// Every published release, newest first — including OLDER ones, for
+  /// rollback. Drafts and junk tags are skipped.
+  static Future<List<ReleaseInfo>> listReleases({
+    http.Client? client,
+    int limit = 10,
+  }) async {
+    final httpClient = client ?? http.Client();
+    try {
+      final releases = await _fetchReleases(httpClient);
+      if (releases == null) return const [];
+      final out = <ReleaseInfo>[];
+      for (final rel in releases) {
+        final map = rel as Map<String, dynamic>;
+        if (map['draft'] == true) continue;
+        final tag = map['tag_name'] as String? ?? '';
+        if (!_looksLikeVersion(tag) && tag.toLowerCase() != 'main') continue;
+        final apk = _apkAsset(map);
+        out.add(ReleaseInfo(
+          tag: tag,
+          name: (map['name'] as String?) ?? tag,
+          notes: map['body'] as String?,
+          publishedAt: map['published_at'] as String?,
+          apkUrl: apk?.$1,
+          apkSizeBytes: apk?.$2,
+          apkSha256: apk?.$3,
+        ));
+        if (out.length >= limit) break;
+      }
+      return out;
+    } finally {
+      if (client == null) httpClient.close();
+    }
+  }
+
+  /// The first APK asset on a release: (url, size, sha256).
+  static (String?, int?, String?)? _apkAsset(Map<String, dynamic> release) {
+    final assets = release['assets'] as List<dynamic>? ?? [];
+    for (final asset in assets) {
+      final aName = (asset['name'] as String? ?? '').toLowerCase();
+      if (!aName.endsWith('.apk')) continue;
+      String? sha256;
+      final digest = asset['digest'] as String?;
+      if (digest != null && digest.startsWith('sha256:')) {
+        sha256 = digest.substring('sha256:'.length).toLowerCase();
+      }
+      return (
+        asset['browser_download_url'] as String?,
+        (asset['size'] as num?)?.toInt(),
+        sha256,
+      );
+    }
+    return null;
+  }
+
+  /// Hand the verified APK to the system installer (MainActivity channel).
+  static Future<void> installApk(String path) async {
+    await installChannel.invokeMethod('installApk', {'path': path});
+  }
+
+  static const MethodChannel installChannel = MethodChannel(
+    'com.dispatchdiary.dispatch_diary/install',
+  );
 
   /// Check GitHub releases for any newer published release with an APK asset.
   ///
