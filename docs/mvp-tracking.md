@@ -109,6 +109,11 @@ Format (append-only, newest at top):
 - Next: what the following session starts with
 ```
 
+### S-008 · 2026-11-17 · main agent · v3.9.0 test release (PUSH UN-GATED by Sir Kiddow)
+- Did: version 3.9.0+1; hub test hardened for CI determinism (clears staged docs per test); the cached-docs-open-CLOSED behaviour pinned; pushed nightly-build + main, tagged v3.9.0 — Sir Kiddow is testing the MVP-on-device.
+- Evidence: 289 default + 26 live tests green; analyze clean; CI monitored.
+- Next: Sir Kiddow's device feedback, then P5 (manual slip entry + block CRUD, screen retirement), P6 hardening, final release.
+
 ### S-007 · 2026-11-17 · main agent · P4c
 - Did: entry_route now routes entries WITH staged documents to the TruckHubScreen (one SQLite read decides; legacy screens keep serving until P5 parity). Bug b FIXED in both stocks and entry-detail screens: the entry fetch future is hoisted into state (ONE fetch per open; no more per-rebuild re-fetch churn). Routing test pins both directions.
 - Evidence: entry_route_test (2 tests); 289 default tests green; analyze clean.

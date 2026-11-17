@@ -1,7 +1,10 @@
 import 'package:dispatch_diary/data/models/entry.dart';
 import 'package:dispatch_diary/data/models/loading_sheet_trip.dart';
+import 'package:dispatch_diary/data/models/staged_document.dart';
+import 'package:dispatch_diary/data/repositories/staged_document_repository.dart';
 import 'package:dispatch_diary/data/services/database_service.dart';
 import 'package:dispatch_diary/data/services/document_resolver.dart';
+import 'package:dispatch_diary/dispatch/domain/document_number.dart';
 import 'package:dispatch_diary/dispatch/models/slip_tyre.dart';
 import 'package:dispatch_diary/presentation/screens/truck_hub_screen.dart';
 import 'package:flutter/material.dart';
@@ -56,6 +59,10 @@ void main() {
   });
 
   setUp(() async {
+    // Deterministic on CI: staged docs from a previous run/test must not
+    // leak into this one (the fake resolver writes to the real DB).
+    final db = await DatabaseService.database;
+    await StagedDocumentRepository(db).clearForEntry(entryId);
     final now = DateTime.now().millisecondsSinceEpoch;
     await DatabaseService.insertOrUpdateEntry(Entry(
       id: entryId,
@@ -124,22 +131,41 @@ void main() {
     });
   });
 
-  testWidgets('accordion closed by default; customer on the header',
+  testWidgets('cached docs open CLOSED; customer on the header; blocks inside',
       (tester) async {
     await tester.runAsync(() async {
+      // Pre-seed the cache — this is the reopen path.
+      final db = await DatabaseService.database;
+      await StagedDocumentRepository(db).save(StagedDocument(
+        id: '$entryId:dibt:DIBT0179154',
+        entryId: entryId,
+        stream: DocumentStream.dibt,
+        documentNo: 'DIBT0179154',
+        customerName: 'EPS COURIERS SERVICES',
+        total: 2,
+        slips: const [
+          SlipTyre(
+            uid: '1D0DF19A091080',
+            slipNumber: 96962259,
+            serial: '2608E105',
+            make: 'GOOD YEAR',
+            pattern: 'M90L',
+          ),
+        ],
+        cachedAt: 1,
+      ));
+
       await tester.pumpWidget(MaterialApp(
         home: TruckHubScreen(entryId: entryId, resolver: fakeResolver()),
       ));
       await settle(tester);
-      await tester.enterText(find.byType(TextField).first, 'DIBT0179154');
-      await tester.tap(find.text('STAGE'));
-      await settle(tester);
 
-      // Header shows document + customer.
+      // Header shows document + customer; blocks stay hidden (default
+      // closed — the accordion mentality).
+      expect(find.text('DIBT0179154'), findsOneWidget);
       expect(find.text('EPS COURIERS SERVICES'), findsOneWidget);
-      // Blocks stay hidden until the section opens.
       expect(find.text('96962259'), findsNothing);
-      await tester.tap(find.text('DIBT0179154').first);
+      await tester.tap(find.text('DIBT0179154'));
       await settle(tester);
       expect(find.text('96962259'), findsOneWidget);
       expect(find.text('2608E105'), findsOneWidget);
