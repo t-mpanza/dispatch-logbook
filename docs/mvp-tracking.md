@@ -109,6 +109,11 @@ Format (append-only, newest at top):
 - Next: what the following session starts with
 ```
 
+### S-011 · 2026-11-17 · main agent · v3.9.3 — explicit type+digits staging rows (Sir Kiddow's spec)
+- Did: staging is now CC/BCC-style rows — each document picks a TYPE chip (INV/DIBT/IBT/AMS, prefix rendered live in the field) then types DIGITS ONLY; ADD DOCUMENT extends rows; STAGE ALL resolves in parallel. No prefix typing, no guessing. Chips show CUSTOMER as the error-catcher; RECENT tap-to-stage chips keep keystrokes down; input normalizes case/spaces/dashes. Resolver bare-number probing stays as a safety net; ambiguity demands the prefix.
+- Evidence: 309 default tests green (row UI, recents, probe, normalization, repo); analyze clean.
+- Next: device feedback; P5 (block CRUD), P6.
+
 ### S-010 · 2026-11-17 · main agent · v3.9.2 — DIBT reminders per Sir Kiddow's answers
 - Did: reminder spec locked with Sir Kiddow — notification ONLY (no WhatsApp draft), his verbatim wording (90%: "<trip> is almost done. Dont forget to post on the group." · 100%: "<trip> is done. Post on the group."), once-only persisted flags so re-opening a truck never re-fires. Message label = trip name (NLS/PLK/HI-Q/DBN/BFN), falling back to the document number.
 - Evidence: wording tests green; 304 default tests green; analyze clean.
