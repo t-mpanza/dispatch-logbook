@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -70,6 +71,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
   Timer? _bannerTimer;
   String _reg = '';
   String _driver = '';
+  String _tripId = '';
   int? _operatorId;
 
   late final Future<Database> _dbFuture = DatabaseService.database;
@@ -116,6 +118,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       _docs = docs;
       _reg = (trip?.reg ?? '').trim().toUpperCase();
       _driver = (trip?.driverName ?? '').trim();
+      _tripId = (trip?.tripId ?? '').trim().toUpperCase();
     });
     // D13 reminders can only land with notification permission — request
     // it the moment a DIBT is staged (Android 13+ shows the prompt once).
@@ -502,15 +505,30 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     }
     final after = doc.loadedCount / doc.total!;
     final before = (doc.loadedCount - 1) / doc.total!;
+    final label = _tripId.isNotEmpty ? _tripId : documentNo;
     for (final point
         in DibtProgressReminder.thresholdsCrossed(before, after)) {
-      unawaited(
-        NotificationService.showNow(
-          title: documentNo,
-          body: DibtProgressReminder.messageFor(point, documentNo),
-        ),
-      );
+      // Once only — persisted, so re-opening the truck never re-fires.
+      final flag = 'dibt_reminded_${documentNo}_$point';
+      unawaited(_fireOnce(flag: flag, documentNo: documentNo, point: point, label: label));
     }
+  }
+
+  Future<void> _fireOnce({
+    required String flag,
+    required String documentNo,
+    required double point,
+    required String label,
+  }) async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      if (sp.getBool(flag) ?? false) return;
+      await sp.setBool(flag, true);
+      await NotificationService.showNow(
+        title: documentNo,
+        body: DibtProgressReminder.messageFor(point, label),
+      );
+    } catch (_) {}
   }
 
   Future<void> _persistDocs() async {

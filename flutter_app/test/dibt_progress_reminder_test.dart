@@ -41,4 +41,20 @@ void main() {
       expect(DibtProgressReminder.thresholdsCrossed(0.89, 0.9), [0.9]);
     });
   });
+
+  group('DibtProgressReminder.messageFor — Sir Kiddow\'s wording', () {
+    test('90% uses the almost-done wording with the trip label', () {
+      expect(
+        DibtProgressReminder.messageFor(0.9, 'NLS'),
+        'NLS is almost done. Dont forget to post on the group.',
+      );
+    });
+
+    test('100% uses the done wording with the trip label', () {
+      expect(
+        DibtProgressReminder.messageFor(1.0, 'PLK'),
+        'PLK is done. Post on the group.',
+      );
+    });
+  });
 }

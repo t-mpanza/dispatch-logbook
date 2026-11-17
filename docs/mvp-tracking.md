@@ -109,6 +109,11 @@ Format (append-only, newest at top):
 - Next: what the following session starts with
 ```
 
+### S-010 · 2026-11-17 · main agent · v3.9.2 — DIBT reminders per Sir Kiddow's answers
+- Did: reminder spec locked with Sir Kiddow — notification ONLY (no WhatsApp draft), his verbatim wording (90%: "<trip> is almost done. Dont forget to post on the group." · 100%: "<trip> is done. Post on the group."), once-only persisted flags so re-opening a truck never re-fires. Message label = trip name (NLS/PLK/HI-Q/DBN/BFN), falling back to the document number.
+- Evidence: wording tests green; 304 default tests green; analyze clean.
+- Next: device feedback; P5 (block CRUD), P6.
+
 ### S-009 · 2026-11-17 · main agent · v3.9.1 — hub entry point + enterprise updater
 - Did: truck-load entries now open the TRUCK HUB (staging lives there — the v3.9.0 chicken-and-egg gap fixed); manual slip-number entry in the hub (getSlipWithNumber → CSID → UID hydration — CSID rows lack `loaded`, live-verified); ENTERPRISE UPDATER: persistent download store (app-support dir, not temp), HTTP Range resume, pause-with-saved-progress, SHA-256 verification pre-install, RESUME/INSTALL CTAs, size + release date + digest metadata, prune old versions; DIBT notification permission requested when a DIBT is staged (Android 13+ prompt, best-effort).
 - Evidence: 302 default + 26 live tests green; analyze clean; resume/verify/store behaviours pinned by 9 new updater tests.
