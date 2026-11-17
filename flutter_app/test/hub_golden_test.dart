@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dispatch_diary/core/utils/scan_sounds.dart';
 import 'package:dispatch_diary/data/models/entry.dart';
 import 'package:dispatch_diary/data/models/loading_sheet_trip.dart';
@@ -66,6 +68,11 @@ void main() {
     await tester.pump();
   }
 
+  /// Golden bitmaps are machine-dependent (font rasterization) — they run
+  /// locally as the visual regression net and skip on CI, where the 319
+  /// deterministic tests carry the gate.
+  final bool onCi = Platform.environment['CI'] == 'true';
+
   testWidgets('golden: empty truck hub', (tester) async {
     await tester.runAsync(() async {
       await pumpHub(tester);
@@ -75,7 +82,7 @@ void main() {
       find.byType(TruckHubScreen),
       matchesGoldenFile('goldens/hub_empty.png'),
     );
-  });
+  }, skip: onCi);
 
   testWidgets('golden: hub with a staged DIBT section open', (tester) async {
     await tester.runAsync(() async {
@@ -105,5 +112,5 @@ void main() {
       find.byType(TruckHubScreen),
       matchesGoldenFile('goldens/hub_staged_open.png'),
     );
-  });
+  }, skip: onCi);
 }
