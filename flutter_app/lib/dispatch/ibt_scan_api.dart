@@ -187,11 +187,14 @@ class IbtScanApi {
   }
 
   /// Commit the scan. Never throws for a well-formed rejection.
+  /// [loaded] 1 = dispatch, 0 = offload (D5 — the backend's only
+  /// "removal": no delete mutation exists).
   static Future<ScanCommitResult> commitScan({
     required String uid,
     required String registration,
     required int personnelId,
     required String documentNo,
+    int loaded = 1,
     String screen = 'unknown',
   }) async {
     const mutation = r'''
@@ -211,6 +214,7 @@ class IbtScanApi {
       registration: registration,
       personnelId: personnelId,
       documentNo: documentNo,
+      loaded: loaded,
     );
 
     unawaited(

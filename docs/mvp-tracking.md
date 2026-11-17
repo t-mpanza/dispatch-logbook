@@ -83,7 +83,7 @@ APK — the definitive scan/offload contract).
 | P0 | Engraving + this tracker | `DONE` (2026-11-17) |
 | P1 | Live recon: reject_accepted, DIBT/INV shapes, slip lookups, cash document_no | `IN PROGRESS` |
 | P2 | Data model: staged-document cache (SQLite v7), parallel resolver, truck-hub model | `DONE` (2026-11-17, evidence S-003) |
-| P3 | Routing engine v2 (TDD): precedence, first-line-first IBT, ambiguity, cash arm, offload flow | `PLANNED` |
+| P3 | Routing engine v2 (TDD): precedence, first-line-first IBT, ambiguity, cash arm, offload flow | `DONE` (2026-11-17, evidence S-004) |
 | P4 | UI rewire: truck hub, 2-col blocks, accordion+search, cash toggle, offload dialog, reminders, HI-Q/BFN, consolidation (bug a + b) | `PLANNED` |
 | P5 | Slip-number UX, manual CRUD, UID hidden | `PLANNED` |
 | P6 | Hardening: scenario catalogue, live dry-runs, release | `PLANNED` |
@@ -108,6 +108,12 @@ Format (append-only, newest at top):
 - Status flips: P1 PLANNED → IN PROGRESS
 - Next: what the following session starts with
 ```
+
+### S-004 · 2026-11-17 · main agent · P3 (DONE)
+- Did: MultiDocScanEngine — the head-down routing brain (D2-D7, D9): dump blocks in every mode → session re-scan = offload window → loaded-elsewhere = own-truck offload vs cross-truck collision → cash armed: membership/IBT-fit = untoggle prompt else CASH → membership (uid OR slip number) with two-doc ambiguity → IBT first-line-first with spill → loud reject. commitScan gains `loaded` param (0 = offload, the backend's only removal). CI-found bug fixed: fresh-install onCreate now creates scan_logs + staged_documents (local v6 DB had masked it).
+- Evidence: 20 new engine tests (multi_doc_scan_engine_test.dart); 264 default + 17 live tests green; analyze clean; fresh-DB path verified by deleting the test DB and re-running green.
+- Status flips: P3 PLANNED → DONE.
+- Next: P4 — truck-hub UI: document chips + parallel paste, 2-col tyre blocks (white/green, D badge), cash toggle, offload dialog, accordion+search, DIBT 90/100% reminders, HI-Q preset, consolidation (bug a + b). NO git pushes until MVP closed (Sir Kiddow, 2026-11-17).
 
 ### S-003 · 2026-11-17 · main agent · P2 (DONE)
 - Did: StagedDocument model (JSON cache, membership/loadedCount helpers); SQLite v7 `staged_documents` table with UNIQUE(entry,stream,document_no) — D8 at the DB; StagedDocumentRepository (save throws DuplicateDocumentException, upsert/remove/clear); DocumentResolver — parallel multi-document staging (prefix classification, per-doc verdicts ok/duplicate/notFound/error/unsupported, SCRAPS refused as a mode); DispatchApi.fetchDeliveryDocument (block-level customer+slips); SlipTyre.toJson.

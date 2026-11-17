@@ -85,6 +85,42 @@ class DatabaseService {
         await db.execute(
           'CREATE INDEX idx_entries_deleted_at ON entries(deleted_at)',
         );
+
+        // Tables added in later versions must exist on a FRESH install
+        // too — onCreate only ever ran the v1 DDL, so they are created
+        // here idempotently (onUpgrade handles the upgrade path).
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS scan_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at INTEGER NOT NULL,
+            screen TEXT NOT NULL,
+            event TEXT NOT NULL,
+            uid TEXT,
+            registration TEXT,
+            document_no TEXT,
+            detail TEXT,
+            pushed INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_scan_logs_pushed ON scan_logs(pushed)',
+        );
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS staged_documents (
+            id TEXT PRIMARY KEY,
+            entry_id TEXT NOT NULL,
+            stream TEXT NOT NULL,
+            document_no TEXT NOT NULL,
+            customer_name TEXT,
+            total INTEGER,
+            manifest_json TEXT NOT NULL,
+            cached_at INTEGER NOT NULL,
+            UNIQUE(entry_id, stream, document_no)
+          )
+        ''');
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_staged_docs_entry ON staged_documents(entry_id)',
+        );
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
