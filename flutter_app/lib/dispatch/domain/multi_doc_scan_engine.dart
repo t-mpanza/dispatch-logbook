@@ -62,24 +62,19 @@ final class AmbiguousDocument extends MultiDocScanVerdict {
   String get message => 'On ${documentNos.join(' and ')} — apply to both?';
 }
 
-/// Already on OUR truck — show the offload yes/no window (D5).
+/// Already loaded — show the offload yes/no window (D5). The tyre may be
+/// on OUR truck or left behind on ANOTHER one: either way the operator
+/// must be able to offload it and reload it on the right truck (field
+/// rule 2026-11-18 — reg is never a blocker for offloading).
 final class OffloadPrompt extends MultiDocScanVerdict {
   const OffloadPrompt({this.previousReg});
 
   final String? previousReg;
 
   @override
-  String get message => 'OFFLOAD? — already on this truck';
-}
-
-/// Loaded on ANOTHER truck — never steal (D3).
-final class Collision extends MultiDocScanVerdict {
-  const Collision(this.previousReg);
-
-  final String previousReg;
-
-  @override
-  String get message => 'On another truck — $previousReg';
+  String get message => previousReg != null && previousReg!.isNotEmpty
+      ? 'OFFLOAD? — loaded on $previousReg'
+      : 'OFFLOAD? — already on this truck';
 }
 
 /// dump == 1 blocks in every mode, always loud (D6).
@@ -143,14 +138,11 @@ class MultiDocScanEngine {
       return const OffloadPrompt();
     }
 
-    // Loaded state across the staged manifests: own truck → offload
-    // window; another truck → collision.
+    // Loaded state across the staged manifests: ANY loaded tyre — ours or
+    // left behind on another truck — gets the offload window. REG is
+    // never a blocker for offloading (field rule 2026-11-18).
     final loadedState = _findLoadedState(stagedDocs, tyre);
     if (loadedState != null) {
-      final prev = (loadedState.$1 ?? '').trim().toUpperCase();
-      if (prev.isNotEmpty && prev != reg) {
-        return Collision(loadedState.$1!);
-      }
       return OffloadPrompt(previousReg: loadedState.$1);
     }
 

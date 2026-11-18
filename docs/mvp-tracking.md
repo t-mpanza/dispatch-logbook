@@ -109,6 +109,11 @@ Format (append-only, newest at top):
 - Next: what the following session starts with
 ```
 
+### S-014 · 2026-11-18 · main agent · v3.9.6 — TRUCK TOTAL card + offload-anywhere (field rules)
+- Did: (1) The critical missing step — a TRUCK TOTAL card at the top of the hub: loaded, expected total across EVERY staged document, and LEFT, with a progress bar; falls back to the legacy sheet tally when nothing is staged. (2) REG is no longer a blocker for offloading — a tyre loaded on ANOTHER truck now gets the OFFLOAD window (loud + yes/no), so left-behind tyres can be offloaded and reloaded on the right truck; Collision verdict removed entirely (engine + UI + feedback tests updated).
+- Evidence: 320 default + goldens regenerated + live dry-runs green; analyze clean.
+- Next: device feedback.
+
 ### S-013 · 2026-11-18 · main agent · v3.9.5 — SPLASH-FREEZE FIX (device brick)
 - Did: device report — app stuck on the splash forever (v3.9.4), clearing data didn't help. Root cause: the WAL/busy-timeout pragmas in DatabaseService.onConfigure (added for CI parallelism) ran on real devices before runApp; a locked journal / OEM sqlite quirk there throws → uncaught in main() → release builds freeze at the splash. Fix: pragmas are now TEST-ONLY (FLUTTER_TEST gate — CI keeps them, devices never run them); loadSettings' DB fallbacks wrapped (best-effort); main() hardened — settings load, migration (15s timeout) and notification init (10s timeout) can never stop runApp.
 - Evidence: 319 default + 319 under -j 8 (CI-style) green; analyze clean.

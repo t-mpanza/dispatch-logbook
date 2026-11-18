@@ -440,6 +440,31 @@ void main() {
     });
   });
 
+  testWidgets('TRUCK TOTAL aggregates every staged document + what is left',
+      (tester) async {
+    await tester.runAsync(() async {
+      await pumpHub(tester);
+
+      // DIBT: 2 tyres, 1 loaded. IBT: 151 expected, none loaded.
+      await tester.tap(find.text('DIBT').first);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(0), '0179154');
+      await tester.tap(find.text('ADD DOCUMENT'));
+      await tester.pump();
+      await tester.tap(find.text('IBT').last);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(1), '122773');
+      await tester.tap(find.text('STAGE ALL'));
+      await settle(tester);
+
+      // 1 loaded · 2 + 151 = 153 expected · 152 left.
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('/ 153 loaded'), findsOneWidget);
+      expect(find.text('152 LEFT'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('MANUAL COUNT: +/− adjust the persisted tally',
       (tester) async {
     await tester.runAsync(() async {

@@ -44,7 +44,7 @@ void main() {
     final errorVerdicts = <MultiDocScanVerdict>[
       const AmbiguousDocument(['DIBT0179154', 'INV2392908']),
       const OffloadPrompt(),
-      const Collision('MB75JMGP'),
+      const OffloadPrompt(previousReg: 'MB75JMGP'),
       const DumpedTyre(),
       const UntoggleCashPrompt('IBT122773'),
       const Rejected('Not on this truck'),

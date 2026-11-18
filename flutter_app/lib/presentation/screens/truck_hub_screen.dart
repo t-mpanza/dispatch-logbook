@@ -426,12 +426,9 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       case AmbiguousDocument(:final documentNos):
         ScanFeedback.wrong();
         await _promptApplyToBoth(uid, tyre, documentNos, operatorId);
-      case OffloadPrompt():
+      case OffloadPrompt(:final previousReg):
         ScanFeedback.wrong();
-        await _promptOffload(uid, tyre, operatorId);
-      case Collision(:final previousReg):
-        ScanFeedback.wrong();
-        _showBanner('On another truck — $previousReg', false);
+        await _promptOffload(uid, tyre, operatorId, previousReg: previousReg);
       case DumpedTyre():
         ScanFeedback.wrong();
         _showBanner('This tyre is dumped', false);
@@ -726,12 +723,20 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     }
   }
 
-  Future<void> _promptOffload(String uid, SlipTyre tyre, int operatorId) async {
+  Future<void> _promptOffload(
+    String uid,
+    SlipTyre tyre,
+    int operatorId, {
+    String? previousReg,
+  }) async {
     final documentNo = _sessionDocByUid[uid] ??
         _findDocContaining(uid, tyre.slipNumber);
+    final regNote = previousReg != null && previousReg.isNotEmpty
+        ? ' · ON $previousReg'
+        : '';
     final confirm = await showOffloadDialog(
       context,
-      label: '${tyre.slipNumber ?? uid} · ${documentNo ?? ''}',
+      label: '${tyre.slipNumber ?? uid} · ${documentNo ?? ''}$regNote',
     );
     if (confirm != true || !mounted) return;
     if (documentNo == null) {
@@ -902,16 +907,15 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     }
     if (!mounted) return;
 
-    final prev = (tyre.previousReg ?? '').trim().toUpperCase();
-    if (tyre.isLoaded && prev.isNotEmpty && prev != _reg) {
-      ScanFeedback.wrong();
-      _showBanner('On another truck — ${tyre.previousReg}', false);
-      return;
-    }
-
+    // Loaded (on ANY truck) → the offload window — reg is never a
+    // blocker for offloading (field rule 2026-11-18).
     if (tyre.isLoaded) {
-      // Scanned block → the offload window (D5).
-      await _promptOffload(uid, tyre, operatorId);
+      await _promptOffload(
+        uid,
+        tyre,
+        operatorId,
+        previousReg: tyre.previousReg,
+      );
       return;
     }
 
@@ -962,6 +966,28 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     }
     n += _cashCount;
     return n > 0 ? n : _legacyLoaded;
+  }
+
+  /// The TRUCK TOTAL across EVERY staged document — (loaded, total,
+  /// remaining). The critical aggregate for a multi-document truck.
+  (int, int, int) _truckTotals() {
+    var loaded = 0;
+    var total = 0;
+    for (final d in _docs) {
+      if (d.isIbt) {
+        loaded += d.loadedTotal;
+        total += d.total ?? d.lineItems.fold(0, (s, l) => s + l.targetTotal);
+      } else {
+        loaded += d.loadedCount;
+        total += d.total ?? d.slips.length;
+      }
+    }
+    loaded += _cashCount;
+    if (total == 0) {
+      // No documents yet — the legacy sheet tally stands in.
+      return (_legacyLoaded, _legacyTarget ?? 0, 0);
+    }
+    return (loaded, total, (total - loaded).clamp(0, total));
   }
 
   /// Manual tally — the tag-free count the floor has always had. Syncs
@@ -1269,6 +1295,8 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
+          _truckTotalCard(context),
+          const SizedBox(height: 10),
           _stageCard(context),
           const SizedBox(height: 10),
           _cashCard(context),
@@ -1768,6 +1796,90 @@ class _TruckHubScreenState extends State<TruckHubScreen>
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  /// The TRUCK TOTAL card — one number for the whole truck: everything
+  /// the staged documents expect, everything loaded, everything left.
+  Widget _truckTotalCard(BuildContext context) {
+    final (loaded, total, remaining) = _truckTotals();
+    final pct = total > 0 ? (loaded / total).clamp(0.0, 1.0) : 0.0;
+    final color = remaining == 0 && total > 0
+        ? AppColors.successStrong(context)
+        : AppColors.infoStrong(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TRUCK TOTAL',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.4,
+              color: AppColors.dynamicTextMuted(context),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$loaded',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                  fontFamily: 'monospace',
+                  color: AppColors.dynamicTextPrimary(context),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4, left: 4),
+                child: Text(
+                  total > 0 ? '/ $total loaded' : 'loaded',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.dynamicTextMuted(context),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '$remaining LEFT',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (total > 0) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 7,
+                backgroundColor: AppColors.dynamicSurfaceSunk(context),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+          ],
         ],
       ),
     );

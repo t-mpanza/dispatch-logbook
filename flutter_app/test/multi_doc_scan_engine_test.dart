@@ -173,8 +173,8 @@ void main() {
     });
   });
 
-  group('collision — never steal another truck', () {
-    test('loaded with a different previous_reg blocks hard', () {
+  group('offload — reg is never a blocker (field rule 2026-11-18)', () {
+    test('loaded with a different previous_reg still offers the offload', () {
       final d = dibt();
       final v = evaluate(
         docs: [
@@ -196,11 +196,13 @@ void main() {
         ],
         scanned: tyre(uid: '1D0DF19A091080'),
       );
-      expect(v, isA<Collision>());
-      expect((v as Collision).previousReg, 'MB75JMGP');
+      expect(v, isA<OffloadPrompt>());
+      final offload = v as OffloadPrompt;
+      expect(offload.previousReg, 'MB75JMGP');
+      expect(v.message, contains('MB75JMGP'));
     });
 
-    test('collision blocks even in cash mode', () {
+    test('offers offload in cash mode too (left-behind tyre)', () {
       final d = dibt();
       final v = evaluate(
         cashArmed: true,
@@ -223,7 +225,7 @@ void main() {
         ],
         scanned: tyre(uid: '1D0DF19A091080'),
       );
-      expect(v, isA<Collision>());
+      expect(v, isA<OffloadPrompt>());
     });
   });
 
