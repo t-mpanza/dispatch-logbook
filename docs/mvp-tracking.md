@@ -93,7 +93,7 @@ APK — the definitive scan/offload contract).
 | # | Question | Evidence that closes it | Status |
 |---|---|---|---|
 | Q1 | `reject_accepted` scrap gate: 1 or 2? | Live probe of real scrap-run-out slips (history + flags) | OPEN — dispatched tyre with REJECT history carries 2; yard empty at probe time (see recon §3) |
-| Q2 | Cash scan `document_no` convention | Live probe / floor confirmation | OPEN — no cash query in catalogue; floor question or REAL_MUTATIONS forensics |
+| Q2 | Cash scan `document_no` convention | Live probe / floor confirmation | CLOSED (2026-11-18) — the floor's convention IS the attached IBT's number (Sir Kiddow: "the admin clerks just attach them to an ibt"); `_commitCash` commits `document_no = ibts.single.documentNo`, matching D7. Evidence: field statement + D7 + `truck_hub_screen.dart:_commitCash`. |
 | Q3 | `getDeliveryInfo` DIBT/INV slip shape (loaded/previous_reg/scan_time per slip) | Live probe DIBT0179154 + INV2392908 | DONE — manifests carry loaded/previous_reg/scan_time per slip; no reject_accepted/CustomerName on slips |
 | Q4 | AMS INV → `inv` quirk (app-05 CONFIRMED); confirm `amsInv` unused | Live probe | PARTIAL — decoded CONFIRMED; live AMS shape not yet probed |
 | Q5 | Full Query list: any batch/list slip resolvers beyond the known ones | Schema introspection | DONE — 234 fields; slip-number/serial/CS lookups exist; listTyresAtDispatch* for rejects |
@@ -108,6 +108,12 @@ Format (append-only, newest at top):
 - Status flips: P1 PLANNED → IN PROGRESS
 - Next: what the following session starts with
 ```
+
+### S-016 · 2026-11-18 · main agent · v3.9.8 — UX audit fixes #1-#7 (external audit, priority order)
+- Did: #1 Operator is now the CONFIGURED despatcher (Settings) — resolveOperatorId takes the name, pure selectOperatorId matches full-name/first-or-last, real-badge rows preferred; all three screens use the configured name in banners; hardcodes removed. #2 Q2 CLOSED with field evidence (cash commits ride the attached IBT — the floor's convention, D7). #3 Persisted cash-scan log (SQLite v8 cash_scans table, fresh-install safe): tyres committed as cash in previous sessions trigger the offload window on rescan — never a silent double-commit; offload forgets the tyre. #4 REG guard: empty REG disables Arm + inline warning before any scan is burned. #5 Untoggle-cash dialog reordered — KEEP CASH right (thumb side), UNTOGGLE left; extracted to a tested widget. #6 Error banners persist until the next scan or a tap; success banners still auto-dismiss. #7 Delete-document moved inside the opened accordion — no destructive action adjacent to the chevron.
+- Evidence: 337 default + 26 live tests green (12 new: operator selector, cash repo, engine external-uids, dialog order, REG guard, banner persistence); analyze clean; goldens regenerated.
+- Status flips: audit #1-#7 DONE. Remaining audit items (#8-#14) tracked in §7 scenarios/risks for later.
+- Next: device re-test; audit items #8 (tag-less manual commit), #9 (cash count cross-session display), #10 (truck-total double count), #11 (offline commit queue).
 
 ### S-015 · 2026-11-18 · main agent · v3.9.7 — updater AUTO-RESUME on connection drops
 - Did: device report — 'ClientException: connection closed' every time the APK download passed 70% (CDN/Wi-Fi drops on the 70MB transfer). The updater now auto-retries: connection-class failures resume from the persisted byte count with backoff (up to 5 attempts) — the operator sees the percentage keep climbing instead of an error. Non-retryable failures (404, checksum) still fail fast. Pinned by tests: mid-stream drop → Range-resume on attempt 2; 404 fails fast; cancel/verify behaviour unchanged.
@@ -195,6 +201,11 @@ Format (append-only, newest at top):
 
 | Scenario | Mitigation |
 |---|---|
+| AUDIT #8 — tag-less tyre via manual path | commitScan requires a uid; genuinely chip-less tyres dead-end — needs backend discussion (tracked, not yet built) |
+| AUDIT #9 — cash count resets per session | persisted cash log exists; display-level cross-session count pending |
+| AUDIT #10 — TRUCK TOTAL double-counts cash when IBT staged | display reconciliation pending |
+| AUDIT #11 — offline commit queue (D15) | ScanLogService is diagnostics only; queue not built |
+| AUDIT #12-14 — PWA reminders/redundancy/doc drift | PWA track, out of MVP scope |
 | Slip on two documents (DIBT+INV identical lists) | Fail loud + "apply to both?" (D4) |
 | Cash tyre that also fits an IBT line | Membership/IBT fit beats cash → fail loud + untoggle prompt (D7) |
 | Tyre loaded on another truck | Collision hard-block, loud (D3) |

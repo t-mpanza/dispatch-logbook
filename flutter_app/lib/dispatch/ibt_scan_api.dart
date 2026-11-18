@@ -38,11 +38,12 @@ class ScanCommitException implements Exception {
   String toString() => message;
 }
 
-/// The fixed operator for IBT scans (no badge flow).
+/// Scan commit API. The operator is the CONFIGURED despatcher (Settings),
+/// resolved through [resolveOperatorId] — never a hardcoded person
+/// (audit #1).
 class IbtScanApi {
   IbtScanApi._();
 
-  static const String fixedOperator = 'Theolus Mpanza';
   static const int locationId = 12;
 
   static const String _endpoint =
@@ -61,11 +62,57 @@ class IbtScanApi {
   ///
   /// Network/auth failures PROPAGATE as ScanCommitException so the UI can
   /// say "connection failed" — null means the operator truly was not found.
-  static Future<int?> resolveOperatorId() async {
-    if (_cachedOperatorId != null) return _cachedOperatorId;
+  /// The pure name selector — audit #1: the operator is WHOEVER Settings
+  /// says, never a hardcoded person. [operatorName] is the configured
+  /// despatcher name (one token = first OR last name; two+ tokens =
+  /// first + last). Active rows only; a real badge uid (not the shared
+  /// 30000000 placeholder) wins over the auto-generated duplicates.
+  static int? selectOperatorId(
+    List<Map<String, dynamic>> rows,
+    String operatorName,
+  ) {
+    final tokens = operatorName
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (tokens.isEmpty) return null;
 
-    const firstName = 'Theolus';
-    const lastName = 'Mpanza';
+    bool nameMatches(Map<String, dynamic> row) {
+      final fn = (jsonString(row['first_name'] ?? '') ?? '').trim().toLowerCase();
+      final ln = (jsonString(row['last_name'] ?? '') ?? '').trim().toLowerCase();
+      if (tokens.length >= 2) {
+        return fn == tokens.first && ln == tokens.last;
+      }
+      return fn == tokens.single || ln == tokens.single;
+    }
+
+    int? best;
+    for (final row in rows) {
+      if (!nameMatches(row)) continue;
+      if (jsonInt(row['active']) != 1) continue;
+      final uid = jsonString(row['uid']) ?? '';
+      final id = jsonInt(row['idFactory_Personnel']);
+      if (id == null) continue;
+      if (uid.isNotEmpty && uid != '30000000') return id;
+      best ??= id;
+    }
+    return best;
+  }
+
+  static Future<int?> resolveOperatorId({String? operatorName}) async {
+    if (_cachedOperatorId != null) return _cachedOperatorId;
+    final name = (operatorName ?? '').trim();
+    if (name.isEmpty) return null;
+
+    final tokens = name
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    final firstName = tokens.isNotEmpty ? tokens.first : '';
+    final lastName = tokens.length >= 2 ? tokens.last : '';
 
     const listQuery = r'''
     query MyQuery {
@@ -79,35 +126,14 @@ class IbtScanApi {
     }
     ''';
 
-    bool nameMatches(Map<String, dynamic> row) {
-      final fn = jsonString(row['first_name'] ?? '') ?? '';
-      final ln = jsonString(row['last_name'] ?? '') ?? '';
-      return fn.trim().toLowerCase() == firstName.toLowerCase() &&
-          ln.trim().toLowerCase() == lastName.toLowerCase();
-    }
-
     // Path 1: read-only list (network failures propagate).
     final data = await _post(query: listQuery);
     final rows = jsonMapList(data['listFactoryPersonnel']);
 
-    int? best;
-    for (final row in rows) {
-      if (!nameMatches(row)) continue;
-      if (jsonInt(row['active']) != 1) continue;
-      final uid = jsonString(row['uid']) ?? '';
-      final id = jsonInt(row['idFactory_Personnel']);
-      if (id == null) continue;
-      // A real badge (not the shared 30000000 placeholder) wins.
-      if (uid.isNotEmpty && uid != '30000000') {
-        _cachedOperatorId = id;
-        return id;
-      }
-      best ??= id;
-    }
-
-    if (best != null) {
-      _cachedOperatorId = best;
-      return best;
+    final selected = selectOperatorId(rows, name);
+    if (selected != null) {
+      _cachedOperatorId = selected;
+      return selected;
     }
 
     // Path 2: user-pool fallback (best-effort; never throws).

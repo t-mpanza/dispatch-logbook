@@ -108,7 +108,9 @@ class MultiDocScanEngine {
   MultiDocScanEngine._();
 
   /// [stagedDocs] = every document cached on the truck; [cashArmed] =
-  /// the cash toggle state; [sessionUids] = uids accepted this session.
+  /// the cash toggle state; [sessionUids] = uids accepted this session;
+  /// [externalLoadedUids] = uids known-loaded OUTSIDE this session (the
+  /// persisted cash-scan log) — they still get the offload window.
   static MultiDocScanVerdict evaluate({
     required List<StagedDocument> stagedDocs,
     required SlipTyre tyre,
@@ -116,6 +118,7 @@ class MultiDocScanEngine {
     required bool cashArmed,
     required int? operatorId,
     required String registration,
+    Set<String> externalLoadedUids = const {},
   }) {
     if (operatorId == null) {
       return const Rejected('Operator not found');
@@ -135,6 +138,13 @@ class MultiDocScanEngine {
     // D5 — a re-scan of something we already accepted this session is
     // the offload gesture.
     if (uid.isNotEmpty && sessionUids.contains(uid)) {
+      return const OffloadPrompt();
+    }
+
+    // Audit #3 — a tyre committed as cash in a PREVIOUS session is known
+    // loaded via the persisted cash log: same offload window, so it can
+    // never silently double-commit across sessions.
+    if (uid.isNotEmpty && externalLoadedUids.contains(uid)) {
       return const OffloadPrompt();
     }
 

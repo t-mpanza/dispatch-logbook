@@ -112,7 +112,9 @@ void main() {
     test(
       'live fixed operator resolves to a personnel id',
       () async {
-        final id = await IbtScanApi.resolveOperatorId();
+        final id = await IbtScanApi.resolveOperatorId(
+          operatorName: 'Theolus Mpanza',
+        );
         expect(id, isNotNull);
         expect(id, greaterThan(0));
       },

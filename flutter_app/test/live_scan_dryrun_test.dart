@@ -47,7 +47,9 @@ void main() {
       expect(customerTyre.uid, isNotNull);
 
       // 3. Real operator.
-      operatorId = (await IbtScanApi.resolveOperatorId())!;
+      operatorId = (await IbtScanApi.resolveOperatorId(
+        operatorName: 'Theolus Mpanza',
+      ))!;
     });
 
     test('customer tyre hits the Client Retread gate', () async {

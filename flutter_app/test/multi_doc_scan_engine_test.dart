@@ -97,6 +97,7 @@ void main() {
     bool cashArmed = false,
     int? operatorId = 816,
     String registration = reg,
+    Set<String> externalLoadedUids = const {},
   }) =>
       MultiDocScanEngine.evaluate(
         stagedDocs: docs,
@@ -105,6 +106,7 @@ void main() {
         cashArmed: cashArmed,
         operatorId: operatorId,
         registration: registration,
+        externalLoadedUids: externalLoadedUids,
       );
 
   group('guards', () {
@@ -170,6 +172,19 @@ void main() {
         scanned: tyre(uid: '1D0DF19A091080'),
       );
       expect(v, isA<OffloadPrompt>());
+    });
+
+    test(
+        'external loaded uids (persisted cash scans) prompt offload '
+        'across sessions — audit #3', () {
+      // No session state, no manifest entry — but the tyre was committed
+      // as cash in a PREVIOUS session and is persisted.
+      final v = evaluate(
+        externalLoadedUids: const {'FFFFFFFFFFFFFF01'},
+        scanned: tyre(uid: 'FFFFFFFFFFFFFF01'),
+      );
+      expect(v, isA<OffloadPrompt>());
+      expect(v.sound, ScanSound.error);
     });
   });
 

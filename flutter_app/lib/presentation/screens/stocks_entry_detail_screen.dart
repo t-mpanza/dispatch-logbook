@@ -611,10 +611,21 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
 
     final repo = context.read<EntryRepository>();
     try {
-      // Fixed operator — no badge flow.
+      // The configured despatcher is the operator (audit #1).
+      final settings = SettingsRepository();
+      await settings.loadSettings();
+      final operatorName = settings.despatcherName.trim();
+      if (operatorName.isEmpty) {
+        ScanSounds.error();
+        AppHaptics.error();
+        _showBanner('Set the despatcher name in Settings', false);
+        return;
+      }
       int? operatorId;
       try {
-        operatorId = await IbtScanApi.resolveOperatorId();
+        operatorId = await IbtScanApi.resolveOperatorId(
+          operatorName: operatorName,
+        );
       } on ScanCommitException {
         ScanSounds.error();
         AppHaptics.error();
@@ -624,7 +635,7 @@ class _StocksEntryDetailScreenState extends State<StocksEntryDetailScreen>
       if (operatorId == null) {
         ScanSounds.error();
         AppHaptics.error();
-        _showBanner('Operator Theolus Mpanza not found', false);
+        _showBanner('Operator $operatorName not found', false);
         return;
       }
 

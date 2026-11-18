@@ -20,7 +20,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onConfigure: (db) async {
         // WAL + busy timeout exist ONLY for the parallel-isolate test
         // runners (CI). On real devices the pragmas stay OFF — a locked
@@ -134,6 +134,13 @@ class DatabaseService {
         await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_staged_docs_entry ON staged_documents(entry_id)',
         );
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS cash_scans (
+            uid TEXT PRIMARY KEY,
+            document_no TEXT NOT NULL,
+            at INTEGER NOT NULL
+          )
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -205,6 +212,18 @@ class DatabaseService {
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_staged_docs_entry ON staged_documents(entry_id)',
           );
+        }
+        if (oldVersion < 8) {
+          // Persisted cash scans — the cross-session double-scan guard
+          // (audit #3): a tyre committed as cash stays known-loaded until
+          // it is offloaded.
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS cash_scans (
+              uid TEXT PRIMARY KEY,
+              document_no TEXT NOT NULL,
+              at INTEGER NOT NULL
+            )
+          ''');
         }
       },
     );

@@ -11,6 +11,7 @@ import '../../data/models/entry.dart';
 import '../../data/models/ibt_manifest.dart';
 import '../../data/models/loading_sheet_trip.dart';
 import '../../data/models/staged_document.dart';
+import '../../data/repositories/cash_scan_repository.dart';
 import '../../data/repositories/entry_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/staged_document_repository.dart';
@@ -27,6 +28,7 @@ import '../../dispatch/ibt_scan_api.dart';
 import '../../dispatch/models/slip_tyre.dart';
 import '../widgets/offload_dialog.dart';
 import '../widgets/tyre_block.dart';
+import '../widgets/untoggle_cash_dialog.dart';
 
 /// THE truck hub — one entry, every staged document, one head-down
 /// scanner (P4/D1-D17).
@@ -61,6 +63,10 @@ class _TruckHubScreenState extends State<TruckHubScreen>
   final Set<String> _openSections = {};
   final Map<String, String> _filters = {};
   final Set<String> _sessionUids = {};
+  /// Tyres committed as cash in EARLIER sessions — persisted in SQLite
+  /// so a re-scan opens the offload window, never a silent double-load
+  /// (audit #3).
+  Set<String> _persistedCashUids = {};
   final Map<String, String> _sessionDocByUid = {};
   final Map<String, (String, String)> _sessionLineByUid = {};
   final Set<String> _cashUids = {};
@@ -130,6 +136,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       final repo = _resolvedRepo(db);
       var docs = await repo.listForEntry(widget.entryId);
       final recents = await repo.recentDocumentNos();
+      final persistedCash = await CashScanRepository(db).recordedUids();
       final entry = await EntryRepository().getEntryById(widget.entryId);
       final trip = _primaryTrip(entry);
 
@@ -170,6 +177,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
         _tripId = (trip?.tripId ?? '').trim().toUpperCase();
         _legacyLoaded = trip?.quantityLoaded ?? 0;
         _legacyTarget = trip?.targetQuantity;
+        _persistedCashUids = persistedCash;
       });
       // D13 reminders can only land with notification permission — the
       // moment a DIBT is staged (Android 13+ shows the prompt once).
@@ -202,9 +210,15 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       _banner = message;
       _bannerOk = ok;
     });
-    _bannerTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted) setState(() => _banner = null);
-    });
+    if (ok) {
+      _bannerTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _banner = null);
+      });
+    } else {
+      // Audit #6 — error banners persist until the next scan or a tap;
+      // a dump/full/not-found verdict must never expire unread.
+      _bannerTimer = null;
+    }
   }
 
   // ── Document staging (D16 parallel, D8 duplicates) ─────────────────
@@ -296,10 +310,23 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     if (mounted) setState(() => _scanArmed = false);
   }
 
+  /// The configured despatcher name — the operator whose ID every scan
+  /// commits under (audit #1: never hardcoded).
+  String? _operatorName;
+
+  String get _operatorNotFoundMessage => _operatorName == null
+      ? 'Set the despatcher name in Settings'
+      : 'Operator $_operatorName not found';
+
   Future<int?> _resolveOperator() async {
     if (_operatorId != null) return _operatorId;
+    final settings = SettingsRepository();
+    await settings.loadSettings();
+    final name = settings.despatcherName.trim();
+    if (name.isEmpty) return null;
+    _operatorName = name;
     try {
-      final id = await IbtScanApi.resolveOperatorId();
+      final id = await IbtScanApi.resolveOperatorId(operatorName: name);
       _operatorId = id;
       return id;
     } on Exception {
@@ -393,7 +420,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     final operatorId = await _resolveOperator();
     if (operatorId == null) {
       ScanFeedback.wrong();
-      _showBanner('Operator Theolus Mpanza not found', false);
+      _showBanner(_operatorNotFoundMessage, false);
       return;
     }
 
@@ -404,6 +431,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
       cashArmed: _cashArmed,
       operatorId: operatorId,
       registration: _reg,
+      externalLoadedUids: _persistedCashUids,
     );
 
     switch (verdict) {
@@ -495,6 +523,9 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     required int operatorId,
     required SlipTyre tyre,
   }) async {
+    // Q2 CLOSED (2026-11-18): cash commits ride the attached IBT's
+    // document number — the floor's own convention (admin clerks attach
+    // cash tyres to an IBT; D7).
     final ibts = _docs.where((d) => d.isIbt).toList();
     if (ibts.length != 1) {
       ScanFeedback.wrong();
@@ -527,8 +558,10 @@ class _TruckHubScreenState extends State<TruckHubScreen>
           _sessionUids.add(uid);
           _sessionDocByUid[uid] = ibts.single.documentNo;
           _cashUids.add(uid);
+          _persistedCashUids.add(uid);
           _cashCount++;
         });
+        unawaited(_persistCashScan(uid, ibts.single.documentNo));
         ScanFeedback.correct();
         _showBanner('LOADED — CASH · $_cashCount today', true);
       case ScanCommitDuplicate(:final name, :final scanTime):
@@ -667,6 +700,24 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     });
   }
 
+  Future<void> _persistCashScan(String uid, String documentNo) async {
+    try {
+      final db = await _dbFuture;
+      await CashScanRepository(db).record(uid, documentNo);
+    } catch (e) {
+      debugPrint('Cash scan persist failed: $e');
+    }
+  }
+
+  Future<void> _forgetCashScan(String uid) async {
+    try {
+      final db = await _dbFuture;
+      await CashScanRepository(db).remove(uid);
+    } catch (e) {
+      debugPrint('Cash scan removal failed: $e');
+    }
+  }
+
   // ── Verdict dialogs (D4, D5, D7) ───────────────────────────────────
 
   Future<void> _promptApplyToBoth(
@@ -766,6 +817,8 @@ class _TruckHubScreenState extends State<TruckHubScreen>
           if (_cashUids.remove(uid)) {
             // Cash offload: no manifest line to touch — drop the tally.
             if (_cashCount > 0) _cashCount--;
+            _persistedCashUids.remove(uid);
+            unawaited(_forgetCashScan(uid));
           } else if (_sessionLineByUid.containsKey(uid)) {
             final (docNo, lineId) = _sessionLineByUid.remove(uid)!;
             _docs = _decrementLine(docNo, lineId);
@@ -902,7 +955,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     final operatorId = await _resolveOperator();
     if (operatorId == null) {
       ScanFeedback.wrong();
-      _showBanner('Operator Theolus Mpanza not found', false);
+      _showBanner(_operatorNotFoundMessage, false);
       return;
     }
     if (!mounted) return;
@@ -1023,25 +1076,9 @@ class _TruckHubScreenState extends State<TruckHubScreen>
   }
 
   Future<void> _promptUntoggleCash(String documentNo) async {
-    final untoggle = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'CASH MODE',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        content: Text('This tyre is on $documentNo — untoggle cash?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('KEEP CASH'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('UNTOGGLE'),
-          ),
-        ],
-      ),
+    final untoggle = await showUntoggleCashDialog(
+      context,
+      documentNo: documentNo,
     );
     if (untoggle == true && mounted) {
       setState(() => _cashArmed = false);
@@ -1758,11 +1795,47 @@ class _TruckHubScreenState extends State<TruckHubScreen>
                 )
               else
                 TextButton(
-                  onPressed: _scanArmed ? _disarmScan : () => _armScan(),
+                  onPressed: _reg.isEmpty
+                      ? null
+                      : (_scanArmed ? _disarmScan : () => _armScan()),
                   child: Text(_scanArmed ? 'Stop' : 'Arm'),
                 ),
             ],
           ),
+          if (_reg.isEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: AppColors.warningStrong(context).withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.warningStrong(context).withValues(alpha: 0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 17,
+                    color: AppColors.warningStrong(context),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'No REG set — tap the header to edit it before scanning',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.warningStrong(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Row(
             children: [
@@ -1945,7 +2018,12 @@ class _TruckHubScreenState extends State<TruckHubScreen>
     final color = _bannerOk
         ? AppColors.successStrong(context)
         : AppColors.errorStrong(context);
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        AppHaptics.light();
+        setState(() => _banner = null);
+      },
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
@@ -1972,6 +2050,7 @@ class _TruckHubScreenState extends State<TruckHubScreen>
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -2053,15 +2132,6 @@ class _TruckHubScreenState extends State<TruckHubScreen>
                     ),
                   ),
                   const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: () => _removeDocument(doc),
-                    child: Icon(
-                      Icons.delete_outline_rounded,
-                      size: 18,
-                      color: AppColors.dynamicTextMuted(context),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
                   Icon(
                     open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
                     size: 20,
@@ -2078,6 +2148,30 @@ class _TruckHubScreenState extends State<TruckHubScreen>
               child: doc.isIbt
                   ? _ibtLines(context, doc)
                   : _slipBlocks(context, doc),
+            ),
+            // Audit #7 — the destructive action lives INSIDE the opened
+            // accordion, never tap-adjacent to the expand chevron.
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                child: TextButton.icon(
+                  onPressed: () => _removeDocument(doc),
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    size: 16,
+                    color: AppColors.errorStrong(context),
+                  ),
+                  label: Text(
+                    'REMOVE DOCUMENT',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.errorStrong(context),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ],

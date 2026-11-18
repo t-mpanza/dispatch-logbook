@@ -214,10 +214,21 @@ class _ScrapsScreenState extends State<ScrapsScreen>
     if (mounted) setState(() => _scanArmed = false);
   }
 
+  String? _operatorName;
+
+  String get _operatorNotFoundMessage => _operatorName == null
+      ? 'Set the despatcher name in Settings'
+      : 'Operator $_operatorName not found';
+
   Future<int?> _resolveOperator() async {
     if (_operatorId != null) return _operatorId;
+    final settings = SettingsRepository();
+    await settings.loadSettings();
+    final name = settings.despatcherName.trim();
+    if (name.isEmpty) return null;
+    _operatorName = name;
     try {
-      final id = await IbtScanApi.resolveOperatorId();
+      final id = await IbtScanApi.resolveOperatorId(operatorName: name);
       _operatorId = id;
       return id;
     } on ScanCommitException {
@@ -250,7 +261,7 @@ class _ScrapsScreenState extends State<ScrapsScreen>
       if (operatorId == null) {
         ScanSounds.error();
         AppHaptics.error();
-        _showBanner('Operator Theolus Mpanza not found', false);
+        _showBanner(_operatorNotFoundMessage, false);
         return;
       }
 

@@ -293,6 +293,14 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, 'SCAN'));
       await settle(tester);
       expect(find.text('Connection failed — try again'), findsOneWidget);
+      // Audit #6 — error banners persist past the success-banner window.
+      await Future<void>.delayed(const Duration(seconds: 5));
+      await tester.pump();
+      expect(find.text('Connection failed — try again'), findsOneWidget);
+      // And a tap dismisses it.
+      await tester.tap(find.text('Connection failed — try again'));
+      await tester.pump();
+      expect(find.text('Connection failed — try again'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
@@ -316,15 +324,18 @@ void main() {
 
       await pumpHub(tester);
 
-      await tester.tap(find.byIcon(Icons.delete_outline_rounded).first);
+      // Delete now lives INSIDE the opened accordion (audit #7).
+      await tester.tap(find.text('DIBT0179154').last);
       await settle(tester);
-      expect(find.text('REMOVE DOCUMENT'), findsOneWidget);
+      await tester.tap(find.text('REMOVE DOCUMENT'));
+      await settle(tester);
+      expect(find.text('REMOVE DOCUMENT'), findsWidgets);
       await tester.tap(find.text('REMOVE').last);
       await settle(tester);
 
-      // The section (and its delete icon) is gone; the number may remain
-      // only as a historical RECENT chip — that's by design.
-      expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+      // The section (and its delete action) is gone; the number may
+      // remain only as a historical RECENT chip — that's by design.
+      expect(find.text('REMOVE DOCUMENT'), findsNothing);
       expect(
         await StagedDocumentRepository(db).listForEntry(entryId),
         isEmpty,
@@ -461,6 +472,30 @@ void main() {
       expect(find.text('1'), findsOneWidget);
       expect(find.text('/ 153 loaded'), findsOneWidget);
       expect(find.text('152 LEFT'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('REG guard: no REG → warning shown and Arm disabled (audit #4)',
+      (tester) async {
+    await tester.runAsync(() async {
+      // Overwrite the trip with an empty REG.
+      final entry = await EntryRepository().getEntryById(entryId);
+      final trip = entry!.loadingSheetTrips!.first;
+      await EntryRepository().saveEntry(entry.copyWith(loadingSheetTrips: [
+        trip.copyWith(reg: ''),
+      ]));
+
+      await pumpHub(tester);
+
+      expect(
+        find.textContaining('No REG set — tap the header'),
+        findsOneWidget,
+      );
+      final arm = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Arm'),
+      );
+      expect(arm.onPressed, isNull);
       expect(tester.takeException(), isNull);
     });
   });
