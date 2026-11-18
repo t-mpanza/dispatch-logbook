@@ -46,16 +46,36 @@ void main() async {
   // Initialize Repositories
   final entryRepository = EntryRepository();
   final settingsRepository = SettingsRepository();
-  await settingsRepository.loadSettings();
+  try {
+    await settingsRepository.loadSettings();
+  } catch (e) {
+    // The app MUST reach runApp — a boot exception freezes the splash
+    // forever on release builds (device report 2026-11-18).
+    debugPrint('Settings load failed (continuing with defaults): $e');
+  }
 
   // One-time data repairs: split squashed entries, reconcile counts, and
   // de-duplicate trucks so Home and Sheet always agree.
-  await MigrationService.runIfNeeded();
+  try {
+    await MigrationService.runIfNeeded().timeout(
+      const Duration(seconds: 15),
+      onTimeout: () {
+        debugPrint('Migration timed out — continuing');
+      },
+    );
+  } catch (e) {
+    debugPrint('Migration failed (continuing): $e');
+  }
 
   // Smart reminders: re-register every pending reminder with the OS scheduler
   // so notifications survive reboots, updates, and app restarts.
   try {
-    await NotificationService.ensureInitialized();
+    await NotificationService.ensureInitialized().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        debugPrint('Notification init timed out — continuing');
+      },
+    );
     final pending = await DatabaseService.getAllReminders();
     await NotificationService.rescheduleAll(pending);
   } catch (e) {

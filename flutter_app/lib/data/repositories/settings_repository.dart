@@ -35,9 +35,19 @@ class SettingsRepository extends ChangeNotifier {
 
   Future<void> loadSettings() async {
     final sp = await SharedPreferences.getInstance();
-    final name =
-        sp.getString(_keyDespatcherName) ??
-        await DatabaseService.getSetting(_keyDespatcherName);
+    // The DB fallbacks are best-effort: a database hiccup must NEVER
+    // propagate out of loadSettings (it runs before runApp — an uncaught
+    // error there bricks the app at the splash, device report
+    // 2026-11-18).
+    String? name;
+    String? dbSunlight;
+    try {
+      name = sp.getString(_keyDespatcherName) ??
+          await DatabaseService.getSetting(_keyDespatcherName);
+    } catch (e) {
+      debugPrint('Settings DB fallback failed (using prefs): $e');
+      name = sp.getString(_keyDespatcherName);
+    }
 
     if (name != null && name.trim().isNotEmpty) {
       _despatcherName = name.trim();
@@ -47,7 +57,11 @@ class SettingsRepository extends ChangeNotifier {
     if (sunlightVal != null) {
       _isSunlightMode = sunlightVal;
     } else {
-      final dbSunlight = await DatabaseService.getSetting(_keySunlightMode);
+      try {
+        dbSunlight = await DatabaseService.getSetting(_keySunlightMode);
+      } catch (e) {
+        debugPrint('Settings DB fallback failed (using prefs): $e');
+      }
       if (dbSunlight != null) {
         _isSunlightMode =
             dbSunlight == '1' || dbSunlight.toLowerCase() == 'true';

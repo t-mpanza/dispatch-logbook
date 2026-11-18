@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/entry.dart';
@@ -20,11 +22,15 @@ class DatabaseService {
       path,
       version: 7,
       onConfigure: (db) async {
-        // WAL + busy timeout: concurrent readers/writers (CI runs test
-        // files in parallel isolates on one DB file) wait instead of
-        // failing with SQLITE_BUSY. Harmless and beneficial in prod.
-        await db.execute('PRAGMA journal_mode = WAL');
-        await db.execute('PRAGMA busy_timeout = 5000');
+        // WAL + busy timeout exist ONLY for the parallel-isolate test
+        // runners (CI). On real devices the pragmas stay OFF — a locked
+        // journal or OEM sqlite quirk here would otherwise hang/throw
+        // before runApp and brick the app at the splash (device report
+        // 2026-11-18).
+        if (Platform.environment['FLUTTER_TEST'] == 'true') {
+          await db.execute('PRAGMA journal_mode = WAL');
+          await db.execute('PRAGMA busy_timeout = 5000');
+        }
       },
       onCreate: (db, version) async {
         await db.execute('''
