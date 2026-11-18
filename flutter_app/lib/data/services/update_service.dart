@@ -86,13 +86,13 @@ class UpdateService {
 
   static const String releaseChannel = 'Dispatch Diary';
 
-  /// Get current app version (e.g., 'v3.9.6')
+  /// Get current app version (e.g., 'v3.9.7')
   static Future<String> getCurrentVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
       return 'v${info.version}';
     } catch (_) {
-      return 'v3.9.6';
+      return 'v3.9.7';
     }
   }
 
@@ -325,7 +325,44 @@ class UpdateService {
   /// - Progress is persisted so kills/dismissals never lose work.
   /// - [isCancelled] turns true when the operator pauses — the partial
   ///   file and its byte count are kept for the next resume.
+  /// Resumable download with AUTO-RETRY: connection drops mid-transfer
+  /// (GitHub CDN / flaky Wi-Fi) resume automatically with backoff — the
+  /// operator sees the percentage keep climbing, never a hard error.
   static Future<({String? filePath, String? error})> resumeDownload(
+    UpdateInfo info, {
+    http.Client? client,
+    Directory? storageBase,
+    void Function(double progress, int received, int total)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
+    const maxAttempts = 5;
+    var attempt = 0;
+    while (true) {
+      attempt++;
+      final outcome = await _resumeAttempt(
+        info,
+        client: client,
+        storageBase: storageBase,
+        onProgress: onProgress,
+        isCancelled: isCancelled,
+      );
+      if (outcome.error == null || outcome.error == 'cancelled') {
+        return outcome;
+      }
+      final message = outcome.error!.toLowerCase();
+      final retryable = message.contains('connection') ||
+          message.contains('closed') ||
+          message.contains('socket') ||
+          message.contains('reset') ||
+          message.contains('stream') ||
+          message.contains('server error 5');
+      if (!retryable || attempt >= maxAttempts) return outcome;
+      // Backoff, then resume from the persisted byte count.
+      await Future<void>.delayed(Duration(seconds: attempt));
+    }
+  }
+
+  static Future<({String? filePath, String? error})> _resumeAttempt(
     UpdateInfo info, {
     http.Client? client,
     Directory? storageBase,

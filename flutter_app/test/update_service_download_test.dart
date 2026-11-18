@@ -28,6 +28,41 @@ class _ChunkedClient extends http.BaseClient {
   }
 }
 
+/// Attempt 1 drops the connection after the first 1000 bytes; later
+/// attempts resume the remainder via Range (206).
+class _FlakyClient extends http.BaseClient {
+  _FlakyClient(this.payload, this.onSend);
+
+  final List<int> payload;
+  final void Function(http.BaseRequest)? onSend;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    onSend?.call(request);
+    final range = request.headers['Range'];
+    if (range == null) {
+      // First attempt: deliver 1000 bytes, then the connection dies.
+      final first = payload.sublist(0, 1000);
+      Stream<List<int>> flakyStream() async* {
+        yield first;
+        throw Exception('Connection closed');
+      }
+
+      return http.StreamedResponse(
+        flakyStream(),
+        200,
+        contentLength: payload.length,
+      );
+    }
+    final offset = int.parse(range.split('=')[1].split('-')[0]);
+    return http.StreamedResponse(
+      Stream.fromIterable([payload.sublist(offset)]),
+      206,
+      contentLength: payload.length - offset,
+    );
+  }
+}
+
 /// The resumable download engine — interrupted downloads persist and
 /// RESUME via HTTP Range; completed files are SHA-256 verified.
 void main() {
@@ -145,6 +180,37 @@ void main() {
     expect(outcome.error, contains('Checksum mismatch'));
     expect(await UpdateDownloadStore(base).apkFile('v3.9.1').exists(),
         isFalse);
+  });
+
+  test('connection drops mid-transfer AUTO-RESUME with backoff', () async {
+    // Attempt 1: 1000 bytes then the connection dies. Attempts 2+:
+    // Range-resume the remainder.
+    var sends = 0;
+    final seenRange = <String?>[];
+    final flaky = _FlakyClient(payload, (request) {
+      sends++;
+      seenRange.add(request.headers['Range']);
+    });
+
+    final outcome = await UpdateService.resumeDownload(
+      info(),
+      client: flaky,
+      storageBase: base,
+    );
+    expect(outcome.error, isNull);
+    expect(sends, 2);
+    expect(seenRange[1], startsWith('bytes=1000-'));
+    expect(await File(outcome.filePath!).readAsBytes(), payload);
+  });
+
+  test('non-retryable errors fail fast (no backoff loop)', () async {
+    final client = _ChunkedClient(const [], 404);
+    final outcome = await UpdateService.resumeDownload(
+      info(),
+      client: client,
+      storageBase: base,
+    );
+    expect(outcome.error, contains('Server error 404'));
   });
 
   test('a verified file from a previous run installs without re-downloading',

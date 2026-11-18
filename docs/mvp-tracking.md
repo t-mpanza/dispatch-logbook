@@ -109,6 +109,11 @@ Format (append-only, newest at top):
 - Next: what the following session starts with
 ```
 
+### S-015 · 2026-11-18 · main agent · v3.9.7 — updater AUTO-RESUME on connection drops
+- Did: device report — 'ClientException: connection closed' every time the APK download passed 70% (CDN/Wi-Fi drops on the 70MB transfer). The updater now auto-retries: connection-class failures resume from the persisted byte count with backoff (up to 5 attempts) — the operator sees the percentage keep climbing instead of an error. Non-retryable failures (404, checksum) still fail fast. Pinned by tests: mid-stream drop → Range-resume on attempt 2; 404 fails fast; cancel/verify behaviour unchanged.
+- Evidence: 322 default tests green (2 new); analyze clean.
+- Next: device re-test of the updater.
+
 ### S-014 · 2026-11-18 · main agent · v3.9.6 — TRUCK TOTAL card + offload-anywhere (field rules)
 - Did: (1) The critical missing step — a TRUCK TOTAL card at the top of the hub: loaded, expected total across EVERY staged document, and LEFT, with a progress bar; falls back to the legacy sheet tally when nothing is staged. (2) REG is no longer a blocker for offloading — a tyre loaded on ANOTHER truck now gets the OFFLOAD window (loud + yes/no), so left-behind tyres can be offloaded and reloaded on the right truck; Collision verdict removed entirely (engine + UI + feedback tests updated).
 - Evidence: 320 default + goldens regenerated + live dry-runs green; analyze clean.
