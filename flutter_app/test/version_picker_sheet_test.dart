@@ -80,7 +80,11 @@ void main() {
 
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: VersionPickerSheet(client: client(), storageBase: base),
+          body: VersionPickerSheet(
+            client: client(),
+            storageBase: base,
+            currentVersionOverride: 'v3.9.4',
+          ),
         ),
       ));
       await Future<void>.delayed(const Duration(milliseconds: 400));
@@ -89,7 +93,7 @@ void main() {
       expect(find.text('APP VERSIONS'), findsOneWidget);
       expect(find.text('v3.9.4'), findsOneWidget);
       expect(find.text('v3.9.3'), findsOneWidget);
-      // getCurrentVersion falls back to v3.9.4 in tests (no PackageInfo).
+      // getCurrentVersion is overridden — no PackageInfo dependency.
       expect(find.text('INSTALLED'), findsOneWidget);
       // The older release offers rollback.
       expect(find.text('INSTALL'), findsOneWidget);

@@ -14,11 +14,19 @@ import '../../data/services/update_service.dart';
 /// may refuse them, in which case the downloaded (verified) APK stays on
 /// disk and the sheet tells the operator where it is.
 class VersionPickerSheet extends StatefulWidget {
-  const VersionPickerSheet({super.key, this.client, this.storageBase});
+  const VersionPickerSheet({
+    super.key,
+    this.client,
+    this.storageBase,
+    this.currentVersionOverride,
+  });
 
   /// Test seams.
   final http.Client? client;
   final Directory? storageBase;
+
+  /// Production reads the installed version; tests pin it.
+  final String? currentVersionOverride;
 
   static void show(
     BuildContext context, {
@@ -55,7 +63,8 @@ class _VersionPickerSheetState extends State<VersionPickerSheet> {
   }
 
   Future<void> _load() async {
-    final current = await UpdateService.getCurrentVersion();
+    final current = widget.currentVersionOverride ??
+        await UpdateService.getCurrentVersion();
     final releases = await UpdateService.listReleases(client: widget.client);
     if (!mounted) return;
     setState(() {
