@@ -18,7 +18,9 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 6,
+      // v4.0.0 baseline: schema version stays ABOVE the v8 databases
+      // the 3.9.x builds created, so devices roll back without data loss.
+      version: 9,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -85,6 +87,19 @@ class DatabaseService {
         await db.execute(
           'CREATE INDEX idx_entries_deleted_at ON entries(deleted_at)',
         );
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS scan_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at INTEGER NOT NULL,
+            screen TEXT NOT NULL,
+            event TEXT NOT NULL,
+            uid TEXT,
+            registration TEXT,
+            document_no TEXT,
+            detail TEXT,
+            pushed INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {

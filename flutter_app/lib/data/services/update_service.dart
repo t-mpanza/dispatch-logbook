@@ -40,13 +40,13 @@ class UpdateService {
 
   static const String releaseChannel = 'Dispatch Diary';
 
-  /// Get current app version (e.g., 'v3.8.1')
+  /// Get current app version (e.g., 'v4.0.0')
   static Future<String> getCurrentVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
       return 'v${info.version}';
     } catch (_) {
-      return 'v3.8.1';
+      return 'v4.0.0';
     }
   }
 
